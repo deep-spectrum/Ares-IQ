@@ -1,0 +1,23 @@
+[project]
+name = "iq_capture"
+version = "0.0.0"
+authors = [{name = "Tom Schmitz", email = "tschmitz@andrew.cmu.edu"}]
+description = "IQ data capture CLI"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "Operating System :: POSIX :: Linux",
+]
+requires-python = ">=3.10"
+dependencies = [
+    "typer",
+    "numpy<2.0.0",
+    "mako",
+    "requests",
+]
+
+[project.scripts]
+iq-capture = "iq_capture.main:main"
+
+[build-system]
+requires = ["setuptools>=61.3.1"]
+build-backend = "setuptools.build_meta"
