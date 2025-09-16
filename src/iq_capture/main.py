@@ -14,7 +14,8 @@ except ImportError:
 
 PLATFORMS = {
     "usrp": None,  # TODO: Place iq data gathering funcs here for each platform
-    "signal-hound": None,
+    "sm200": None,
+    "bb60": None,
 }
 
 
