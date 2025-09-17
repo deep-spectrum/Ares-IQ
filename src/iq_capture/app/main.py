@@ -2,6 +2,9 @@ import typer
 from iq_capture.configurations import load_config_section, save_config_section, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
+from .signal_hound import bb60_stream_iq
+from numpy.typing import NDArray
+from typing import Callable
 
 try:
     from .usrp import collect_usrp_iq_data
@@ -13,11 +16,11 @@ except ImportError:
     install_uhd()
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
-PLATFORMS = {
+PLATFORMS: dict[str, Callable[[float, float], NDArray] | None] = {
     "x300": collect_usrp_iq_data,
     "x400": collect_usrp_iq_data,
     "sm200": None,
-    "bb60": None,
+    "bb60": bb60_stream_iq,
 }
 
 app = typer.Typer()
@@ -34,14 +37,15 @@ def capture(center: Annotated[float, typer.Argument(help='Center frequency of th
 
     if PLATFORMS[configs["hw"]] is None:
         raise typer.Abort(f"{configs['hw']} is not supported yet.")
-    PLATFORMS[configs["hw"]]()
+    PLATFORMS[configs["hw"]](center * 1e6, bw * 1e6)
 
 
 def valid_platforms(platform: str):
-    if platform != 'usrp' and platform != 'signal-hound':
-        raise typer.BadParameter(
-            "Platform must be one of the following:\n\n" + "\n".join(f' - {key}' for key in PLATFORMS.keys()))
-    return platform
+    for _platform in PLATFORMS.keys():
+        if platform == _platform:
+            return platform
+    raise typer.BadParameter(
+        "Platform must be one of the following:\n\n" + "\n".join(f' - {key}' for key in PLATFORMS.keys()))
 
 
 @app.command(name='set-platform')
