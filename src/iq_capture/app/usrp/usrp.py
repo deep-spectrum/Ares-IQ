@@ -1,6 +1,7 @@
 import uhd
 import numpy as np
 from iq_capture.print_utils import print_error
+from iq_capture.configurations import load_config_section
 
 
 def _find_usrp(platform_type: str = 'x300') -> uhd.usrp.MultiUSRP:
@@ -12,4 +13,5 @@ def _find_usrp(platform_type: str = 'x300') -> uhd.usrp.MultiUSRP:
 
 
 def collect_usrp_iq_data():
-    usrp = _find_usrp()
+    configs = load_config_section("platform")
+    usrp = _find_usrp(configs["hw"])
