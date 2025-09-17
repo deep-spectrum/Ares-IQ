@@ -1,11 +1,11 @@
 import typer
-from .configurations import load_config_section, save_config_section, CONFIG_DIR
+from iq_capture.configurations import load_config_section, save_config_section, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
 try:
-    pass  # TODO: import library that uses uhd here
+    from .usrp import collect_usrp_iq_data
 except ImportError:
-    from .uhd_installation import install_uhd
+    from iq_capture.uhd_installation import install_uhd
     import os
     import sys
     install_uhd()
@@ -13,7 +13,7 @@ except ImportError:
 
 
 PLATFORMS = {
-    "usrp": None,  # TODO: Place iq data gathering funcs here for each platform
+    "usrp": collect_usrp_iq_data,  # TODO: Place iq data gathering funcs here for each platform
     "sm200": None,
     "bb60": None,
 }
@@ -26,7 +26,13 @@ configs_file = configs_path / "config.ini"
 
 @app.command()
 def capture():
-    pass
+    configs = load_config_section("platform")
+    if "hw" not in configs:
+        raise typer.Abort("Please run set-platform first")
+
+    if PLATFORMS[configs["hw"]] is None:
+        raise typer.Abort(f"{configs['hw']} is not supported yet.")
+    PLATFORMS[configs["hw"]]()
 
 
 def valid_platforms(platform: str):
