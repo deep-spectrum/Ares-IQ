@@ -17,6 +17,28 @@ cdll.LoadLibrary(f"{pathlib.Path(__file__).parent.resolve()}/{lib_path()}/libftd
 bblib = CDLL(f"{pathlib.Path(__file__).parent.resolve()}/{lib_path()}/libbb_api.so")
 
 
+class BBDeviceError(Exception):
+    def __init__(self, code):
+        super().__init__()
+        self._msg: bytes = bb_get_error_string(code)['error_string']
+        self._code = code
+
+    @property
+    def code(self):
+        return self._code
+
+    @property
+    def message(self):
+        return self._msg.decode()
+
+    @property
+    def warning(self):
+        return self._code > 0
+
+    def __str__(self):
+        return f"{self.code}: {self.message}"
+
+
 # ---------------------------------- Constants -----------------------------------
 
 BB_TRUE = 1
@@ -315,9 +337,7 @@ def error_check(func):
             return return_vars
         status = return_vars["status"]
         if status != 0:
-            print (f"{'Error' if status < 0 else 'Warning'} {status}: {bb_get_error_string(status)} in {func.__name__}()")
-        if status < 0:
-            exit()
+            raise BBDeviceError(status)
         return return_vars
     return print_status_if_error
 
