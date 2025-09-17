@@ -26,7 +26,8 @@ configs_file = configs_path / "config.ini"
 
 
 @app.command()
-def capture():
+def capture(center: Annotated[float, typer.Argument(help='Center frequency of the capture in MHz')] = 2450,
+            bw: Annotated[float, typer.Argument(help='Bandwidth of the capture in MHz')] = 160):
     configs = load_config_section("platform")
     if "hw" not in configs:
         raise typer.Abort("Please run set-platform first")
