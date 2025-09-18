@@ -3,7 +3,7 @@ import typer
 from iq_capture.configurations import load_config_section, save_config_section, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
-from .signal_hound import bb60_stream_iq
+from .signal_hound import bb60_stream_iq, sm200_stream_iq
 from numpy.typing import NDArray
 from typing import Callable
 import os
@@ -21,7 +21,7 @@ except ImportError:
 PLATFORMS: dict[str, Callable[[float, float], NDArray] | None] = {
     "x300": collect_usrp_iq_data,
     "x400": collect_usrp_iq_data,
-    "sm200": None,
+    "sm200c": sm200_stream_iq,
     "bb60": bb60_stream_iq,
 }
 

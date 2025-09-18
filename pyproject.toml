@@ -31,3 +31,4 @@ package-dir = {"" = "src"}
 
 [tool.setuptools.package-data]
 "iq_capture.app.signal_hound.bbdevice.lib" = ["**/*.so"]
+"iq_capture.app.signal_hound.smdevice.lib" = ["**/*.so"]
