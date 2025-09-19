@@ -14,21 +14,15 @@ dependencies = [
     "mako",
     "requests",
     "distro",
+    "jax",
 ]
 
 [project.scripts]
 iq-capture = "iq_capture.app.main:main"
 
 [build-system]
-requires = ["setuptools>=61.3.1"]
-build-backend = "setuptools.build_meta"
+requires = ["hatchling"]
+build-backend = "hatchling.build"
 
-[tool.setuptools]
-package-dir = {"" = "src"}
-
-#[tool.setuptools.package.find]
-#where = ["src"]
-
-[tool.setuptools.package-data]
-"iq_capture.app.signal_hound.bbdevice.lib" = ["**/*.so"]
-"iq_capture.app.signal_hound.smdevice.lib" = ["**/*.so"]
+[tool.hatch.build]
+sources = ["src"]
