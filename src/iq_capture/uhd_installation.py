@@ -5,7 +5,10 @@ import tarfile
 import shlex
 import sys
 from rich.progress import Progress, SpinnerColumn, TextColumn
+from rich.console import Console
+from rich.live import Live
 import shutil
+import os
 
 
 URL = "https://github.com/EttusResearch/uhd/archive/refs/tags/v4.9.0.0.tar.gz"
@@ -24,11 +27,54 @@ def _extract(cwd: Path):
         tar.extractall()
 
 
-def _build(cwd: Path):
+def _generate_build(cwd: Path):
     build_dir = cwd / BUILD_DIR
     build_dir.mkdir(exist_ok=True)
-    subprocess.check_call(shlex.split("cmake -DENABLE_C_API=ON -DENABLE_PYTHON_API=ON ../"), cwd=build_dir, stdout=subprocess.DEVNULL)
-    subprocess.check_call(shlex.split("make"), cwd=build_dir, stdout=subprocess.DEVNULL)
+    subprocess.check_call(shlex.split("cmake -DENABLE_C_API=ON -DENABLE_PYTHON_API=ON ../"), cwd=build_dir,
+                          stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+
+
+KEYWORD_STYLE = {
+    "Generating": "blue",
+    "Building": "green",
+    "Linking": "bold green"
+}
+
+
+def _style_line(line: str) -> str:
+    if line.startswith("["):
+        try:
+            prefix, rest = line.split("] ", 1)
+            bracket = f"{prefix}]"
+            key, _ = rest.split(" ", 1)
+        except ValueError:
+            return line
+        if key not in KEYWORD_STYLE:
+            return line
+        return f"{bracket} [{KEYWORD_STYLE[key]}]{rest}[/{KEYWORD_STYLE[key]}]"
+    else:
+        return line
+
+
+def _build(cwd: Path, console: Console):
+    build_dir = cwd / BUILD_DIR
+    env = os.environ.copy()
+    env["TERM"] = "xterm-256color"  # Many tools check this to decide on color
+    p = subprocess.Popen(
+        shlex.split("make"),
+        cwd=build_dir,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        bufsize=1,
+        universal_newlines=True,
+        env=env,
+    )
+
+    for line in p.stdout:
+        console.print(_style_line(line.rstrip()), markup=True, highlight=False)
+
+    p.wait()
 
 
 def _install(cwd: Path):
@@ -45,14 +91,18 @@ def _cleanup(cwd: Path):
 def install_uhd():
     print("Missing the UHD driver")
     cwd = Path.cwd()
-    with Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), transient=True) as progress:
-        progress.add_task("Downloading UHD repository...", total=None)
+    console = Console()
+    progress = Progress(SpinnerColumn(), TextColumn("[progress.description]{task.description}"), transient=True)
+    with Live(progress, console=console, refresh_per_second=100, transient=True):
+        task_id = progress.add_task("Downloading UHD repository...", total=None)
         _download_repo()
-        progress.add_task("Extracting contents...", total=None)
+        progress.update(task_id, description="Extracting contents...")
         _extract(cwd)
-        progress.add_task("Building driver...", total=None)
-        _build(cwd)
-        progress.add_task("Installing driver...", total=None)
+        progress.update(task_id, description="Building driver...")
+        _generate_build(cwd)
+        _build(cwd, console)
+        progress.update(task_id, description="Installing driver...")
         _install(cwd)
-        progress.add_task("Cleaning up...", total=None)
+        progress.update(task_id, description="Cleaning up...")
         _cleanup(cwd)
+        progress.stop()
