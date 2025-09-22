@@ -2,7 +2,7 @@ from configparser import ConfigParser, SectionProxy
 from pathlib import Path
 
 
-CONFIG_DIR = Path.home() / ".iq_capture"
+CONFIG_DIR = Path.home() / ".ares_iq"
 CONFIG_FILE = CONFIG_DIR / "config.ini"
 
 

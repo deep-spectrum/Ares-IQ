@@ -1,9 +1,9 @@
 from .bbdevice.bb_api import *
-from iq_capture.print_utils import print_warning, print_error, CaptureProgress
-from iq_capture.configurations import load_config_section, save_config_section
+from ares_iq.print_utils import print_warning, print_error, CaptureProgress
+from ares_iq.configurations import load_config_section, save_config_section
 import typer
 from typing_extensions import Annotated
-from iq_capture.iq_data import IQData
+from ares_iq.iq_data import IQData
 import math
 
 SAMPLES_PER_CAPTURE = 262144

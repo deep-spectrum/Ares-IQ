@@ -1,16 +1,16 @@
 import importlib
 import typer
-from iq_capture.configurations import load_config_section, save_config_section, CONFIG_DIR
+from ares_iq.configurations import load_config_section, save_config_section, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
 import os
 import pkgutil
-from iq_capture.typing import SoftwareDefinedRadio
+from ares_iq.typing import SoftwareDefinedRadio
 
 # try:
 #     from .usrp import collect_usrp_iq_data
 # except ImportError:
-#     from iq_capture.uhd_installation import install_uhd
+#     from ares_iq.uhd_installation import install_uhd
 #     import sys
 #
 #     install_uhd()
@@ -28,14 +28,14 @@ def import_platforms():
         # Only process directories (subpackages)
         if not os.path.isdir(module_path):
             continue
-        module = importlib.import_module(f".{module_name}", package="iq_capture.app")
+        module = importlib.import_module(f".{module_name}", package="ares_iq.app")
         if hasattr(module, 'PLATFORMS'):
             PLATFORMS = PLATFORMS | module.PLATFORMS
 
 import_platforms()
 
 app = typer.Typer()
-configs_path = Path().home() / ".iq_capture"
+configs_path = Path().home() / ".ares_iq"
 configs_file = configs_path / "config.ini"
 
 

@@ -1,7 +1,7 @@
 # import uhd
 # import numpy as np
-# from iq_capture.print_utils import print_error
-# from iq_capture.configurations import load_config_section
+# from ares_iq.print_utils import print_error
+# from ares_iq.configurations import load_config_section
 #
 #
 # def _find_usrp(platform_type: str = 'x300') -> uhd.usrp.MultiUSRP:

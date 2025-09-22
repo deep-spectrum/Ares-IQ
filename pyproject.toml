@@ -1,5 +1,5 @@
 [project]
-name = "iq_capture"
+name = "ares-iq"
 version = "0.0.0"
 authors = [{name = "Tom Schmitz", email = "tschmitz@andrew.cmu.edu"}]
 description = "IQ data capture CLI"
@@ -18,7 +18,7 @@ dependencies = [
 ]
 
 [project.scripts]
-iq-capture = "iq_capture.app.main:main"
+ares-iq = "ares_iq.app.main:main"
 
 [build-system]
 requires = ["hatchling"]

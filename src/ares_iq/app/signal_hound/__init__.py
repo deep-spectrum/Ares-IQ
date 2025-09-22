@@ -1,4 +1,4 @@
-from iq_capture.typing import SoftwareDefinedRadio
+from ares_iq.typing import SoftwareDefinedRadio
 
 from .bb60 import BB60Device
 

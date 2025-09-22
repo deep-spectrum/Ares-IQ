@@ -2,8 +2,8 @@
 # import numpy as np
 # import typer
 # from typing_extensions import Annotated
-# from iq_capture.print_utils import print_warning, print_error
-# from iq_capture.configurations import load_config_section, save_config_section
+# from ares_iq.print_utils import print_warning, print_error
+# from ares_iq.configurations import load_config_section, save_config_section
 #
 #
 # SAMPLES_PER_CAPTURE = 262144
