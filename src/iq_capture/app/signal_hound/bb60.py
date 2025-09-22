@@ -1,5 +1,4 @@
 from .bbdevice.bb_api import *
-import numpy as np
 from iq_capture.print_utils import print_warning, print_error
 from iq_capture.configurations import load_config_section, save_config_section
 import typer
@@ -69,7 +68,7 @@ class BB60Device:
             self._bw = self._max_bw
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, file_size: int):
+    def capture_iq(self, center: float, bw: float, file_size: int) -> None:
         self._bw = bw
         self._center = center
 

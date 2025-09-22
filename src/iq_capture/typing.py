@@ -1,15 +1,14 @@
-from typing import Protocol, Optional
-import numpy.typing as npt
-import numpy as np
+from typing import Protocol
 from .iq_data import IQData
 
 
 class SoftwareDefinedRadio(Protocol):
-    def capture_iq(self, center: float, bw: float) -> tuple[npt.NDArray[np.complex64], Optional[npt.NDArray[np.int32]]]:
+    def capture_iq(self, center: float, bw: float, file_size: int) -> None:
         """
         Capture IQ data from the SDR.
         :param center: The center frequency in Hz
         :param bw: The bandwidth in Hz
+        :param file_size: The maximum number of bytes a capture can be.
         :return: The captured IQ data and the
         """
 
@@ -18,5 +17,5 @@ class SoftwareDefinedRadio(Protocol):
         """IQ data from the capture"""
 
     @property
-    def quantized_data(self) -> tuple[npt.NDArray[np.int32], npt.NDArray[np.uint64]]:
+    def quantized_data(self) -> list[None]:
         """Quantized data from the capture"""

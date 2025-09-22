@@ -3,11 +3,9 @@ import typer
 from iq_capture.configurations import load_config_section, save_config_section, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
-from .signal_hound import bb60_stream_iq, sm200_stream_iq
-from numpy.typing import NDArray
-from typing import Callable
 import os
 import pkgutil
+from iq_capture.typing import SoftwareDefinedRadio
 
 try:
     from .usrp import collect_usrp_iq_data
@@ -18,12 +16,23 @@ except ImportError:
     install_uhd()
     os.execv(sys.executable, [sys.executable] + sys.argv)
 
-PLATFORMS: dict[str, Callable[[float, float], NDArray] | None] = {
-    "x300": collect_usrp_iq_data,
-    "x400": collect_usrp_iq_data,
-    "sm200c": sm200_stream_iq,
-    "bb60": bb60_stream_iq,
-}
+
+PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
+def import_platforms():
+    global PLATFORMS
+    main_path = os.path.abspath(__file__)
+    main_dir = os.path.dirname(main_path)
+    for _, module_name, _ in pkgutil.iter_modules([main_dir]):
+        module_path = os.path.join(main_dir, module_name)
+
+        # Only process directories (subpackages)
+        if not os.path.isdir(module_path):
+            continue
+        module = importlib.import_module(f".{module_name}", package="iq_capture.app")
+        if hasattr(module, 'PLATFORMS'):
+            PLATFORMS = PLATFORMS | module.PLATFORMS
+
+import_platforms()
 
 app = typer.Typer()
 configs_path = Path().home() / ".iq_capture"
@@ -60,19 +69,9 @@ def set_platform(platform: Annotated[str, typer.Argument(
 
 
 def import_extended_commands():
-    main_path = os.path.abspath(__file__)
-    main_dir = os.path.dirname(main_path)
-    for _, module_name, _ in pkgutil.iter_modules([main_dir]):
-        module_path = os.path.join(main_dir, module_name)
-
-        # Only process directories (subpackages)
-        if not os.path.isdir(module_path):
-            continue
-        module = importlib.import_module(f".{module_name}", package="iq_capture.app")
-        for _attr in dir(module):
-            if _attr.endswith("_app"):
-                attr = getattr(module, _attr)
-                app.add_typer(attr)
+    for _, platform in PLATFORMS.items():
+        if hasattr(platform, "app"):
+            app.add_typer(platform.app)
 
 
 def main():
