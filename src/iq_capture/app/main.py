@@ -7,14 +7,14 @@ import os
 import pkgutil
 from iq_capture.typing import SoftwareDefinedRadio
 
-try:
-    from .usrp import collect_usrp_iq_data
-except ImportError:
-    from iq_capture.uhd_installation import install_uhd
-    import sys
-
-    install_uhd()
-    os.execv(sys.executable, [sys.executable] + sys.argv)
+# try:
+#     from .usrp import collect_usrp_iq_data
+# except ImportError:
+#     from iq_capture.uhd_installation import install_uhd
+#     import sys
+#
+#     install_uhd()
+#     os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}

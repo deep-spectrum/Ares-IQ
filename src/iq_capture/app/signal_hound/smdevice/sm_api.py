@@ -44,6 +44,10 @@ class SMDeviceError(Exception):
     def msg(self):
         return self._msg.decode()
 
+    @property
+    def warning(self):
+        return self._code > 0
+
     def __str__(self):
         return f"{self._code}: {self.msg}"
 
