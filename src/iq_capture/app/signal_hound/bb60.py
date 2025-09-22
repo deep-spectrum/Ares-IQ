@@ -4,13 +4,15 @@ from iq_capture.configurations import load_config_section, save_config_section
 import typer
 from typing_extensions import Annotated
 from iq_capture.iq_data import IQData
+import math
 
 SAMPLES_PER_CAPTURE = 262144
+BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
 
 
 class BB60Device:
     _handle: object = None
-    _max_bw: float = None
+    _max_bw: float = 0
     _center: float = 0
     _bw: float = 0
     _iq_data: list[IQData] = []
@@ -68,7 +70,7 @@ class BB60Device:
             self._bw = self._max_bw
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, file_size: int) -> None:
+    def capture_iq(self, center: float, bw: float, file_size_gb: float) -> None:
         self._bw = bw
         self._center = center
 
@@ -76,20 +78,24 @@ class BB60Device:
         self._configure_bb_device()
         bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
-        # TODO: get IQ
-        while True:
-            iq = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
-            print(len(iq))
-            break
+        file_size = file_size_gb * 1e9
+        captures = math.ceil(file_size / BYTES_PER_CAPTURE)
+        self._iq_data = [IQData() for _ in range(captures)]
+
+        for iq in self._iq_data:
+            data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
+            iq.iq = data["iq"]
+            iq.ts_sec = data["sec"]
+            iq.ts_nsec = data["nano"]
 
         self._quantize()
 
         bb_close_device(self._handle)
 
-    @app.command(name='bb60-configs')
-    def config(self,
-               ref_level: Annotated[float, typer.Option(help='Reference level of the BB60')] = None,
-               decimation: Annotated[int, typer.Option(help='Downsample factor')] = None):
+    @staticmethod
+    @app.command(name='bb60-config', help='Set default configurations for the BB60')
+    def config(ref_level: Annotated[float | None, typer.Option(help='Reference level of the BB60')] = None,
+               decimation: Annotated[int | None, typer.Option(help='Downsample factor')] = None):
         configs = load_config_section("bb60-configs")
         if ref_level is not None:
             configs['ref-level'] = str(ref_level)

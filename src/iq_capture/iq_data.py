@@ -4,11 +4,9 @@ import datetime as dt
 
 
 class IQData:
-    def __init__(self, iq_data: npt.NDArray[np.complex64], ts_s: int, ts_ns: int):
-        self._iq: npt.NDArray[np.complex64] = iq_data
-        self._ts_s = ts_s
-        self._ts_ns = ts_ns
-        self._ts: dt.datetime = dt.datetime.fromtimestamp(ts_s + (ts_ns / 1e9), tz=dt.timezone.utc)
+    _iq: npt.NDArray[np.complex64]
+    _ts_s = 0
+    _ts_ns = 0
 
     @property
     def iq(self) -> npt.NDArray[np.complex64]:
