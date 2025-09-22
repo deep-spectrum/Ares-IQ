@@ -1,5 +1,5 @@
 from .bbdevice.bb_api import *
-from iq_capture.print_utils import print_warning, print_error
+from iq_capture.print_utils import print_warning, print_error, CaptureProgress
 from iq_capture.configurations import load_config_section, save_config_section
 import typer
 from typing_extensions import Annotated
@@ -82,11 +82,16 @@ class BB60Device:
         captures = math.ceil(file_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]
 
-        for iq in self._iq_data:
-            data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
-            iq.iq = data["iq"]
-            iq.ts_sec = data["sec"]
-            iq.ts_nsec = data["nano"]
+        with CaptureProgress(captures, SAMPLES_PER_CAPTURE) as progress:
+            for iq in self._iq_data:
+                data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
+                iq.iq = data["iq"]
+                iq.ts_sec = data["sec"]
+                iq.ts_nsec = data["nano"]
+                progress.update()
+            progress.update()
+
+        # print(f"\nCaptured {SAMPLES_PER_CAPTURE * captures} samples @ {(SAMPLES_PER_CAPTURE * captures) / time_diff / 1e6} megasamples/second")
 
         self._quantize()
 
