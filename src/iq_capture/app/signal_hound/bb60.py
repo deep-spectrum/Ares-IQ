@@ -78,6 +78,7 @@ class BB60Device:
         self._configure_bb_device()
         bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
+        # Pre-allocate to avoid doing it later...
         file_size = file_size_gb * 1e9
         captures = math.ceil(file_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]

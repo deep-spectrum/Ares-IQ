@@ -50,6 +50,7 @@ def capture(center: Annotated[float, typer.Option("--center", "-c", help='Center
     if PLATFORMS[configs["hw"]] is None:
         raise typer.Abort(f"{configs['hw']} is not supported yet.")
     PLATFORMS[configs["hw"]].capture_iq(center * 1e6, bw * 1e6, file_size)
+    # TODO: save data
 
 
 def valid_platforms(platform: str):

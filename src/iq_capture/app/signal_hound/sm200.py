@@ -18,7 +18,7 @@
 #     else:
 #         print_error(s)
 #
-# 
+#
 # def _get_device_handle() -> tuple[object, float]:
 #     configs = load_config_section("platform")
 #     networked = configs["hw"] == "sm200c"
