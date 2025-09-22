@@ -4,83 +4,107 @@ from iq_capture.print_utils import print_warning, print_error
 from iq_capture.configurations import load_config_section, save_config_section
 import typer
 from typing_extensions import Annotated
+from iq_capture.iq_data import IQData
 
 SAMPLES_PER_CAPTURE = 262144
 
 
-def _print_bb_error(err: BBDeviceError, config_name: str):
-    s = f"{config_name}: {str(err)}"
-    if err.warning:
-        print_warning(s)
-    else:
-        print_error(s)
+class BB60Device:
+    _handle: object = None
+    _max_bw: float = None
+    _center: float = 0
+    _bw: float = 0
+    _iq_data: list[IQData] = []
+    _quantized_data: list[None] = []
+    app = typer.Typer()
 
+    @staticmethod
+    def _print_bb_error(err: BBDeviceError, config_name: str):
+        s = f"{config_name}: {str(err)}"
+        if err.warning:
+            print_warning(s)
+        else:
+            print_error(s)
 
-def _get_device_handle() -> tuple[object, float]:
-    devices = bb_get_serial_number_list_2()
-    device_count = devices["device_count"].value
-    if device_count == 0:
-        print_error("No BB60 devices found")
-    elif device_count > 1:
-        print_error("Multiple BB60 devices found. Please connect 1 device only")
+    def _open_device(self):
+        devices = bb_get_serial_number_list_2()
+        device_count = devices["device_count"].value
+        if device_count == 0:
+            print_error("No BB60 devices found")
+        elif device_count > 1:
+            print_error("Multiple BB60 devices found. Please connect 1 device only")
 
-    max_bw = BB60A_MAX_RT_SPAN if devices["device_types"][0] == BB_DEVICE_BB60A else BB60C_MAX_RT_SPAN
+        max_bw = BB60A_MAX_RT_SPAN if devices["device_types"][0] == BB_DEVICE_BB60A else BB60C_MAX_RT_SPAN
+        self._handle = bb_open_device()["handle"]
+        self._max_bw = max_bw.value
 
-    return bb_open_device()["handle"], max_bw.value
+    def _call_config_func(self, func, config_name, *args):
+        try:
+            func(self._handle, *args)
+        except BBDeviceError as e:
+            self._print_bb_error(e, config_name)
 
+    def _configure_bb_device(self):
+        configs = load_config_section("bb60-configs")
 
-def _call_config_func(func, config_name, handler, *args):
-    try:
-        func(handler, *args)
-    except BBDeviceError as e:
-        _print_bb_error(e, config_name)
+        # Reference level
+        ref_level = -20.0
+        if 'ref-level' in configs:
+            ref_level = float(configs['ref-level'])
+        self._call_config_func(bb_configure_ref_level, "Reference level", ref_level)
 
+        # Gain and attenuation
+        bb_configure_gain_atten(self._handle, BB_AUTO_GAIN, BB_AUTO_ATTEN)
 
-def _configure_bb_device(handle: object, center: float, max_bw: float, bw: float):
-    configs = load_config_section("bb60-configs")
+        # Center frequency
+        self._call_config_func(bb_configure_IQ_center, "Center Frequency", self._center)
 
-    # Reference level
-    ref_level = -20.0
-    if 'ref-level' in configs:
-        ref_level = float(configs['ref-level'])
-    _call_config_func(bb_configure_ref_level, "Reference level", handle, ref_level)
+        # Bandwidth
+        decimation = BB_MIN_DECIMATION
+        if 'decimation' in configs:
+            decimation = int(configs['decimation'])
+        self._max_bw = self._max_bw / decimation
+        if self._bw > self._max_bw:
+            print_warning(f"Unable to set the bandwidth to {self._bw / 1.0e6} MHz. Setting to {self._max_bw / 1.0e6} MHz")
+            self._bw = self._max_bw
+        self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
-    # Gain and attenuation
-    bb_configure_gain_atten(handle, BB_AUTO_GAIN, BB_AUTO_ATTEN)
+    def capture_iq(self, center: float, bw: float, file_size: int):
+        self._bw = bw
+        self._center = center
 
-    # Center frequency
-    _call_config_func(bb_configure_IQ_center, "Center Frequency", handle, center)
+        self._open_device()
+        self._configure_bb_device()
+        bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
-    # Bandwidth
-    decimation = BB_MIN_DECIMATION
-    if 'decimation' in configs:
-        decimation = int(configs['decimation'])
-    max_bw = max_bw / decimation
-    if bw > max_bw:
-        print_warning(f"Unable to set the bandwidth to {bw / 1.0e6} MHz. Setting to {max_bw / 1.0e6} MHz")
-        bw = max_bw
-    _call_config_func(bb_configure_IQ, "Bandwidth", handle, decimation, bw)
+        # TODO: get IQ
+        while True:
+            iq = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
+            print(len(iq))
+            break
 
+        self._quantize()
 
-def bb60_stream_iq(center_freq: float, bw: float):
-    handle, max_bw = _get_device_handle()
-    _configure_bb_device(handle, center_freq, max_bw, bw)
-    bb_initiate(handle, BB_STREAMING, BB_STREAM_IQ)
+        bb_close_device(self._handle)
 
-    # TODO: get IQ data
+    @app.command(name='bb60-configs')
+    def config(self,
+               ref_level: Annotated[float, typer.Option(help='Reference level of the BB60')] = None,
+               decimation: Annotated[int, typer.Option(help='Downsample factor')] = None):
+        configs = load_config_section("bb60-configs")
+        if ref_level is not None:
+            configs['ref-level'] = str(ref_level)
+        if decimation is not None:
+            configs['decimation'] = str(decimation)
+        save_config_section("bb60-configs", configs)
 
-    bb_close_device(handle)
+    @property
+    def iq_data(self):
+        return self._iq_data
 
+    @property
+    def quantized_data(self):
+        return self._quantized_data
 
-app = typer.Typer()
-
-
-@app.command(name='bb60-configs')
-def bb60_configs(ref_level: Annotated[float, typer.Option(help='Reference level of the BB60')] = None,
-                 decimation: Annotated[int, typer.Option(help='Downsample factor')] = None):
-    configs = load_config_section("bb60-configs")
-    if ref_level is not None:
-        configs['ref-level'] = str(ref_level)
-    if decimation is not None:
-        configs['decimation'] = str(decimation)
-    save_config_section("bb60-configs", configs)
+    def _quantize(self):
+        pass
