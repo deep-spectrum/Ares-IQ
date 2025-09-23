@@ -9,6 +9,13 @@ from rich.console import Console
 from rich.live import Live
 import shutil
 import os
+from .install_pip import install_pip
+
+try:
+    import pip
+except ImportError:
+    install_pip()
+    os.execv(sys.executable, [sys.executable] + sys.argv)
 
 
 URL = "https://github.com/EttusResearch/uhd/archive/refs/tags/v4.9.0.0.tar.gz"
@@ -59,7 +66,7 @@ def _style_line(line: str) -> str:
 def _build(cwd: Path, console: Console):
     build_dir = cwd / BUILD_DIR
     env = os.environ.copy()
-    env["TERM"] = "xterm-256color"  # Many tools check this to decide on color
+    env["TERM"] = "xterm-256color"
     p = subprocess.Popen(
         shlex.split("make"),
         cwd=build_dir,
@@ -74,7 +81,9 @@ def _build(cwd: Path, console: Console):
     for line in p.stdout:
         console.print(_style_line(line.rstrip()), markup=True, highlight=False)
 
-    p.wait()
+    if p.wait() != 0:
+        console.print("[red]Failed to install the UHD package. Please make sure 'pybind11' is not installed on your machine.")
+        exit(p.returncode)
 
 
 def _install(cwd: Path):
