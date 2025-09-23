@@ -92,8 +92,6 @@ class BB60Device:
                 progress.update()
             progress.update()
 
-        # print(f"\nCaptured {SAMPLES_PER_CAPTURE * captures} samples @ {(SAMPLES_PER_CAPTURE * captures) / time_diff / 1e6} megasamples/second")
-
         self._quantize()
 
         bb_close_device(self._handle)

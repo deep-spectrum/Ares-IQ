@@ -7,17 +7,10 @@ import os
 import pkgutil
 from ares_iq.typing import SoftwareDefinedRadio
 
-# try:
-#     from .usrp import collect_usrp_iq_data
-# except ImportError:
-#     from ares_iq.uhd_installation import install_uhd
-#     import sys
-#
-#     install_uhd()
-#     os.execv(sys.executable, [sys.executable] + sys.argv)
-
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
+
+
 def import_platforms():
     global PLATFORMS
     main_path = os.path.abspath(__file__)
@@ -32,6 +25,7 @@ def import_platforms():
         if hasattr(module, 'PLATFORMS'):
             PLATFORMS = PLATFORMS | module.PLATFORMS
 
+
 import_platforms()
 
 app = typer.Typer()
@@ -40,9 +34,10 @@ configs_file = configs_path / "config.ini"
 
 
 @app.command()
-def capture(center: Annotated[float, typer.Option("--center", "-c", help='Center frequency of the capture in MHz')] = 2450,
-            bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
-            file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4):
+def capture(
+        center: Annotated[float, typer.Option("--center", "-c", help='Center frequency of the capture in MHz')] = 2450,
+        bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
+        file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4):
     configs = load_config_section("platform")
     if "hw" not in configs:
         raise typer.Abort("Please run set-platform first")
@@ -61,10 +56,13 @@ def valid_platforms(platform: str):
         "Platform must be one of the following:\n\n" + "\n".join(f' - {key}' for key in PLATFORMS.keys()))
 
 
+platform_help = "The signal analyzer platform being used. Must be one of the following: " + ", ".join(
+    f"'{key}'" for key in PLATFORMS.keys())
+
+
 @app.command(name='set-platform')
 def set_platform(platform: Annotated[str, typer.Argument(
-    help="The signal analyzer platform being used. Must be one of the following: " + ", ".join(
-        f"'{key}'" for key in PLATFORMS.keys()), callback=valid_platforms)]):
+    help=platform_help, callback=valid_platforms)]):
     configs = load_config_section("platform")
     configs["hw"] = platform
     save_config_section("platform", configs)
