@@ -25,9 +25,8 @@ class UsrpDevice(ABC):
     _quantized_data: list[None] = []
 
     def _find_usrp(self):
-        configs = load_config_section("platform")
         try:
-            self._usrp = uhd.usrp.MultiUSRP(f"type={configs['hw']}")
+            self._usrp = uhd.usrp.MultiUSRP(f"type={self.type}")
         except RuntimeError as err:
             print_error(str(err))
 
@@ -78,4 +77,9 @@ class UsrpDevice(ABC):
 
     @abstractmethod
     def _quantize(self):
+        pass
+
+    @property
+    @abstractmethod
+    def type(self):
         pass
