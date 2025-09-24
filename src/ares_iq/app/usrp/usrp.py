@@ -79,7 +79,7 @@ class UsrpDevice(ABC):
                     recv_buffer = np.zeros(samples_per_capture, dtype=np.complex64)
                     samples = self._rx_streamer.recv(recv_buffer, self._rx_meta)
                     if samples != samples_per_capture:
-                        continue
+                        continue  # TODO: Figure out how to deal with underflows
                     iq.iq = recv_buffer
                     iq.ts_sec = self._rx_meta.time_spec.get_full_secs()
                     iq.ts_nsec = int(self._rx_meta.time_spec.get_frac_secs() * 1e9)
@@ -112,6 +112,7 @@ class UsrpDevice(ABC):
     @staticmethod
     @app.command(name='usrp-config', help="Set configurations for the USRP platform")
     def config(samples: Annotated[int | None, typer.Option("--spp", "-s", help="Samples per packet")] = None):
+        # TODO: add other configs
         configs = load_config_section("usrp")
         if samples is not None:
             configs["spp"] = str(samples)
