@@ -18,6 +18,7 @@ dependencies = [
     "mako",         # Needed by UHD
     "requests",
     "distro",
+    "h5py",
 ]
 
 [project.scripts]
