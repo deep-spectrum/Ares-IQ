@@ -7,7 +7,6 @@ import sys
 from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.console import Console
 from rich.live import Live
-import shutil
 import os
 from .install_pip import install_pip
 
@@ -59,8 +58,9 @@ def _style_line(line: str) -> str:
         if key not in KEYWORD_STYLE:
             return line
         return f"{bracket} [{KEYWORD_STYLE[key]}]{rest}[/{KEYWORD_STYLE[key]}]"
-    else:
-        return line
+    elif line.startswith("Consolidate"):
+        return f"[bold magenta]{line}[/bold magenta]"
+    return line
 
 
 def _build(cwd: Path, console: Console):
@@ -92,7 +92,6 @@ def _install(cwd: Path):
 
 
 def _cleanup(cwd: Path):
-    shutil.rmtree(cwd / DIR)
     tar = cwd / "uhd.tar.gz"
     tar.unlink(missing_ok=True)
 
