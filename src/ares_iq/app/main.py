@@ -6,6 +6,7 @@ from typing_extensions import Annotated
 import os
 import pkgutil
 from ares_iq.typing import SoftwareDefinedRadio
+from ares_iq.save_iq_data import save_iq_data
 
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
@@ -45,7 +46,7 @@ def capture(
     if PLATFORMS[configs["hw"]] is None:
         raise typer.Abort(f"{configs['hw']} is not supported yet.")
     PLATFORMS[configs["hw"]].capture_iq(center * 1e6, bw * 1e6, file_size)
-    # TODO: save data
+    save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 
 def valid_platforms(platform: str):
