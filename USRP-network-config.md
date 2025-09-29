@@ -4,4 +4,4 @@ Run the following commands:
 - nmcli dev status # See if the interface is managed by the network manager
 - nmcli dev set \<interface\> managed no  # Tell the network manager to not manage that interface
 - sudo ip addr add 192.168.10.1/24 dev <interface> # Add static IP address to interact with
-- 
+- sudo sysctl -w net.core.wmem_max=2453333

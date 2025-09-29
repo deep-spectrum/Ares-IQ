@@ -26,6 +26,7 @@ class UsrpDevice(ABC):
     _rx_meta: uhd.types.RXMetadata
     _iq_data: list[IQData] = []
     _quantized_data: list[None] = []
+    _samples_per_capture: int
     app = typer.Typer()
 
     def _find_usrp(self):
@@ -59,6 +60,21 @@ class UsrpDevice(ABC):
         stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.stop_cont)
         self._rx_streamer.issue_stream_cmd(stream_cmd)
 
+    def _calculate_samples_per_capture(self):
+        recv_buff = np.zeros(self._rx_streamer.get_max_num_samps())
+        self._samples_per_capture = 0
+        self._start_stream()
+        while True:
+            samples = self._rx_streamer.recv(recv_buff, self._rx_meta)
+            self._samples_per_capture += samples
+            if self._rx_meta.end_of_burst:
+                break
+            if self._rx_meta.start_of_burst:
+                print(self._rx_meta)
+        samples = self._rx_streamer.recv(recv_buff, self._rx_meta)
+        self._samples_per_capture += samples
+        self._stop_stream()
+
 
     def capture_iq(self, center: float, bw: float, file_size_gb: float):
         self._center = center
@@ -66,30 +82,29 @@ class UsrpDevice(ABC):
         self._find_usrp()
         self._configure_usrp()
 
+        self._calculate_samples_per_capture()
+
         file_size = file_size_gb * 1e9
-        samples_per_capture = self._rx_streamer.get_max_num_samps()
-        bytes_per_capture = (samples_per_capture * 8) + 8
+        bytes_per_capture = (self._samples_per_capture * 8) + 8
         captures = math.ceil(file_size / bytes_per_capture)
         self._iq_data = [IQData() for _ in range(captures)]
+        for iq in self._iq_data:
+            iq.iq = np.zeros(self._samples_per_capture)
 
-        try:
-            with CaptureProgress(captures, samples_per_capture) as progress:
-                self._start_stream()
-                for iq in self._iq_data:
-                    recv_buffer = np.zeros(samples_per_capture, dtype=np.complex64)
-                    samples = self._rx_streamer.recv(recv_buffer, self._rx_meta)
-                    if samples != samples_per_capture:
-                        continue  # TODO: Figure out how to deal with underflows
-                    iq.iq = recv_buffer
-                    iq.ts_sec = self._rx_meta.time_spec.get_full_secs()
-                    iq.ts_nsec = int(self._rx_meta.time_spec.get_frac_secs() * 1e9)
-                    progress.update()
+        with CaptureProgress(captures, self._samples_per_capture) as progress:
+            self._start_stream()
+            for iq in self._iq_data:
+                offset = 0
+                while offset < self._samples_per_capture:
+                    samples = self._rx_streamer.recv(iq.iq[offset:], self._rx_meta)
+                    if self._rx_meta.error_code != 0:
+                        offset = 0  # Error
+                    offset += samples
+                iq.ts_sec = self._rx_meta.time_spec.get_full_secs()
+                iq.ts_nsec = int(self._rx_meta.time_spec.get_frac_secs() * 1e9)
                 progress.update()
-        except KeyboardInterrupt:
-            pass
-
+            progress.update()
         self._stop_stream()
-
         self._quantize()
 
     @property
