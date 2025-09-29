@@ -1,4 +1,8 @@
-from .bbdevice.bb_api import *
+from .bbdevice.bb_api import (BBDeviceError, bb_get_serial_number_list_2, bb_open_device, bb_configure_ref_level,
+                              bb_configure_gain_atten, bb_configure_IQ_center, bb_configure_IQ, bb_initiate,
+                              bb_get_IQ_unpacked, bb_close_device, BB_DEVICE_BB60A,
+                              BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
+                              BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
 from ares_iq.print_utils import print_warning, print_error, CaptureProgress
 from ares_iq.configurations import load_config_section, save_config_section
 import typer
@@ -66,7 +70,8 @@ class BB60Device:
             decimation = int(configs['decimation'])
         self._max_bw = self._max_bw / decimation
         if self._bw > self._max_bw:
-            print_warning(f"Unable to set the bandwidth to {self._bw / 1.0e6} MHz. Setting to {self._max_bw / 1.0e6} MHz")
+            print_warning(
+                f"Unable to set the bandwidth to {self._bw / 1.0e6} MHz. Setting to {self._max_bw / 1.0e6} MHz")
             self._bw = self._max_bw
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
