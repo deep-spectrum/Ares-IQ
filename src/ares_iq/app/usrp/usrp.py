@@ -50,6 +50,7 @@ class UsrpDevice(ABC):
         stream_args.args = f"spp={spp}"
         self._rx_streamer = self._usrp.get_rx_stream(stream_args)
         self._rx_meta = uhd.types.RXMetadata()
+        # self._usrp.set_rx_rate(1e6)
 
     def _start_stream(self):
         stream_cmd = uhd.types.StreamCMD(uhd.types.StreamMode.start_cont)
@@ -82,28 +83,48 @@ class UsrpDevice(ABC):
         self._find_usrp()
         self._configure_usrp()
 
-        self._calculate_samples_per_capture()
+        # self._calculate_samples_per_capture()
+        self._samples_per_capture = 1000 * 1000
 
-        file_size = file_size_gb * 1e9
+        from time import perf_counter
+
         bytes_per_capture = (self._samples_per_capture * 8) + 8
-        captures = math.ceil(file_size / bytes_per_capture)
-        self._iq_data = [IQData() for _ in range(captures)]
-        for iq in self._iq_data:
-            iq.iq = np.zeros(self._samples_per_capture)
+        total = 0
+        start = perf_counter()
+        self._start_stream()
+        tmp = np.zeros(self._samples_per_capture, dtype=np.complex64)
+        for _ in range(100):
+            samples = self._rx_streamer.recv(tmp, self._rx_meta)
+            total += samples
+        print(perf_counter() - start, total)
 
-        with CaptureProgress(captures, self._samples_per_capture) as progress:
-            self._start_stream()
-            for iq in self._iq_data:
-                offset = 0
-                while offset < self._samples_per_capture:
-                    samples = self._rx_streamer.recv(iq.iq[offset:], self._rx_meta)
-                    if self._rx_meta.error_code != 0:
-                        offset = 0  # Error
-                    offset += samples
-                iq.ts_sec = self._rx_meta.time_spec.get_full_secs()
-                iq.ts_nsec = int(self._rx_meta.time_spec.get_frac_secs() * 1e9)
-                progress.update()
-            progress.update()
+        # file_size = file_size_gb * 1e9
+        # bytes_per_capture = (self._samples_per_capture * 8) + 8
+        # captures = math.ceil(file_size / bytes_per_
+        # capture)
+        # self._iq_data = [IQData() for _ in range(captures)]
+        # for iq in self._iq_data:
+        #     iq.iq = np.zeros(self._samples_per_capture)
+
+        from time import perf_counter_ns
+
+        # with CaptureProgress(captures, self._samples_per_capture) as progress:
+        #     self._start_stream()
+        #     for iq in self._iq_data:
+        #         offset = 0
+        #         while offset < self._samples_per_capture:
+        #             start = perf_counter_ns()
+        #             tmp = np.zeros(self._samples_per_capture)
+        #             samples = self._rx_streamer.recv(tmp, self._rx_meta)
+        #             iq.iq[offset:offset + samples] = tmp[:samples]
+        #             if self._rx_meta.error_code != 0:
+        #                 offset = 0  # Error
+        #             offset += samples
+        #             print(perf_counter_ns() - start, samples)
+        #         iq.ts_sec = self._rx_meta.time_spec.get_full_secs()
+        #         iq.ts_nsec = int(self._rx_meta.time_spec.get_frac_secs() * 1e9)
+        #         progress.update()
+        #     progress.update()
         self._stop_stream()
         self._quantize()
 
