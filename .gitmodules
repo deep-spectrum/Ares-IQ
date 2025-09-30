@@ -1,0 +1,7 @@
+[submodule "ares-iq-extensions/extern/pybind11"]
+	path = ares-iq-extensions/extern/pybind11
+	url = git@github.com:pybind/pybind11.git
+	branch = stable
+[submodule "ares-iq-extensions/extern/uhd"]
+	path = ares-iq-extensions/extern/uhd
+	url = git@github.com:EttusResearch/uhd.git
