@@ -61,8 +61,9 @@ def _style_line(line: str) -> str:
         if key not in KEYWORD_STYLE:
             return line
         return f"{bracket} [{KEYWORD_STYLE[key]}]{rest}[/{KEYWORD_STYLE[key]}]"
-    else:
-        return line
+    elif line.startswith("Consolidate"):
+        return f"[bold magenta]{line}[/bold magenta]"
+    return line
 
 
 def _build(console: Console):

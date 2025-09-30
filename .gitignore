@@ -4,4 +4,8 @@ build/
 *.egg-info
 dist/
 __pycache__/
+<<<<<<< HEAD
+uhd*
+=======
 ares-iq-data/
+>>>>>>> master
