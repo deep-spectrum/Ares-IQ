@@ -48,14 +48,16 @@ include_directories(
 link_directories(${Boost_LIBRARY_DIRS})
 
 # USRP module
-python_add_library(_usrp MODULE src/usrp.cpp WITH_SOABI)
+python_add_library(_usrp MODULE src/usrp/usrp.cpp WITH_SOABI)
 target_link_libraries(_usrp PRIVATE pybind11::headers ${UHD_LIBRARIES} ${Boost_LIBRARIES})
 add_dependencies(_usrp uhd)
-install(TARGETS _usrp DESTINATION usrp)
+install(TARGETS _usrp DESTINATION ares_iq_ext/usrp)
+install(FILES src/ares_iq_ext/usrp/__init__.py DESTINATION ares_iq_ext/usrp)
 
 # Core module
 python_add_library(_core MODULE src/core.cpp WITH_SOABI)
 target_link_libraries(_core PRIVATE pybind11::headers)
 target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
-install(TARGETS _core DESTINATION usrp)
+install(TARGETS _core DESTINATION ares_iq_ext)
+install(FILES src/ares_iq_ext/__init__.py DESTINATION ares_iq_ext)
 
