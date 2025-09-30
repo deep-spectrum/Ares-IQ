@@ -14,11 +14,11 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "typer",
-    "numpy<2.0.0",  # numpy<2.0 needed by UHD
-    "mako",         # Needed by UHD
+    "numpy<2.0.0", # numpy<2.0 needed by UHD
     "requests",
     "distro",
     "h5py",
+    "ares-iq-extensions",
 ]
 
 [project.scripts]
@@ -65,3 +65,11 @@ ignore = [
     "D213",  # Pick 'multi-line-summary-first-line'.
     "D203",  # Pick `no-blank-line-before-class`.
 ]
+
+[tool.uv.workspace]
+members = [
+    "ares-iq-extensions",
+]
+
+[tool.uv.sources]
+ares-iq-extensions = { workspace = true }
