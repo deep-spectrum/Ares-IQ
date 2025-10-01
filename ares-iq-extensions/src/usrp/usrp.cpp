@@ -35,7 +35,13 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     py::class_<USRP>(m, "USRP")
             .def(py::init<const USRPconfigs &>())
             .def("capture_iq", &USRP::capture_iq)
-            .def("_set_stream_args", &USRP::set_stream_args);
+            .def("_set_stream_args", &USRP::set_stream_args)
+            .def_property_readonly("dev_args", &USRP::dev_args)
+            .def_property_readonly("samples_per_capture", &USRP::samples_per_capture)
+            .def_property_readonly("subdev", &USRP::subdev)
+            .def_property_readonly("ref", &USRP::ref)
+            .def_property_readonly("rate", &USRP::rate)
+            .def_property_readonly("gain", &USRP::gain);
 }
 
 USRP::USRP(const USRPconfigs &configs) {
@@ -108,4 +114,28 @@ void USRP::_stop_stream() {
 
 void USRP::set_stream_args(int spp) {
     this->_spp = spp;
+}
+
+const std::string &USRP::dev_args() const {
+    return _configs.type;
+}
+
+uint64_t USRP::samples_per_capture() const {
+    return _configs.samples_per_capture;
+}
+
+const std::string &USRP::subdev() const {
+    return _configs.subdev;
+}
+
+const std::string &USRP::ref() const {
+    return _configs.ref;
+}
+
+double USRP::rate() const {
+    return _configs.rate;
+}
+
+double USRP::gain() const {
+    return _configs.gain;
 }

@@ -37,6 +37,13 @@ public:
     void capture_iq(double center, double bw, double file_size_gb);
     void set_stream_args(int spp);
 
+    const std::string &dev_args() const;
+    uint64_t samples_per_capture() const;
+    const std::string &subdev() const;
+    const std::string &ref() const;
+    double rate() const;
+    double gain() const;
+
 private:
     typedef std::vector<std::complex<COMPLEX_TEMPLATE_TYPE>> complex_vec;
 
