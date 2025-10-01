@@ -14,8 +14,8 @@
 #include <pybind11/pybind11.h>
 #include <uhd/usrp/multi_usrp.hpp>
 #include <boost/format.hpp>
-#include <complex>
 #include <vector>
+#include <capture-progress/progress.hpp>
 
 namespace py = pybind11;
 
@@ -45,6 +45,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 }
 
 USRP::USRP(const USRPconfigs &configs) {
+    setenv("UHD_LOG", "none", 1);
     _configs = configs;
 }
 
@@ -73,14 +74,19 @@ void USRP::capture_iq(double center, double bw, double file_size_gb) {
         vec.resize(samples_per_capture);
     }
 
+    CaptureProgress::Progress progress(captures, samples_per_capture);
+
+    progress.start();
     _start_stream();
     for (auto& buf_ : data) {
         uhd::rx_streamer::buffs_type buf = { (void*)buf_.data() };
         size_t samples = rx_streamer->recv(buf, samples_per_capture, rx_meta);
         times.emplace_back(rx_meta.time_spec);
         samps.emplace_back(samples);
+        progress.update();
     }
     _stop_stream();
+    progress.update();
 }
 
 void USRP::_open_usrp() {

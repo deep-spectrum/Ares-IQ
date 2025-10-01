@@ -22,7 +22,7 @@
 struct USRPconfigs {
     USRPconfigs() = default;
     std::string type = "";
-    uint64_t samples_per_capture = 0;
+    uint64_t samples_per_capture = 200000;
     std::string subdev = "A:0";
     std::string ref = "internal";
     double rate = 25e6;

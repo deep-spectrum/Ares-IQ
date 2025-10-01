@@ -15,6 +15,7 @@
 #include <iostream>
 #include <codecvt>
 #include <locale>
+#include <capture-progress/logging/logging.h>
 
 namespace CaptureProgress {
     constexpr char32_t bar_char(U'━');
@@ -36,6 +37,9 @@ namespace CaptureProgress {
     Progress::Progress(uint64_t captures, uint64_t samples_per_capture) {
         _total_samples = captures * samples_per_capture;
         _spc = samples_per_capture;
+        LOG_DBG("Number of captures: %" PRIu64, captures);
+        LOG_DBG("Samples per capture: %" PRIu64, samples_per_capture);
+        LOG_DBG("Total samples to capture: %" PRIu64, _total_samples);
     }
 
     Progress::~Progress() {
@@ -43,6 +47,7 @@ namespace CaptureProgress {
     }
 
     void Progress::start() {
+        LOG_DBG("Starting progress bar");
         _start = std::chrono::system_clock::now();
         _refresh_thread = std::thread(&Progress::_refresh_task, this);
     }
@@ -53,6 +58,7 @@ namespace CaptureProgress {
     }
 
     void Progress::stop() {
+        LOG_DBG("Stopping");
         _terminate.store(true);
         if (_refresh_thread.joinable()) {
             _refresh_thread.join();
@@ -72,6 +78,7 @@ namespace CaptureProgress {
     }
 
     void Progress::_init_bar() {
+        LOG_DBG("initializing");
         _hide_cursor();
         _draw_opening();
         _draw_bar();
@@ -81,6 +88,7 @@ namespace CaptureProgress {
     }
 
     void Progress::_draw() {
+        LOG_DBG("Refreshing");
         _update_rate();
         _draw_opening();
         _draw_bar();
@@ -90,6 +98,7 @@ namespace CaptureProgress {
     }
 
     void Progress::_finalize() {
+        LOG_DBG("Finalizing");
         if (!_completed()) {
             // leave bar as is
             return;

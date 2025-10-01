@@ -6,6 +6,7 @@ project(${SKBUILD_PROJECT_NAME}
 set(CMAKE_CXX_STANDARD 11)
 
 add_subdirectory(extern/pybind11)
+add_subdirectory(capture_progress)
 
 include(ExternalProject)
 set(UHD_INSTALL_DIR ${CMAKE_BINARY_DIR}/uhd-install)
@@ -49,8 +50,8 @@ link_directories(${Boost_LIBRARY_DIRS})
 
 # USRP module
 python_add_library(_usrp MODULE src/usrp/usrp.cpp WITH_SOABI)
-target_link_libraries(_usrp PRIVATE pybind11::headers ${UHD_LIBRARIES} ${Boost_LIBRARIES})
-add_dependencies(_usrp uhd)
+target_link_libraries(_usrp PRIVATE pybind11::headers ${UHD_LIBRARIES} ${Boost_LIBRARIES} capture_progress)
+add_dependencies(_usrp uhd capture_progress)
 install(TARGETS _usrp DESTINATION ares_iq_ext/usrp)
 install(FILES src/ares_iq_ext/usrp/__init__.py DESTINATION ares_iq_ext/usrp)
 
