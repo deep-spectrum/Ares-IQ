@@ -8,16 +8,16 @@
  * @author Tom Schmitz \<tschmitz@andrew.cmu.edu\>
  */
 
-#include <uhd/utils/thread.hpp>
 #include <ares-iq/usrp.hpp>
-#include <iostream>
-#include <pybind11/pybind11.h>
-#include <uhd/usrp/multi_usrp.hpp>
 #include <boost/format.hpp>
-#include <vector>
 #include <capture-progress/progress.hpp>
 #include <exception>
+#include <iostream>
 #include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <uhd/usrp/multi_usrp.hpp>
+#include <uhd/utils/thread.hpp>
+#include <vector>
 
 namespace py = pybind11;
 
@@ -26,29 +26,30 @@ const std::string ant("RX");
 
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     py::class_<USRPconfigs>(m, "USRPConfigs")
-            .def(py::init<>())
-            .def_readwrite("dev_type", &USRPconfigs::type)
-            .def_property("samples_per_capture", &USRPconfigs::get_samples_per_capture, &USRPconfigs::set_samples_per_capture)
-            .def_readwrite("subdev", &USRPconfigs::subdev)
-            .def_readwrite("ref", &USRPconfigs::ref)
-            .def_readwrite("rate", &USRPconfigs::rate)
-            .def_readwrite("gain", &USRPconfigs::gain);
+        .def(py::init<>())
+        .def_readwrite("dev_type", &USRPconfigs::type)
+        .def_property("samples_per_capture",
+                      &USRPconfigs::get_samples_per_capture,
+                      &USRPconfigs::set_samples_per_capture)
+        .def_readwrite("subdev", &USRPconfigs::subdev)
+        .def_readwrite("ref", &USRPconfigs::ref)
+        .def_readwrite("rate", &USRPconfigs::rate)
+        .def_readwrite("gain", &USRPconfigs::gain);
 
     py::class_<USRP>(m, "USRP")
-            .def(py::init<const USRPconfigs &>())
-            .def("capture_iq", &USRP::capture_iq)
-            .def("_set_stream_args", &USRP::set_stream_args)
-            .def_property_readonly("dev_args", &USRP::dev_args)
-            .def_property_readonly("samples_per_capture", &USRP::samples_per_capture)
-            .def_property_readonly("subdev", &USRP::subdev)
-            .def_property_readonly("ref", &USRP::ref)
-            .def_property_readonly("rate", &USRP::rate)
-            .def_property_readonly("gain", &USRP::gain);
+        .def(py::init<const USRPconfigs &>())
+        .def("capture_iq", &USRP::capture_iq)
+        .def("_set_stream_args", &USRP::set_stream_args)
+        .def_property_readonly("dev_args", &USRP::dev_args)
+        .def_property_readonly("samples_per_capture",
+                               &USRP::samples_per_capture)
+        .def_property_readonly("subdev", &USRP::subdev)
+        .def_property_readonly("ref", &USRP::ref)
+        .def_property_readonly("rate", &USRP::rate)
+        .def_property_readonly("gain", &USRP::gain);
 }
 
-USRP::USRP(const USRPconfigs &configs) {
-    _configs = configs;
-}
+USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     if (!configured) {
@@ -63,19 +64,24 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t file_size = static_cast<uint64_t>(file_size_gb * 1e9);
-    uint64_t bytes_per_capture = (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) + timestamp_size;
+    uint64_t bytes_per_capture =
+        (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) +
+        timestamp_size;
     uint64_t captures = file_size / bytes_per_capture;
 
     std::vector<Capture> data(captures);
 
-    py::array_t<std::complex<COMPLEX_TEMPLATE_TYPE>> data_array({captures, samples_per_capture});
+    py::array_t<std::complex<COMPLEX_TEMPLATE_TYPE>> data_array(
+        {captures, samples_per_capture});
     py::buffer_info data_buf_info = data_array.request(true);
 
     py::array_t<double> capture_times((ssize_t)captures);
     py::buffer_info time_buf_info = capture_times.request(true);
 
     for (size_t i = 0; i < captures; i++) {
-        data[i].buf = static_cast<std::complex<COMPLEX_TEMPLATE_TYPE>*>(data_buf_info.ptr) + (i * samples_per_capture);
+        data[i].buf = static_cast<std::complex<COMPLEX_TEMPLATE_TYPE> *>(
+                          data_buf_info.ptr) +
+                      (i * samples_per_capture);
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
@@ -83,8 +89,8 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 
     progress.start();
     _start_stream();
-    for (auto& capture : data) {
-        uhd::rx_streamer::buffs_type buf = { static_cast<void*>(capture.buf) };
+    for (auto &capture : data) {
+        uhd::rx_streamer::buffs_type buf = {static_cast<void *>(capture.buf)};
         capture.samples = rx_streamer->recv(buf, samples_per_capture, rx_meta);
         *capture.timestamp = rx_meta.time_spec.get_real_secs();
         progress.update();
@@ -117,43 +123,33 @@ void USRP::_configure_usrp(double center, double bw) {
 }
 
 void USRP::_start_stream() {
-    uhd::stream_cmd_t cmd(uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_START_CONTINUOUS);
+    uhd::stream_cmd_t cmd(
+        uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_START_CONTINUOUS);
     cmd.stream_now = true;
     rx_streamer->issue_stream_cmd(cmd);
 }
 
 void USRP::_stop_stream() {
-    uhd::stream_cmd_t cmd(uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
+    uhd::stream_cmd_t cmd(
+        uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_streamer->issue_stream_cmd(cmd);
 }
 
-void USRP::set_stream_args(int spp) {
-    this->_spp = spp;
-}
+void USRP::set_stream_args(int spp) { this->_spp = spp; }
 
-const std::string &USRP::dev_args() const {
-    return _configs.type;
-}
+const std::string &USRP::dev_args() const { return _configs.type; }
 
 uint64_t USRP::samples_per_capture() const {
     return _configs.samples_per_capture;
 }
 
-const std::string &USRP::subdev() const {
-    return _configs.subdev;
-}
+const std::string &USRP::subdev() const { return _configs.subdev; }
 
-const std::string &USRP::ref() const {
-    return _configs.ref;
-}
+const std::string &USRP::ref() const { return _configs.ref; }
 
-double USRP::rate() const {
-    return _configs.rate;
-}
+double USRP::rate() const { return _configs.rate; }
 
-double USRP::gain() const {
-    return _configs.gain;
-}
+double USRP::gain() const { return _configs.gain; }
 
 void USRPconfigs::set_samples_per_capture(uint64_t spc) {
     if (spc == 0u) {

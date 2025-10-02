@@ -60,4 +60,4 @@ extern "C" {
 #define Z_IS_EMPTY_CASE_0001       ,
 };
 
-#endif //CAPTURE_PROGRESS_LOGGING_UTILS_H
+#endif // CAPTURE_PROGRESS_LOGGING_UTILS_H

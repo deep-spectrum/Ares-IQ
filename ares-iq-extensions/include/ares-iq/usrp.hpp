@@ -11,13 +11,13 @@
 #ifndef ARES_IQ_USRP_HPP
 #define ARES_IQ_USRP_HPP
 
-#include <uhd/usrp/multi_usrp.hpp>
-#include <string>
-#include <cstdint>
 #include <complex>
-#include <vector>
-#include <pybind11/pybind11.h>
+#include <cstdint>
 #include <pybind11/numpy.h>
+#include <pybind11/pybind11.h>
+#include <string>
+#include <uhd/usrp/multi_usrp.hpp>
+#include <vector>
 
 namespace py = pybind11;
 
@@ -38,7 +38,7 @@ struct USRPconfigs {
 };
 
 class USRP {
-public:
+  public:
     explicit USRP(const struct USRPconfigs &configs);
     ~USRP() = default;
 
@@ -52,7 +52,7 @@ public:
     double rate() const;
     double gain() const;
 
-private:
+  private:
     typedef std::vector<std::complex<COMPLEX_TEMPLATE_TYPE>> complex_vec;
 
     struct Capture {
@@ -74,4 +74,4 @@ private:
     void _stop_stream();
 };
 
-#endif //ARES_IQ_USRP_HPP
+#endif // ARES_IQ_USRP_HPP
