@@ -21,6 +21,10 @@
 
 struct USRPconfigs {
     USRPconfigs() = default;
+
+    void set_samples_per_capture(uint64_t spc);
+    uint64_t get_samples_per_capture() const;
+
     std::string type = "";
     uint64_t samples_per_capture = 200000;
     std::string subdev = "A:0";

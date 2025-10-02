@@ -16,6 +16,7 @@
 #include <boost/format.hpp>
 #include <vector>
 #include <capture-progress/progress.hpp>
+#include <exception>
 
 namespace py = pybind11;
 
@@ -26,7 +27,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     py::class_<USRPconfigs>(m, "USRPConfigs")
             .def(py::init<>())
             .def_readwrite("dev_type", &USRPconfigs::type)
-            .def_readwrite("samples_per_capture", &USRPconfigs::samples_per_capture)
+            .def_property("samples_per_capture", &USRPconfigs::get_samples_per_capture, &USRPconfigs::set_samples_per_capture)
             .def_readwrite("subdev", &USRPconfigs::subdev)
             .def_readwrite("ref", &USRPconfigs::ref)
             .def_readwrite("rate", &USRPconfigs::rate)
@@ -45,7 +46,6 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 }
 
 USRP::USRP(const USRPconfigs &configs) {
-    setenv("UHD_LOG", "none", 1);
     _configs = configs;
 }
 
@@ -90,6 +90,9 @@ void USRP::capture_iq(double center, double bw, double file_size_gb) {
 }
 
 void USRP::_open_usrp() {
+    if (_configs.type.empty()) {
+        throw std::invalid_argument("usage error. device arguments missing.");
+    }
     this->usrp = uhd::usrp::multi_usrp::make(_configs.type);
 }
 
@@ -144,4 +147,15 @@ double USRP::rate() const {
 
 double USRP::gain() const {
     return _configs.gain;
+}
+
+void USRPconfigs::set_samples_per_capture(uint64_t spc) {
+    if (spc == 0u) {
+        throw std::range_error("samples_per_capture must be above 0");
+    }
+    samples_per_capture = spc;
+}
+
+uint64_t USRPconfigs::get_samples_per_capture() const {
+    return samples_per_capture;
 }
