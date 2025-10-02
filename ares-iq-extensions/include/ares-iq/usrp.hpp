@@ -58,6 +58,7 @@ class USRP {
     struct Capture {
         std::complex<COMPLEX_TEMPLATE_TYPE> *buf;
         double *timestamp;
+        // Diagnostic info
         size_t samples;
     };
 
