@@ -16,6 +16,10 @@
 #include <cstdint>
 #include <complex>
 #include <vector>
+#include <pybind11/pybind11.h>
+#include <pybind11/numpy.h>
+
+namespace py = pybind11;
 
 #define COMPLEX_TEMPLATE_TYPE float
 
@@ -38,7 +42,7 @@ public:
     explicit USRP(const struct USRPconfigs &configs);
     ~USRP() = default;
 
-    void capture_iq(double center, double bw, double file_size_gb);
+    py::tuple capture_iq(double center, double bw, double file_size_gb);
     void set_stream_args(int spp);
 
     const std::string &dev_args() const;
@@ -50,6 +54,12 @@ public:
 
 private:
     typedef std::vector<std::complex<COMPLEX_TEMPLATE_TYPE>> complex_vec;
+
+    struct Capture {
+        std::complex<COMPLEX_TEMPLATE_TYPE> *buf;
+        double *timestamp;
+        size_t samples;
+    };
 
     USRPconfigs _configs;
     uhd::usrp::multi_usrp::sptr usrp;

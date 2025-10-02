@@ -17,6 +17,7 @@
 #include <vector>
 #include <capture-progress/progress.hpp>
 #include <exception>
+#include <pybind11/numpy.h>
 
 namespace py = pybind11;
 
@@ -49,7 +50,7 @@ USRP::USRP(const USRPconfigs &configs) {
     _configs = configs;
 }
 
-void USRP::capture_iq(double center, double bw, double file_size_gb) {
+py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     if (!configured) {
         uhd::set_thread_priority_safe();
         _open_usrp();
@@ -65,28 +66,33 @@ void USRP::capture_iq(double center, double bw, double file_size_gb) {
     uint64_t bytes_per_capture = (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) + timestamp_size;
     uint64_t captures = file_size / bytes_per_capture;
 
-    std::vector<complex_vec> data(captures);
-    std::vector<uhd::time_spec_t> times;
-    times.reserve(captures);
-    std::vector<size_t> samps;
-    samps.reserve(captures);
-    for (auto& vec : data) {
-        vec.resize(samples_per_capture);
+    std::vector<Capture> data(captures);
+
+    py::array_t<std::complex<COMPLEX_TEMPLATE_TYPE>> data_array({captures, samples_per_capture});
+    py::buffer_info data_buf_info = data_array.request(true);
+
+    py::array_t<double> capture_times((ssize_t)captures);
+    py::buffer_info time_buf_info = capture_times.request(true);
+
+    for (size_t i = 0; i < captures; i++) {
+        data[i].buf = static_cast<std::complex<COMPLEX_TEMPLATE_TYPE>*>(data_buf_info.ptr) + (i * samples_per_capture);
+        data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
     CaptureProgress::Progress progress(captures, samples_per_capture);
 
     progress.start();
     _start_stream();
-    for (auto& buf_ : data) {
-        uhd::rx_streamer::buffs_type buf = { (void*)buf_.data() };
-        size_t samples = rx_streamer->recv(buf, samples_per_capture, rx_meta);
-        times.emplace_back(rx_meta.time_spec);
-        samps.emplace_back(samples);
+    for (auto& capture : data) {
+        uhd::rx_streamer::buffs_type buf = { static_cast<void*>(capture.buf) };
+        capture.samples = rx_streamer->recv(buf, samples_per_capture, rx_meta);
+        *capture.timestamp = rx_meta.time_spec.get_real_secs();
         progress.update();
     }
     _stop_stream();
     progress.update();
+
+    return py::make_tuple(data_array, capture_times);
 }
 
 void USRP::_open_usrp() {
