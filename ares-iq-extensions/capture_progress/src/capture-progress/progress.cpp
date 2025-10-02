@@ -47,18 +47,19 @@ namespace CaptureProgress {
     }
 
     void Progress::start() {
-        LOG_DBG("Starting progress bar");
+        LOG_INF("Starting progress bar");
         _start = std::chrono::system_clock::now();
         _refresh_thread = std::thread(&Progress::_refresh_task, this);
     }
 
     void Progress::update() {
+        LOG_DBG("Updating progress bar");
         std::lock_guard<std::mutex> guard(this->_samples_mtx);
         _samples_captured += _spc;
     }
 
     void Progress::stop() {
-        LOG_DBG("Stopping");
+        LOG_INF("Stopping progress bar");
         _terminate.store(true);
         if (_refresh_thread.joinable()) {
             _refresh_thread.join();
@@ -78,7 +79,7 @@ namespace CaptureProgress {
     }
 
     void Progress::_init_bar() {
-        LOG_DBG("initializing");
+        LOG_INF("Initializing");
         _hide_cursor();
         _draw_opening();
         _draw_bar();
@@ -98,7 +99,7 @@ namespace CaptureProgress {
     }
 
     void Progress::_finalize() {
-        LOG_DBG("Finalizing");
+        LOG_INF("Finalizing");
         if (!_completed()) {
             // leave bar as is
             return;

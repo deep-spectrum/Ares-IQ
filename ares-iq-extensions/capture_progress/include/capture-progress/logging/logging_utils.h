@@ -1,7 +1,7 @@
 /**
  * @file logging_utils.h
  *
- * @brief
+ * @brief This was taken from Zephyr RTOS
  *
  * @date 10/1/25
  *
