@@ -9,7 +9,7 @@
  * @author Tom Schmitz \<tschmitz@andrew.cmu.edu\>
  */
 
-#include <ares-iq/usrp.hpp>
+#include <ares-iq/usrp/usrp.hpp>
 #include <boost/format.hpp>
 #include <capture-progress/progress.hpp>
 #include <exception>
