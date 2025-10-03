@@ -25,28 +25,39 @@ constexpr int32_t timestamp_size = 8;
 const std::string ant("RX");
 
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
-    py::class_<USRPconfigs>(m, "USRPConfigs")
-        .def(py::init<>())
-        .def_readwrite("dev_args", &USRPconfigs::device_args)
-        .def_property("samples_per_capture",
-                      &USRPconfigs::get_samples_per_capture,
-                      &USRPconfigs::set_samples_per_capture)
-        .def_readwrite("subdev", &USRPconfigs::subdev)
-        .def_readwrite("ref", &USRPconfigs::ref)
-        .def_readwrite("rate", &USRPconfigs::rate)
-        .def_readwrite("gain", &USRPconfigs::gain);
+    m.doc() = "USRP Platform low level interface";
 
-    py::class_<USRP>(m, "USRP")
+    py::class_<USRPconfigs>(m, "USRPConfigs",
+                            "Configuration parameters for the USRP.")
+        .def(py::init<>())
+        .def_readwrite("dev_args", &USRPconfigs::device_args,
+                       "Device arguments")
+        .def_property(
+            "samples_per_capture", &USRPconfigs::get_samples_per_capture,
+            &USRPconfigs::set_samples_per_capture, "Samples per capture")
+        .def_readwrite("subdev", &USRPconfigs::subdev,
+                       "RX frontend specification")
+        .def_readwrite("ref", &USRPconfigs::ref,
+                       "Clock source for the USRP device")
+        .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
+        .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
+
+    py::class_<USRP>(m, "USRP",
+                     "The base class for the USRP platform. This should be "
+                     "wrapped with Python.")
         .def(py::init<const USRPconfigs &>())
-        .def("capture_iq", &USRP::capture_iq)
+        .def("capture_iq", &USRP::capture_iq, "Capture IQ data")
         .def("_set_stream_args", &USRP::set_stream_args)
-        .def_property_readonly("dev_args", &USRP::dev_args)
+        .def_property_readonly("dev_args", &USRP::dev_args, "Device arguments")
         .def_property_readonly("samples_per_capture",
-                               &USRP::samples_per_capture)
-        .def_property_readonly("subdev", &USRP::subdev)
-        .def_property_readonly("ref", &USRP::ref)
-        .def_property_readonly("rate", &USRP::rate)
-        .def_property_readonly("gain", &USRP::gain);
+                               &USRP::samples_per_capture,
+                               "Samples per capture")
+        .def_property_readonly("subdev", &USRP::subdev,
+                               "RX frontend specification")
+        .def_property_readonly("ref", &USRP::ref,
+                               "Clock source for the USRP device")
+        .def_property_readonly("rate", &USRP::rate, "RX sample rate")
+        .def_property_readonly("gain", &USRP::gain, "Overall RX gain");
 }
 
 USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
