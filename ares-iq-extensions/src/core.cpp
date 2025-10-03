@@ -1,7 +1,7 @@
 /**
  * @file core.cpp
  *
- * @brief
+ * @brief Core utilities of the ares-iq extension package.
  *
  * @date 9/29/25
  *

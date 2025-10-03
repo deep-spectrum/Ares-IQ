@@ -1,7 +1,7 @@
 /**
  * @file logging.h
  *
- * @brief
+ * @brief Logging utilities.
  *
  * @date 10/1/25
  *

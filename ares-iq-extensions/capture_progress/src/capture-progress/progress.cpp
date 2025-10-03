@@ -1,7 +1,7 @@
 /**
  * @file progress.cpp
  *
- * @brief
+ * @brief The class implementation of the progress bar.
  *
  * @date 10/1/25
  *

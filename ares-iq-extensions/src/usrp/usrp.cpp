@@ -1,7 +1,8 @@
 /**
  * @file usrp.cpp
  *
- * @brief
+ * @brief Implementation of the USRP class and USRPconfigs struct and their
+ * Python bindings.
  *
  * @date 9/29/25
  *

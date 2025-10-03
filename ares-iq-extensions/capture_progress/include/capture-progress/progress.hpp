@@ -1,7 +1,7 @@
 /**
  * @file progress.hpp
  *
- * @brief
+ * @brief Class declaration for a progress bar.
  *
  * @date 10/1/25
  *
@@ -13,19 +13,42 @@
 
 #include <atomic>
 #include <chrono>
-#include <cstdint>
 #include <mutex>
 #include <string>
 #include <thread>
 
 namespace CaptureProgress {
+/**
+ * @class Progress
+ * Implementation of a progress bar in C++.
+ */
 class Progress {
   public:
+    /**
+     * .
+     * @param captures The number of captures needed for completion
+     * @param samples_per_capture The number of samples per a capture
+     */
     explicit Progress(uint64_t captures, uint64_t samples_per_capture);
+
+    /**
+     * .
+     */
     ~Progress();
 
+    /**
+     * Start the progress bar.
+     */
     void start();
+
+    /**
+     * Take 1 step in the progress bar.
+     */
     void update();
+
+    /**
+     * Stop the progress bar.
+     */
     void stop();
 
   private:
