@@ -11,7 +11,9 @@
 #ifndef CAPTURE_PROGRESS_LOGGING_H
 #define CAPTURE_PROGRESS_LOGGING_H
 
+#if __cplusplus
 extern "C" {
+#endif // __cplusplus
 
 #include <capture-progress/logging/logging_utils.h>
 #include <inttypes.h>
@@ -60,6 +62,9 @@ extern "C" {
 #else
 #define LOG_DBG(...) (void)0
 #endif // LOG_LEVEL < LOG_LEVEL_INF
+
+#if __cplusplus
 }
+#endif // __cplusplus
 
 #endif // CAPTURE_PROGRESS_LOGGING_H

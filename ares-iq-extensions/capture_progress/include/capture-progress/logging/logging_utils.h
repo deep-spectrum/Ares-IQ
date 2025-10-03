@@ -11,7 +11,9 @@
 #ifndef CAPTURE_PROGRESS_LOGGING_UTILS_H
 #define CAPTURE_PROGRESS_LOGGING_UTILS_H
 
+#if __cplusplus
 extern "C" {
+#endif // __cplusplus
 
 #define COND_CODE_0(_flag, _if_0_code, _else_code)                             \
     Z_COND_CODE_0(_flag, _if_0_code, _else_code)
@@ -58,6 +60,9 @@ extern "C" {
 #define Z_CAT5(_0, _1, _2, _3, _4) _0##_1##_2##_3##_4
 
 #define Z_IS_EMPTY_CASE_0001       ,
-};
+
+#if __cplusplus
+}
+#endif // __cplusplus
 
 #endif // CAPTURE_PROGRESS_LOGGING_UTILS_H
