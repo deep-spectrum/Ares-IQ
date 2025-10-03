@@ -29,7 +29,10 @@ struct USRPconfigs {
     void set_samples_per_capture(uint64_t spc);
     uint64_t get_samples_per_capture() const;
 
-    std::string type = "";
+    /// Device arguments. These must be defined before trying to run a capture.
+    std::string device_args;
+
+    /// Buffer size for each capture.
     uint64_t samples_per_capture = 200000;
     std::string subdev = "A:0";
     std::string ref = "internal";

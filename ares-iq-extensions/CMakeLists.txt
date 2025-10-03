@@ -61,4 +61,3 @@ target_link_libraries(_core PRIVATE pybind11::headers)
 target_compile_definitions(_core PRIVATE VERSION_INFO=${PROJECT_VERSION})
 install(TARGETS _core DESTINATION ares_iq_ext)
 install(FILES src/ares_iq_ext/__init__.py DESTINATION ares_iq_ext)
-

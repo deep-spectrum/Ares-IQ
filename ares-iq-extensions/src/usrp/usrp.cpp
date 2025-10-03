@@ -12,7 +12,6 @@
 #include <boost/format.hpp>
 #include <capture-progress/progress.hpp>
 #include <exception>
-#include <iostream>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <uhd/usrp/multi_usrp.hpp>
@@ -27,7 +26,7 @@ const std::string ant("RX");
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     py::class_<USRPconfigs>(m, "USRPConfigs")
         .def(py::init<>())
-        .def_readwrite("dev_type", &USRPconfigs::type)
+        .def_readwrite("dev_args", &USRPconfigs::device_args)
         .def_property("samples_per_capture",
                       &USRPconfigs::get_samples_per_capture,
                       &USRPconfigs::set_samples_per_capture)
@@ -102,10 +101,10 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 }
 
 void USRP::_open_usrp() {
-    if (_configs.type.empty()) {
+    if (_configs.device_args.empty()) {
         throw std::invalid_argument("usage error. device arguments missing.");
     }
-    this->usrp = uhd::usrp::multi_usrp::make(_configs.type);
+    this->usrp = uhd::usrp::multi_usrp::make(_configs.device_args);
 }
 
 void USRP::_configure_usrp(double center, double bw) {
@@ -137,7 +136,7 @@ void USRP::_stop_stream() {
 
 void USRP::set_stream_args(int spp) { this->_spp = spp; }
 
-const std::string &USRP::dev_args() const { return _configs.type; }
+const std::string &USRP::dev_args() const { return _configs.device_args; }
 
 uint64_t USRP::samples_per_capture() const {
     return _configs.samples_per_capture;
