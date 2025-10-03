@@ -24,6 +24,13 @@ namespace py = pybind11;
 constexpr int32_t timestamp_size = 8;
 const std::string ant("RX");
 
+constexpr char ref_docstring[] =
+    "Clock source for the USRP device. Note that every USRP device supports "
+    "\"internal\" and \"external\", however, some devices can support more "
+    "arguments for this field. It is recommended that an enum is created for "
+    "each device in the Python abstraction layer, and to use strings "
+    "internally.";
+
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     m.doc() = "USRP Platform low level interface";
 
@@ -37,8 +44,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
             &USRPconfigs::set_samples_per_capture, "Samples per capture")
         .def_readwrite("subdev", &USRPconfigs::subdev,
                        "RX frontend specification")
-        .def_readwrite("ref", &USRPconfigs::ref,
-                       "Clock source for the USRP device")
+        .def_readwrite("ref", &USRPconfigs::ref, ref_docstring)
         .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
         .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
 
