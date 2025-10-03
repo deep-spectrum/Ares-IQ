@@ -172,15 +172,7 @@ const std::string &USRP::subdev() const {
     return _configs.subdev;
 }
 
-const std::string &USRP::ref() const {
-    if (configured) {
-        static std::string configured_ref;
-        configured_ref =
-            usrp->get_clock_source(uhd::usrp::multi_usrp::ALL_MBOARDS);
-        return configured_ref;
-    }
-    return _configs.ref;
-}
+const std::string &USRP::ref() const { return _configs.ref; }
 
 double USRP::rate() const {
     if (configured) {
