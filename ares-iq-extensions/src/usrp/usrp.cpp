@@ -74,7 +74,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
         {captures, samples_per_capture});
     py::buffer_info data_buf_info = data_array.request(true);
 
-    py::array_t<double> capture_times((ssize_t)captures);
+    py::array_t<double> capture_times(static_cast<ssize_t>(captures));
     py::buffer_info time_buf_info = capture_times.request(true);
 
     for (size_t i = 0; i < captures; i++) {
@@ -121,20 +121,29 @@ void USRP::_configure_usrp(double center, double bw) {
     rx_streamer = usrp->get_rx_stream(stream_args);
 }
 
-void USRP::_start_stream() {
+void USRP::_start_stream() const {
     uhd::stream_cmd_t cmd(
         uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_START_CONTINUOUS);
     cmd.stream_now = true;
     rx_streamer->issue_stream_cmd(cmd);
 }
 
-void USRP::_stop_stream() {
+void USRP::_stop_stream() const {
     uhd::stream_cmd_t cmd(
         uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_streamer->issue_stream_cmd(cmd);
 }
 
-void USRP::set_stream_args(int spp) { this->_spp = spp; }
+void USRP::set_stream_args(int spp) {
+    if (spp < 1) {
+        throw py::value_error(
+            (boost::format(
+                 "Cannot set samples per packet to %d. Must be > 0.") %
+             spp)
+                .str());
+    }
+    this->_spp = spp;
+}
 
 const std::string &USRP::dev_args() const { return _configs.device_args; }
 
@@ -142,13 +151,39 @@ uint64_t USRP::samples_per_capture() const {
     return _configs.samples_per_capture;
 }
 
-const std::string &USRP::subdev() const { return _configs.subdev; }
+const std::string &USRP::subdev() const {
+    if (configured) {
+        static std::string subdev;
+        subdev = usrp->get_rx_subdev_spec().to_string();
+        return subdev;
+    }
+    return _configs.subdev;
+}
 
-const std::string &USRP::ref() const { return _configs.ref; }
+const std::string &USRP::ref() const {
+    if (configured) {
+        static std::string configured_ref;
+        configured_ref =
+            usrp->get_clock_source(uhd::usrp::multi_usrp::ALL_MBOARDS);
+        return configured_ref;
+    }
+    return _configs.ref;
+}
 
-double USRP::rate() const { return _configs.rate; }
+double USRP::rate() const {
+    if (configured) {
+        return usrp->get_rx_rate();
+    }
+    return _configs.rate;
+}
 
-double USRP::gain() const { return _configs.gain; }
+double USRP::gain() const {
+    if (configured) {
+        return usrp->get_rx_gain();
+    }
+
+    return _configs.gain;
+}
 
 void USRPconfigs::set_samples_per_capture(uint64_t spc) {
     if (spc == 0u) {

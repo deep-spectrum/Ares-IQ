@@ -160,8 +160,8 @@ class USRP {
 
     void _open_usrp();
     void _configure_usrp(double center, double bw);
-    void _start_stream();
-    void _stop_stream();
+    void _start_stream() const;
+    void _stop_stream() const;
 };
 
 #endif // ARES_IQ_USRP_HPP
