@@ -119,3 +119,27 @@ follow this basic structure:
 5. **Non-compilation Files**:
    Files not needed for compilation (such as documentation) can deviate from the
    basic structure, as this structure is only required for source code
+
+3) Code Style
+===============
+This project has a coding style. When writing your code, you don't have to worry too much
+about styling. However, there are a few things that we ask for you to keep in mind.
+
+3.1) Braces for single-line control statements
+----------------------------------------------
+In both C and C++, the curly braces around single-line control statements can be ommitted. However,
+in this repository, it is considered bad practice to not wrap the single-line control statements
+because it can lead to confusion in the codebase and introduce subtle bugs that are difficult to spot.
+All control statements — ``if``, ``else``, ``for``, ``while``, ``do-while``, ``switch``, and ``case`` —
+must always have curly braces, even if they only contain a single statement.
+
+.. code-block:: C
+
+    // Not OK
+    if (x < 0)
+        x = 0;
+
+    // OK
+    if (x < 0) {
+        x = 0;
+    }
