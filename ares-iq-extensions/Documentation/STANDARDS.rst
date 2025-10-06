@@ -143,3 +143,22 @@ must always have curly braces, even if they only contain a single statement.
     if (x < 0) {
         x = 0;
     }
+
+3.2) Constants
+--------------
+In C++, there are a few ways to define constants, however, not all ways are equal. Since this
+application is running on a processor with plenty of resources at its disposal, use of macros
+as constants is discouraged and should be used sparingly.
+
+.. code-block:: C++
+
+    // Not OK
+    #define FOO_X 27
+
+    // OK
+    constexpr uint32_t foo_x = 27;
+
+    // OK
+    const uint32_t foo_x = 27;
+
+
