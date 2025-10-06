@@ -123,7 +123,9 @@ follow this basic structure:
 3) Code Style
 ===============
 This project has a coding style. When writing your code, you don't have to worry too much
-about styling. However, there are a few things that we ask for you to keep in mind.
+about code formatting as there is a tool that will do that for you automatically. However,
+there are a few things that we ask for you to keep in mind that the formatting tool will not
+catch.
 
 3.1) Braces for single-line control statements
 ----------------------------------------------
@@ -144,6 +146,32 @@ must always have curly braces, even if they only contain a single statement.
         x = 0;
     }
 
+    // Not OK
+    switch(foo) {
+    case 0: doSomething();
+        break;
+    case 1: doOtherThing();
+        break;
+    default: doError();
+        break;
+    }
+
+    // OK
+    switch(foo) {
+    case 0: {
+        doSomething();
+        break;
+    }
+    case 1: {
+        doOtherThing();
+        break;
+    }
+    default: {
+        doError();
+        break;
+    }
+    }
+
 3.2) Constants
 --------------
 In C++, there are a few ways to define constants, however, not all ways are equal. Since this
@@ -161,4 +189,87 @@ as constants is discouraged and should be used sparingly.
     // OK
     const uint32_t foo_x = 27;
 
+3.3) Control Flow
+-----------------
+Control flow is an integral part of programs, however, if used improperly, it will make the
+code look like a giant heap of dog shit. There are a few common practices to consider when
+using control flow.
 
+3.3.1) Nesting
+^^^^^^^^^^^^^^
+Nesting control flow is OK for some things, however, exesive nesting becomes a problem. Only 1
+level of nesting is allowed. If you need 2 or more levels of nesting, maybe consider
+converting your flow chart into a state machine or breaking things up into multiple functions.
+Additionally, C and C++ implement `short-circuit evaluation`_, so that should be used to reduce
+nesting.
+
+.. _short-circuit evaluation: https://www.geeksforgeeks.org/c/short-circuit-evaluation-in-programming/
+
+3.3.2) Centralized exiting of functions
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+Albeit deprecated by some people, the equivalent of the goto statement is used frequently by
+compilers in form of the unconditional jump instruction.
+
+The goto statement comes in handy when a function exits from multiple locations and some
+common work such as cleanup has to be done. If there is no cleanup needed then just return
+directly.
+
+Choose label names which say what the goto does or why the goto exists. An example of a good
+name could be ``out_free_buffer:`` if the goto frees ``buffer``. Avoid using GW-BASIC names
+like ``err1:`` and ``err2:``, as you would have to renumber them if you ever add or remove
+exit paths, and they make correctness difficult to verify anyway.
+
+The rationale for using gotos is:
+
+* unconditional statements are easier to understand and follow
+* nesting is reduced
+* errors by not updating individual exit points when making modifications are prevented
+* saves the compiler work to optimize redundant code away ;)
+
+.. code-block:: C
+
+    int fun(int a) {
+        int result = 0;
+        char *buffer;
+
+        buffer = malloc(SIZE);
+        if (!buffer) {
+            return -ENOMEM;
+        }
+
+        ...
+
+        if (condition1) {
+            while (loop1) {
+                ...
+            }
+            result = 1;
+            goto out_free_buffer;
+        }
+        ...
+    out_free_buffer:
+        free(buffer);
+        return result;
+    }
+
+A common type of bug to be aware of is ``one err bugs`` which look like this:
+
+.. code-block:: C
+
+    err:
+        free(foo->bar);
+        free(foo);
+        return ret;
+
+The bug in this code is that on some exit paths foo is NULL. Normally the fix for this is
+to split it up into two error labels ``err_free_bar:`` and ``err_free_foo:``:
+
+.. code-block:: C
+
+    err_free_bar:
+        free(foo->bar);
+    err_free_foo:
+        free(foo);
+        return ret;
+
+Ideally you should simulate errors to test all exit paths.
