@@ -126,8 +126,7 @@ void Progress::_update_rate() {
     if (iszero(time_diff)) {
         return;
     }
-    double rate = static_cast<double>(_samples_captured) /
-                  static_cast<double>(time_diff) / 1e6;
+    double rate = static_cast<double>(_samples_captured) / time_diff / 1e6;
     std::ostringstream oss;
     oss << std::fixed << std::setprecision(2) << rate << " MS/sec ";
     _rate = oss.str();

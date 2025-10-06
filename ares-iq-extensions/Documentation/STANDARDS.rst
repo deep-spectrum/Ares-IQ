@@ -273,3 +273,71 @@ to split it up into two error labels ``err_free_bar:`` and ``err_free_foo:``:
         return ret;
 
 Ideally you should simulate errors to test all exit paths.
+
+3.4) Use of auto
+----------------
+The ``auto`` keyword can be helpful in a few situation, however, if used excessively, the
+code becomes very difficult to understand and it becomes a pissing game of figuring out what
+variable is what type. For example, this is perfectly valid C++ code:
+
+.. code-block:: C++
+
+    auto foo = 27;
+    auto bar = "27";
+
+Can you predict what the types of ``foo`` and ``bar`` will be at compile time without using
+your IDE? Probably not! That is why it is recommended to only use ``auto`` in certain situations,
+like casting to another type or when you need to use a loop iterator. C++11 does not allow ``auto`` in lambda parameters.
+Below are some examples of bad uses and good uses:
+
+.. code-block:: C++
+
+    // Not OK
+    auto foo = 27;
+
+    // OK
+    auto foo = std::chrono::duration<double>(std::chrono::system_clock::now() - _start).count();
+
+    // OK
+    for (auto &i : foo) {
+        ...
+    }
+
+3.5) Commenting
+---------------
+Comments are good, but there is a danger to over commenting. Do not explain how your code works
+in a comment. It is much better to write the code so that the **working** is obvious, and it's
+a waste of time to explain badly written code.
+
+Generally, you want your comments to tell WHAT your code does, not HOW. Also, try to avoid
+putting comments inside a function body: if the function is so complex that you need to
+separately comment parts of it, you should probably take a look at functions. You can make
+small comments to note or warn about something particularly clever (or ugly), but try to
+avoid excess. Instead, put the comments at the head of the function, telling people what
+it does, and possibly WHY it does it.
+
+When documenting an API, it is only necessary to document the header files. The public API
+should be documented as well as the protected API (if using polymorphism). There is no
+need to document the private API.
+
+When documenting functions, the input parameters as well as the return value should be
+documented. Each public and protected member variable should be documented. Each data
+structure should be documented. Public facing comments should be styled after
+`Doxygen Comment Blocks`_, and private comments should be kept as normal comments (so
+they don't get included in the doc generation).
+
+.. _Doxygen Comment Blocks: https://www.doxygen.nl/manual/docblocks.html#specialblock
+
+3.6) Templates
+--------------
+Something that C++ brings to the table is metaprogramming via templates. These may seem
+nice, but it is advised that they are only used for general library implementations where
+they are not directly used as bindings.
+
+3.7) Polymorphism
+-----------------
+Another thing that C++ brings to the table is polymorphism. This allows someone to base
+their implementation from an existing class definition. This may seem useful, however,
+it can lead to some really bad design decisions that have major impacts on the
+performance or understandablity of the code. Polymorphism should not be used for most
+cases in this library.

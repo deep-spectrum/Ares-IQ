@@ -26,8 +26,8 @@ class Progress {
   public:
     /**
      * .
-     * @param captures The number of captures needed for completion
-     * @param samples_per_capture The number of samples per a capture
+     * @param[in] captures The number of captures needed for completion
+     * @param[in] samples_per_capture The number of samples per a capture
      */
     explicit Progress(uint64_t captures, uint64_t samples_per_capture);
 

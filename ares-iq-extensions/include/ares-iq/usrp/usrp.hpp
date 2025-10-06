@@ -76,7 +76,7 @@ class USRP {
   public:
     /**
      * .
-     * @param configs The configurations for the USRP device
+     * @param[in] configs The configurations for the USRP device
      */
     explicit USRP(const USRPconfigs &configs);
 
@@ -87,9 +87,9 @@ class USRP {
 
     /**
      * Capture IQ data.
-     * @param center The center frequency to tune to.
-     * @param bw The bandwidth of the capture.
-     * @param file_size_gb The amount of data to capture in GB.
+     * @param[in] center The center frequency to tune to.
+     * @param[in] bw The bandwidth of the capture.
+     * @param[in] file_size_gb The amount of data to capture in GB.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
@@ -97,7 +97,7 @@ class USRP {
 
     /**
      * Set the stream arguments.
-     * @param spp The samples per packet.
+     * @param[in] spp The samples per packet.
      *
      * @note This should be called before calling @ref capture_iq(). After @ref
      * capture_iq() is called, the stream arguments are set for the duration of
