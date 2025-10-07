@@ -205,7 +205,38 @@ nesting.
 
 .. _short-circuit evaluation: https://www.geeksforgeeks.org/c/short-circuit-evaluation-in-programming/
 
-3.3.2) Centralized exiting of functions
+3.3.2) Cyclomatic Redundancy
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+There is a metric in software that measures the complexity called "Strict Cyclomatic Complexity."
+This not only measures the amount of paths (via nesting) your software can take, it also measures
+considers the amount of conditions that need to be taken into consideration in order to take that
+path. Consider the two function implementations below:
+
+.. code-block:: C
+
+    void fun1(bool a, bool b) {
+        if (a) {
+            if (b) {
+                ...
+            }
+        }
+    }
+
+    void fun2(bool a, bool b) {
+        if (a && b) {
+            ...
+        }
+    }
+
+Say that ``fun1`` and ``fun2`` do the exact same thing. Under normal McCabe Cyclomatic Complexity,
+``fun2`` (MCC of 2) would be considered better because it has 1 less branch than ``fun1`` (MCC of 3).
+However, under Strict Cyclomatic Complexity, they would be equivalent because each logical operation
+adds a branch.
+
+To maintain simplicity and maintainability of the code, it is asked that most functions have an SCC
+of 10 or below and no functions exceed an SCC of 15.
+
+3.3.3) Centralized exiting of functions
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 Albeit deprecated by some people, the equivalent of the goto statement is used frequently by
 compilers in form of the unconditional jump instruction.
@@ -341,3 +372,48 @@ their implementation from an existing class definition. This may seem useful, ho
 it can lead to some really bad design decisions that have major impacts on the
 performance or understandablity of the code. Polymorphism should not be used for most
 cases in this library.
+
+4) Submitting a PR
+==================
+You wrote an extension and now you want it to be part of the next release. Awesome! There
+are a few things we ask of you before submitting a PR.
+
+4.1) Check the SCC of your code
+-------------------------------
+Run the following command:
+
+.. code-block:: bash
+
+    ./check scc
+
+It should spit out a report of the C++ code base. Fix anything that reports more than
+15, and consider simplifying the functions that report between 11 and 15.
+
+4.2) Check the code style
+-------------------------
+Run the following command:
+
+.. code-block:: bash
+
+    ./check style
+
+Consider fixing all the warnings that get spit out, however, any checks that got disabled
+the files and the line numbers need to be noted in the PR.
+
+4.3) Format the code
+--------------------
+Consistent formatting is necessary to maintain readability of the code base. Luckily, there's
+a tool that does it for you already. Just run the following command:
+
+.. code-block:: bash
+
+    ./check format
+
+Just make sure to commit your code after running that command.
+
+4.4) Ready to submit the PR now?
+--------------------------------
+After running the checks and the formatter, you should be ready to submit your PR now.
+We will ask you to generate a PR summary with github copilot, indicate what platform the
+bindings are written for, and indicate any clang-tidy checks that got disabled as per
+section 3.8.2.

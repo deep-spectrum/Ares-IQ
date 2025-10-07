@@ -145,19 +145,22 @@ void Progress::_draw_bar() const {
     std::u32string remaining_bar;
 
     switch (complete_bars) {
-    case 0:
+    case 0: {
         complete_bar = U"";
         remaining_bar = std::u32string(bar_length, bar_char);
         break;
-    case 1:
+    }
+    case 1: {
         complete_bar = progress_stub;
         remaining_bar = std::u32string(bar_length - 1, bar_char);
         break;
-    default:
+    }
+    default: {
         complete_bar =
             std::u32string(complete_bars - 1, bar_char) + progress_stub;
         remaining_bar = std::u32string(bar_length - complete_bars, bar_char);
         break;
+    }
     }
 
     std::wstring_convert<std::codecvt_utf8<char32_t>, char32_t> converter;
