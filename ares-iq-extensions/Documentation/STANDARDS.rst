@@ -15,7 +15,7 @@ where writing a Python extension is appropriate:
 
 2. The existing Python library/API has major performance issues.
 
-The reasoning of adding the extension must be docummented with benchmarks if applicable.
+The reasoning of adding the extension must be documented with benchmarks if applicable.
 
 1) Language
 ===========
@@ -129,7 +129,7 @@ catch.
 
 3.1) Braces for single-line control statements
 ----------------------------------------------
-In both C and C++, the curly braces around single-line control statements can be ommitted. However,
+In both C and C++, the curly braces around single-line control statements can be omitted. However,
 in this repository, it is considered bad practice to not wrap the single-line control statements
 because it can lead to confusion in the codebase and introduce subtle bugs that are difficult to spot.
 All control statements — ``if``, ``else``, ``for``, ``while``, ``do-while``, ``switch``, and ``case`` —
@@ -370,7 +370,7 @@ they are not directly used as bindings.
 Another thing that C++ brings to the table is polymorphism. This allows someone to base
 their implementation from an existing class definition. This may seem useful, however,
 it can lead to some really bad design decisions that have major impacts on the
-performance or understandablity of the code. Polymorphism should not be used for most
+performance or understandability of the code. Polymorphism should not be used for most
 cases in this library.
 
 4) Submitting a PR
