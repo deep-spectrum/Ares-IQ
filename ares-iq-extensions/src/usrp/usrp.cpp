@@ -88,16 +88,14 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 
     std::vector<Capture> data(captures);
 
-    py::array_t<std::complex<COMPLEX_TEMPLATE_TYPE>> data_array(
-        {captures, samples_per_capture});
+    py::array_t<complex_t> data_array({captures, samples_per_capture});
     py::buffer_info data_buf_info = data_array.request(true);
 
     py::array_t<double> capture_times(static_cast<ssize_t>(captures));
     py::buffer_info time_buf_info = capture_times.request(true);
 
     for (size_t i = 0; i < captures; i++) {
-        data[i].buf = static_cast<std::complex<COMPLEX_TEMPLATE_TYPE> *>(
-                          data_buf_info.ptr) +
+        data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
                       (i * samples_per_capture);
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }

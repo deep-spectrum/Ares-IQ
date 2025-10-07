@@ -142,10 +142,10 @@ class USRP {
     double gain() const;
 
   private:
-    typedef std::vector<std::complex<COMPLEX_TEMPLATE_TYPE>> complex_vec;
+    typedef std::complex<COMPLEX_TEMPLATE_TYPE> complex_t;
 
     struct Capture {
-        std::complex<COMPLEX_TEMPLATE_TYPE> *buf;
+        complex_t *buf;
         double *timestamp;
         // Diagnostic info
         size_t samples;
