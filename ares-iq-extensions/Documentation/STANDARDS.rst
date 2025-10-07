@@ -208,9 +208,9 @@ nesting.
 3.3.2) Cyclomatic Redundancy
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 There is a metric in software that measures the complexity called "Strict Cyclomatic Complexity."
-This not only measures the amount of paths (via nesting) your software can take, it also measures
-considers the amount of conditions that need to be taken into consideration in order to take that
-path. Consider the two function implementations below:
+This not only measures the amount of paths (via nesting) your software can take, it also takes
+the amount of conditions that need to be taken into consideration for all the flow paths.
+Consider the two function implementations below:
 
 .. code-block:: C
 
