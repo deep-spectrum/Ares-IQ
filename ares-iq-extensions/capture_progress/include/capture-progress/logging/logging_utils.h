@@ -21,6 +21,7 @@ extern "C" {
 #define Z_COND_CODE_0(_flag, _if_0_code, _else_code)                           \
     __COND_CODE(_ZZZZ##_flag, _if_0_code, _else_code)
 
+// NOLINTBEGIN(bugprone-reserved-identifier)
 #define _ZZZZ0 _YYYY,
 
 #define __COND_CODE(one_or_two_args, _if_code, _else_code)                     \
@@ -29,8 +30,9 @@ extern "C" {
 #define __GET_ARG2_DEBRACKET(ignore_this, val, ...) __DEBRACKET val
 
 #define __DEBRACKET(...)                            __VA_ARGS__
+// NOLINTEND(bugprone-reserved-identifier)
 
-#define IS_EMPTY(...)                               Z_IS_EMPTY_(__VA_ARGS__)
+#define IS_EMPTY(...) Z_IS_EMPTY_(__VA_ARGS__)
 
 #define Z_IS_EMPTY_(...)                                                       \
     Z_IS_EMPTY__(Z_HAS_COMMA(__VA_ARGS__),                                     \

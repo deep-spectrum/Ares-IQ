@@ -139,8 +139,8 @@ void Progress::_draw_opening() {
 }
 
 void Progress::_draw_bar() const {
-    uint64_t complete_bars = static_cast<uint64_t>(
-        static_cast<double>(bar_length) * _percent_complete);
+    auto complete_bars = static_cast<uint64_t>(static_cast<double>(bar_length) *
+                                               _percent_complete);
     std::u32string complete_bar;
     std::u32string remaining_bar;
 

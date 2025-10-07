@@ -1,0 +1,71 @@
+#!/bin/bash
+
+if tty -s; then
+  n=$(tput sgr0)
+  r=$(tput setaf 1)
+  g=$(tput setaf 2)
+  y=$(tput setaf 3)
+  b=$(tput bold)
+  u=$(tput smul)
+else
+  n=""
+  r=""
+  g=""
+  y=""
+  b=""
+  u=""
+fi
+
+CODE_FILES=$(find src include */src */include \( -name "*.cpp" -o -name "*.hpp" -o -name "*.h" \))
+PYTHON_INCLUDES=$(python3-config --includes | tr ' ' '\n' | sort -u | tr '\n' ' ')
+INCLUDE_FLAGS=$(find . -type d -name include ! -path './extern/*' ! -path './.*/*' -printf '-I%p ')
+
+format_func() {
+  clang-format -i $CODE_FILES
+  echo "Files formatted"
+}
+
+scc_func() {
+  printf "SCC Report:\n"
+  printf "Status\tSCC\tfilename(definition line number):function\n"
+  pmccabe $CODE_FILES | awk -v r="$r" -v g="$g" -v y="$y" -v n="$n" '
+  {
+    if ($1 <= 10)
+      printf "%sOK\t%s\t%s %s%s\n", g, $1, $6, $7, n;
+    else if ($1 <= 15)
+      printf "%sWARNING\t%s\t%s %s%s\n", y, $1, $6, $7, n;
+    else
+      printf "%sERROR\t%s\t%s %s%s\n", r, $1, $6, $7, n;
+  }'
+}
+
+style_func() {
+  clang-tidy -header-filter='^((?!extern/).)*$' $CODE_FILES -- \
+  $PYTHON_INCLUDES $INCLUDE_FLAGS -isystem extern/pybind11/include -isystem extern/uhd/host/include
+}
+
+USAGE_MSG="Usage: $0 <format|scc|style>"
+
+if [ "$#" -lt 1 ]; then
+  echo $USAGE_MSG
+  exit 1
+fi
+
+input="$1"
+
+case "$input" in
+  format)
+    format_func
+    ;;
+  scc)
+    scc_func
+    ;;
+  style)
+    style_func
+    ;;
+  *)
+    echo "Invalid argument: $input"
+    echo $USAGE_MSG
+    exit 1
+    ;;
+esac

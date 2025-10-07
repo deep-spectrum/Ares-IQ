@@ -1,5 +1,0 @@
-#!/bin/bash
-
-FORMAT_FILES=$(find src include capture_progress/src capture_progress/include  -name "*.cpp" -o -name "*.hpp" -o -name "*.h")
-
-clang-format -i $FORMAT_FILES

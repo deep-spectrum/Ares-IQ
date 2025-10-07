@@ -80,7 +80,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     }
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
-    uint64_t file_size = static_cast<uint64_t>(file_size_gb * 1e9);
+    auto file_size = static_cast<uint64_t>(file_size_gb * 1e9);
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) +
         timestamp_size;

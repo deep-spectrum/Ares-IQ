@@ -19,12 +19,13 @@ extern "C" {
 #include <inttypes.h>
 #include <stdio.h>
 
-#define LOG_LEVEL_OFF            4
-#define LOG_LEVEL_ERR            3
-#define LOG_LEVEL_WRN            2
-#define LOG_LEVEL_INF            1
-#define LOG_LEVEL_DBG            0
+#define LOG_LEVEL_OFF 4
+#define LOG_LEVEL_ERR 3
+#define LOG_LEVEL_WRN 2
+#define LOG_LEVEL_INF 1
+#define LOG_LEVEL_DBG 0
 
+// NOLINTBEGIN(bugprone-reserved-identifier)
 #define _RESET_COLOR             "\033[0m"
 #define _ERR_COLOR               "\033[38;2;193;29;40m"
 #define _WRN_COLOR               "\033[38;2;163;115;76m"
@@ -38,6 +39,7 @@ extern "C" {
         IS_EMPTY(__VA_ARGS__),                                                 \
         (_LOG_MSG_ARGS(escape_code_ level_ _RESET_COLOR msg_, __VA_ARGS__)),   \
         (_LOG_MSG_NO_ARGS(escape_code_ level_ _RESET_COLOR msg_)))
+// NOLINTEND(bugprone-reserved-identifier)
 
 #if LOG_LEVEL < LOG_LEVEL_OFF
 #define LOG_ERR(msg_, ...) _LOG_MSG(_ERR_COLOR, "[ERR]", msg_, __VA_ARGS__)
