@@ -416,4 +416,4 @@ Just make sure to commit your code after running that command.
 After running the checks and the formatter, you should be ready to submit your PR now.
 We will ask you to generate a PR summary with github copilot, indicate what platform the
 bindings are written for, and indicate any clang-tidy checks that got disabled as per
-section 3.8.2.
+section 4.2.
