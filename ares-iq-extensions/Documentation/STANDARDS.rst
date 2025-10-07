@@ -197,7 +197,7 @@ using control flow.
 
 3.3.1) Nesting
 ^^^^^^^^^^^^^^
-Nesting control flow is OK for some things, however, exesive nesting becomes a problem. Only 1
+Nesting control flow is OK for some things, however, excessive nesting becomes a problem. Only 1
 level of nesting is allowed. If you need 2 or more levels of nesting, maybe consider
 converting your flow chart into a state machine or breaking things up into multiple functions.
 Additionally, C and C++ implement `short-circuit evaluation`_, so that should be used to reduce
