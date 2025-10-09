@@ -158,10 +158,17 @@ class USRP {
     int _spp = 200;
     bool configured = false;
 
+    int _stdout = -1;
+    int _stderr = -1;
+    int _dev_null = -1;
+
     void _open_usrp();
     void _configure_usrp(double center, double bw);
     void _start_stream() const;
     void _stop_stream() const;
+
+    void _disable_console_output();
+    void _enable_console_output() const;
 };
 
 #endif // ARES_IQ_USRP_HPP

@@ -19,6 +19,11 @@
 #include <uhd/utils/thread.hpp>
 #include <vector>
 
+extern "C" {
+#include <fcntl.h>
+#include <unistd.h>
+}
+
 namespace py = pybind11;
 
 constexpr int32_t timestamp_size = 8;
@@ -70,10 +75,12 @@ USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     if (!configured) {
+        _disable_console_output();
         uhd::set_thread_priority_safe();
         _open_usrp();
         _configure_usrp(center, bw);
         configured = true;
+        _enable_console_output();
     } else {
         usrp->set_rx_freq(uhd::tune_request_t(center));
         usrp->set_rx_bandwidth(bw);
@@ -104,14 +111,21 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 
     progress.start();
     _start_stream();
-    for (auto &capture : data) {
-        uhd::rx_streamer::buffs_type buf = {static_cast<void *>(capture.buf)};
-        capture.samples = rx_streamer->recv(buf, samples_per_capture, rx_meta);
-        *capture.timestamp = rx_meta.time_spec.get_real_secs();
+    try {
+        for (auto &capture : data) {
+            uhd::rx_streamer::buffs_type buf = {
+                static_cast<void *>(capture.buf)};
+            capture.samples =
+                rx_streamer->recv(buf, samples_per_capture, rx_meta);
+            *capture.timestamp = rx_meta.time_spec.get_real_secs();
+            progress.update();
+        }
+        _stop_stream();
         progress.update();
+    } catch (const py::error_already_set &e) {
+        progress.stop(&e);
+        throw;
     }
-    _stop_stream();
-    progress.update();
 
     return py::make_tuple(data_array, capture_times);
 }
@@ -148,6 +162,24 @@ void USRP::_stop_stream() const {
     uhd::stream_cmd_t cmd(
         uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_streamer->issue_stream_cmd(cmd);
+}
+
+void USRP::_disable_console_output() {
+    _dev_null = open("/dev/null", O_WRONLY);
+    _stderr = dup(STDERR_FILENO);
+    _stdout = dup(STDOUT_FILENO);
+
+    dup2(_dev_null, STDERR_FILENO);
+    dup2(_dev_null, STDOUT_FILENO);
+}
+
+void USRP::_enable_console_output() const {
+    dup2(_stdout, STDOUT_FILENO);
+    dup2(_stderr, STDERR_FILENO);
+
+    close(_stdout);
+    close(_stderr);
+    close(_dev_null);
 }
 
 void USRP::set_stream_args(int spp) {

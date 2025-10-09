@@ -6,7 +6,7 @@ build-backend = "scikit_build_core.build"
 name = "ares-iq-extensions"
 version = "0.0.0"
 description = "C++ extension libraries for ares-iq"
-readme = "README.rst"
+readme = "README.md"
 authors = [
     { name = "Tom Schmitz", email = "tschmitz@andrew.cmu.edu" },
 ]
@@ -15,6 +15,9 @@ classifiers = [
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+]
+dependencies = [
+    "numpy",
 ]
 
 [dependency-groups]
