@@ -8,14 +8,21 @@
  * @author Tom Schmitz \<tschmitz@andrew.cmu.edu\>
  */
 
-#include <capture-progress/logging/logging.h>
 #include <capture-progress/progress.hpp>
-#include <cmath>
 #include <codecvt>
 #include <iomanip>
 #include <iostream>
 #include <locale>
 #include <sstream>
+
+#if defined(USE_PYTHON_LIB)
+#include <memory>
+#include <pybind11/embed.h>
+namespace py = pybind11;
+#else
+#include <capture-progress/logging/logging.h>
+#include <cmath>
+#endif // defined(USE_PYTHON_LIB)
 
 namespace CaptureProgress {
 constexpr char32_t bar_char(U'━');
@@ -34,6 +41,7 @@ constexpr long seconds_per_hour = 3600;
 constexpr long seconds_per_minute = 60;
 constexpr long minutes_per_hour = 60;
 
+#if defined(USE_PYTHON_LIB)
 class __attribute__((visibility("hidden"))) StupidFuckingIdiom {
   public:
     py::object ctx;
@@ -58,6 +66,7 @@ class __attribute__((visibility("hidden"))) StupidFuckingIdiom {
         }
     }
 };
+#endif // defined(USE_PYTHON_LIB)
 
 Progress::Progress(uint64_t captures, uint64_t samples_per_capture) {
 #if defined(USE_PYTHON_LIB)

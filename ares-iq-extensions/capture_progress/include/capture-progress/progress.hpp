@@ -17,13 +17,6 @@
 #include <string>
 #include <thread>
 
-#if defined(USE_PYTHON_LIB)
-#include <memory>
-#include <pybind11/embed.h>
-namespace py = pybind11;
-
-#endif // defined(USE_PYTHON_LIB)
-
 namespace CaptureProgress {
 
 #if defined(USE_PYTHON_LIB)
