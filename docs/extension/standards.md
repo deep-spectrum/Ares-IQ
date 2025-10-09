@@ -1,7 +1,9 @@
 # Coding Standards
 
-This is a short document describing the coding standards of the Ares-IQ
-Python extensions.
+!!! abstract
+
+    This is a short document describing the coding standards of the Ares-IQ
+    Python extensions.
 
 ## 0) When is it Appropriate to Write an Extension
 

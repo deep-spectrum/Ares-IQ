@@ -19,7 +19,6 @@ name = "ares-iq"
 version = "0.0.0"
 source = { editable = "." }
 dependencies = [
-    { name = "ares-iq-extensions" },
     { name = "distro" },
     { name = "h5py" },
     { name = "numpy" },
@@ -51,7 +50,6 @@ jax = [
 
 [package.metadata]
 requires-dist = [
-    { name = "ares-iq-extensions", editable = "ares-iq-extensions" },
     { name = "coverage", marker = "extra == 'dev'" },
     { name = "distro" },
     { name = "griffe", marker = "extra == 'docs'", specifier = "==1.8.0" },
