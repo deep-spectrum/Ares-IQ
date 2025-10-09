@@ -17,7 +17,19 @@
 #include <string>
 #include <thread>
 
+#if defined(USE_PYTHON_LIB)
+#include <memory>
+#include <pybind11/embed.h>
+namespace py = pybind11;
+
+#endif // defined(USE_PYTHON_LIB)
+
 namespace CaptureProgress {
+
+#if defined(USE_PYTHON_LIB)
+class StupidFuckingIdiom;
+#endif // defined(USE_PYTHON_LIB)
+
 /**
  * @class Progress
  * Implementation of a progress bar in C++.
@@ -49,9 +61,10 @@ class Progress {
     /**
      * Stop the progress bar.
      */
-    void stop();
+    void stop(const void *exception = nullptr);
 
   private:
+#if !defined(USE_PYTHON_LIB)
     std::thread _refresh_thread;
     std::mutex _samples_mtx;
     uint64_t _spc;
@@ -78,6 +91,9 @@ class Progress {
     static void _reset_cursor();
     static void _hide_cursor();
     static void _restore_cursor();
+#else
+    std::unique_ptr<StupidFuckingIdiom> _impl;
+#endif // !defined(USE_PYTHON_LIB)
 };
 } // namespace CaptureProgress
 

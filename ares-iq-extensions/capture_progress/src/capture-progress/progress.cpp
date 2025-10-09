@@ -34,36 +34,80 @@ constexpr long seconds_per_hour = 3600;
 constexpr long seconds_per_minute = 60;
 constexpr long minutes_per_hour = 60;
 
+class __attribute__((visibility("hidden"))) StupidFuckingIdiom {
+  public:
+    py::object ctx;
+    py::object progress;
+
+    StupidFuckingIdiom(uint64_t captures, uint64_t samples_per_capture) {
+        // TODO: Put print utils somewhere else???
+        py::module_ mod_ = py::module_::import("ares_iq.print_utils");
+        ctx = mod_.attr("CaptureProgress")(captures, samples_per_capture);
+    }
+
+    void start() { progress = ctx.attr("__enter__")(); }
+
+    void update() const { (void)progress.attr("update")(); }
+
+    void stop(const void *exception) const {
+        if (exception) {
+            auto e = static_cast<const py::error_already_set *>(exception);
+            (void)ctx.attr("__exit__")(e->type(), e->value(), e->trace());
+        } else {
+            ctx.attr("__exit__")(py::none(), py::none(), py::none());
+        }
+    }
+};
+
 Progress::Progress(uint64_t captures, uint64_t samples_per_capture) {
+#if defined(USE_PYTHON_LIB)
+    _impl = std::unique_ptr<StupidFuckingIdiom>(
+        new StupidFuckingIdiom(captures, samples_per_capture));
+#else
     _total_samples = captures * samples_per_capture;
     _spc = samples_per_capture;
     LOG_DBG("Number of captures: %" PRIu64, captures);
     LOG_DBG("Samples per capture: %" PRIu64, samples_per_capture);
     LOG_DBG("Total samples to capture: %" PRIu64, _total_samples);
+#endif // defined(USE_PYTHON_LIB)
 }
 
 Progress::~Progress() { stop(); }
 
 void Progress::start() {
+#if defined(USE_PYTHON_LIB)
+    _impl->start();
+#else
     LOG_INF("Starting progress bar");
     _start = std::chrono::system_clock::now();
     _refresh_thread = std::thread(&Progress::_refresh_task, this);
+#endif // defined(USE_PYTHON_LIB)
 }
 
 void Progress::update() {
+#if defined(USE_PYTHON_LIB)
+    _impl->update();
+#else
     LOG_DBG("Updating progress bar");
     std::lock_guard<std::mutex> guard(this->_samples_mtx);
     _samples_captured += _spc;
+#endif // defined(USE_PYTHON_LIB)
 }
 
-void Progress::stop() {
+void Progress::stop(const void *exception) {
+#if defined(USE_PYTHON_LIB)
+    _impl->stop(exception);
+#else
     LOG_INF("Stopping progress bar");
+    (void)exception;
     _terminate.store(true);
     if (_refresh_thread.joinable()) {
         _refresh_thread.join();
     }
+#endif // defined(USE_PYTHON_LIB)
 }
 
+#if !defined(USE_PYTHON_LIB)
 void Progress::_refresh_task() {
     _init_bar();
 
@@ -199,4 +243,5 @@ void Progress::_hide_cursor() { std::cout << "\033[?25l" << std::flush; }
 void Progress::_restore_cursor() {
     std::cout << "\r\n" << default_color << "\033[?25h" << std::flush;
 }
+#endif // !defined(USE_PYTHON_LIB)
 } // namespace CaptureProgress
