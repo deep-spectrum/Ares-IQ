@@ -42,25 +42,25 @@ extern "C" {
 // NOLINTEND(bugprone-reserved-identifier)
 
 #if LOG_LEVEL < LOG_LEVEL_OFF
-#define LOG_ERR(msg_, ...) _LOG_MSG(_ERR_COLOR, "[ERR]", msg_, __VA_ARGS__)
+#define LOG_ERR(msg_, ...) _LOG_MSG(_ERR_COLOR, "[ERR] ", msg_, __VA_ARGS__)
 #else
 #define LOG_ERR(...) (void)0
 #endif // LOG_LEVEL < LOG_LEVEL_OFF
 
 #if LOG_LEVEL < LOG_LEVEL_ERR
-#define LOG_WRN(msg_, ...) _LOG_MSG(_WRN_COLOR, "[WRN]", msg_, __VA_ARGS__)
+#define LOG_WRN(msg_, ...) _LOG_MSG(_WRN_COLOR, "[WRN] ", msg_, __VA_ARGS__)
 #else
 #define LOG_WRN(...) (void)0
 #endif // LOG_LEVEL < LOG_LEVEL_ERR
 
 #if LOG_LEVEL < LOG_LEVEL_WRN
-#define LOG_INF(msg_, ...) _LOG_MSG(_INF_COLOR, "[INF]", msg_, __VA_ARGS__)
+#define LOG_INF(msg_, ...) _LOG_MSG(_INF_COLOR, "[INF] ", msg_, __VA_ARGS__)
 #else
 #define LOG_INF(...) (void)0
 #endif // LOG_LEVEL < LOG_LEVEL_WRN
 
 #if LOG_LEVEL < LOG_LEVEL_INF
-#define LOG_DBG(msg_, ...) _LOG_MSG(_DBG_COLOR, "[DBG]", msg_, __VA_ARGS__)
+#define LOG_DBG(msg_, ...) _LOG_MSG(_DBG_COLOR, "[DBG] ", msg_, __VA_ARGS__)
 #else
 #define LOG_DBG(...) (void)0
 #endif // LOG_LEVEL < LOG_LEVEL_INF
