@@ -1,0 +1,41 @@
+cmake_minimum_required(VERSION 3.15)
+project(capture_progress)
+
+set(CMAKE_CXX_STANDARD 11)
+
+option(USE_PYTHON_LIB "Use Python library implementation of CaptureProgress" OFF)
+
+set(LOG_LEVEL "off" CACHE STRING "Logging level: off, err, wrn, inf, dbg")
+set_property(CACHE LOG_LEVEL PROPERTY STRINGS off err wrn inf dbg)
+
+if (LOG_LEVEL STREQUAL "off")
+    set(LOG_LEVEL_VAL 4)
+elseif (LOG_LEVEL STREQUAL "err")
+    set(LOG_LEVEL_VAL 3)
+elseif (LOG_LEVEL STREQUAL "wrn")
+    set(LOG_LEVEL_VAL 2)
+elseif (LOG_LEVEL STREQUAL "inf")
+    set(LOG_LEVEL_VAL 1)
+elseif (LOG_LEVEL STREQUAL "dbg")
+    set(LOG_LEVEL_VAL 0)
+else ()
+    message(WARNING "Log level not set. Selecting inf level")
+    set(LOG_LEVEL_VAL 1)
+endif ()
+
+add_library(capture_progress STATIC src/capture-progress/progress.cpp)
+set_target_properties(capture_progress PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(capture_progress PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+target_compile_definitions(capture_progress PRIVATE LOG_LEVEL=${LOG_LEVEL_VAL})
+
+if (USE_PYTHON_LIB)
+    find_package(pybind11 QUIET)
+
+    if (TARGET pybind11::embed)
+        message(STATUS "Found pybind11::embed")
+        target_link_libraries(capture_progress PRIVATE pybind11::embed)
+        target_compile_definitions(capture_progress PRIVATE USE_PYTHON_LIB)
+    else()
+        message(WARNING "USE_PYTHON_LIB is ON but pybind11::embed is not available")
+    endif()
+endif()

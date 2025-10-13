@@ -3,6 +3,9 @@ repo_url: https://github.com/deep-spectrum/Ares-IQ
 repo_name: deep-spectrum/Ares-IQ
 nav:
   - Home: index.md
+  - Extension:
+      - Overview: extension/index.md
+      - Style / Standards: extension/standards.md
 
 extra_css:
 - stylesheets/extra.css
