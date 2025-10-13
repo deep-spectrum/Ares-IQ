@@ -39,7 +39,7 @@ constexpr char ref_docstring[] =
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     m.doc() = "USRP Platform low level interface";
 
-    py::class_<USRPconfigs>(m, "USRPConfigs",
+    py::class_<USRPconfigs>(m, "_USRPConfigs",
                             "Configuration parameters for the USRP.")
         .def(py::init<>())
         .def_readwrite("dev_args", &USRPconfigs::device_args,
@@ -53,7 +53,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
         .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
 
-    py::class_<USRP>(m, "USRP",
+    py::class_<USRP>(m, "_USRP",
                      "The base class for the USRP platform. This should be "
                      "wrapped with Python.")
         .def(py::init<const USRPconfigs &>())
