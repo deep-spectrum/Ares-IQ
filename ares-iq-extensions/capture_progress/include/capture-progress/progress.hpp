@@ -34,7 +34,8 @@ class Progress {
      * @param[in] captures The number of captures needed for completion
      * @param[in] samples_per_capture The number of samples per a capture
      */
-    explicit Progress(uint64_t captures, uint64_t samples_per_capture);
+    explicit Progress(uint64_t captures, uint64_t samples_per_capture,
+                      bool hide = false);
 
     /**
      * .
@@ -58,6 +59,7 @@ class Progress {
 
   private:
 #if !defined(USE_PYTHON_LIB)
+    bool _hide;
     std::thread _refresh_thread;
     std::mutex _samples_mtx;
     uint64_t _spc;
