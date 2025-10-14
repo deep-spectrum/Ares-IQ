@@ -1,25 +1,23 @@
 from ares_iq_ext.usrp import _USRP
 from ares_iq.iq_data import IQData
 from decimal import Decimal
-import typer
-from typing_extensions import Annotated
-from ares_iq.configurations import load_config_section, save_config_section
+from abc import ABCMeta, abstractmethod
 
 
-class USRP(_USRP):
+__USRPMeta = type(_USRP)
+
+
+class _USRPMeta(__USRPMeta, ABCMeta):
+    pass
+
+
+class USRP(_USRP, metaclass=_USRPMeta):
     _iq_data: list[IQData]
     _quantized_data: list[None]
-    app = typer.Typer()
 
+    @abstractmethod
     def _stream_args(self):
-        configs = load_config_section("usrp-stream-configs")
-
-        if "spp" not in configs:
-            spp = 200
-        else:
-            spp = int(configs["spp"])
-
-        self._set_stream_args(spp)
+        pass
 
     def capture_iq(self, center: float, bw: float, file_size: float):
         self._stream_args()
@@ -31,7 +29,11 @@ class USRP(_USRP):
             iq.ts_sec = int(ts)
             iq.ts_nsec = int((Decimal(ts) - iq.ts_sec) * Decimal('1e9'))
 
-        # TODO quantize
+        self._quantize()
+
+    @abstractmethod
+    def _quantize(self):
+        pass
 
     @property
     def iq_data(self) -> list[IQData]:
@@ -40,12 +42,3 @@ class USRP(_USRP):
     @property
     def quantized_data(self) -> list[None]:
         return self._quantized_data
-
-    @staticmethod
-    @app.command('usrp-stream-args', help='Set USRP platform stream arguments')
-    def stream_args(spp: Annotated[int | None, typer.Option(help="Samples per packet")] = None):
-        configs = load_config_section("usrp-stream-configs")
-        if spp is not None:
-            configs["spp"] = str(spp)
-
-        save_config_section("usrp-stream-configs", configs)
