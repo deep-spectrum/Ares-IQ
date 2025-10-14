@@ -73,7 +73,8 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 
 USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
-py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
+py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
+                           bool verbose) {
     if (!configured) {
         _disable_console_output();
         uhd::set_thread_priority_safe();
@@ -107,7 +108,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
-    CaptureProgress::Progress progress(captures, samples_per_capture);
+    CaptureProgress::Progress progress(captures, samples_per_capture, !verbose);
 
     progress.start();
     _start_stream();

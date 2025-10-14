@@ -93,7 +93,8 @@ class USRP {
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
-    py::tuple capture_iq(double center, double bw, double file_size_gb);
+    py::tuple capture_iq(double center, double bw, double file_size_gb,
+                         bool verbose);
 
     /**
      * Set the stream arguments.
