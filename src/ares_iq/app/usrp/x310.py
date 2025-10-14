@@ -13,7 +13,7 @@ class X310Device(USRP):
     def _load_configs():
         configs = load_config_section('x310-configs')
         configs_ = _USRPConfigs()
-        configs_.dev_args = "type=x310"
+        configs_.dev_args = "type=x300"
 
         if "spc" in configs:
             configs_.samples_per_capture = int(configs["spc"])
