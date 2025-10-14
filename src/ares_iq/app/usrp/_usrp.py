@@ -2,6 +2,7 @@ from ares_iq_ext.usrp import _USRP
 from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import ABCMeta, abstractmethod
+from ares_iq.print_utils import print_error
 
 
 __USRPMeta = type(_USRP)
@@ -21,7 +22,10 @@ class USRP(_USRP, metaclass=_USRPMeta):
 
     def capture_iq(self, center: float, bw: float, file_size: float):
         self._stream_args()
-        iq_data, timestamps = super().capture_iq(center, bw, file_size)
+        try:
+            iq_data, timestamps = super().capture_iq(center, bw, file_size)
+        except ValueError as e:
+            print_error(str(e))
 
         self._iq_data = [IQData() for _ in range(len(timestamps))]
         for data, ts, iq in zip(iq_data, timestamps, self._iq_data):
