@@ -75,12 +75,7 @@ USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     if (!configured) {
-        _disable_console_output();
-        uhd::set_thread_priority_safe();
-        _open_usrp();
-        _configure_usrp(center, bw);
-        configured = true;
-        _enable_console_output();
+        _configure(center, bw);
     } else {
         usrp->set_rx_freq(uhd::tune_request_t(center));
         usrp->set_rx_bandwidth(bw);
@@ -162,6 +157,34 @@ void USRP::_stop_stream() const {
     uhd::stream_cmd_t cmd(
         uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_streamer->issue_stream_cmd(cmd);
+}
+
+void USRP::_configure(double center, double bw) {
+    _disable_console_output();
+    std::string err_msg = "";
+
+    try {
+        uhd::set_thread_priority_safe();
+        _open_usrp();
+        _configure_usrp(center, bw);
+        configured = true;
+    } catch (const std::exception &ex) {
+        err_msg = ex.what();
+    }
+
+    if (!err_msg.empty()) {
+        // Needed because UHD for some fucking reason feels the need to
+        // log everything...
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    _enable_console_output();
+
+    if (!err_msg.empty()) {
+        throw std::invalid_argument(err_msg);
+    }
+
+    configured = true;
 }
 
 void USRP::_disable_console_output() {

@@ -166,6 +166,7 @@ class USRP {
     void _configure_usrp(double center, double bw);
     void _start_stream() const;
     void _stop_stream() const;
+    void _configure(double center, double bw);
 
     void _disable_console_output();
     void _enable_console_output() const;
