@@ -32,7 +32,8 @@ dev = [
     "coverage",
     "pytest-cov",
     "pyright >= 1.0.0",
-    "ruff >= 0.11.0"
+    "ruff >= 0.11.0",
+    "mypy"
 ]
 docs = [
     "mkdocs == 1.6.*",
