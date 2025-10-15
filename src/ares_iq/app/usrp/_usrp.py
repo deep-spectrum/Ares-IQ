@@ -23,7 +23,7 @@ class USRP(_USRP, metaclass=_USRPMeta):
     def capture_iq(self, center: float, bw: float, file_size: float, verbose: bool, extra: bool):
         self._stream_args()
         try:
-            iq_data, timestamps = super().capture_iq(center, bw, file_size, verbose)
+            iq_data, timestamps = super().capture_iq(center, bw, file_size, verbose, extra)
         except ValueError as e:
             print_error(str(e))
 
