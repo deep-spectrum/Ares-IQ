@@ -88,7 +88,7 @@ class BB60Device:
         captures = math.ceil(file_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]
 
-        with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not verbose) as progress:
+        with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:
             for iq in self._iq_data:
                 data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
                 iq.iq = data["iq"]

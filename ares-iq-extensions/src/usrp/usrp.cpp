@@ -104,7 +104,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
-    CaptureProgress::Progress progress(captures, samples_per_capture, !verbose);
+    CaptureProgress::Progress progress(captures, samples_per_capture, !(verbose || extra));
 
     progress.start();
     _start_stream();
