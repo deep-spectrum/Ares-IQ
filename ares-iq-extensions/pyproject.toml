@@ -4,7 +4,7 @@ build-backend = "scikit_build_core.build"
 
 [project]
 name = "ares-iq-extensions"
-version = "0.0.0"
+version = "0.0.1"
 description = "C++ extension libraries for ares-iq"
 readme = "README.md"
 authors = [

@@ -39,7 +39,7 @@ constexpr char ref_docstring[] =
 PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
     m.doc() = "USRP Platform low level interface";
 
-    py::class_<USRPconfigs>(m, "USRPConfigs",
+    py::class_<USRPconfigs>(m, "_USRPConfigs",
                             "Configuration parameters for the USRP.")
         .def(py::init<>())
         .def_readwrite("dev_args", &USRPconfigs::device_args,
@@ -53,7 +53,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
         .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
 
-    py::class_<USRP>(m, "USRP",
+    py::class_<USRP>(m, "_USRP",
                      "The base class for the USRP platform. This should be "
                      "wrapped with Python.")
         .def(py::init<const USRPconfigs &>())
@@ -75,12 +75,7 @@ USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
     if (!configured) {
-        _disable_console_output();
-        uhd::set_thread_priority_safe();
-        _open_usrp();
-        _configure_usrp(center, bw);
-        configured = true;
-        _enable_console_output();
+        _configure(center, bw);
     } else {
         usrp->set_rx_freq(uhd::tune_request_t(center));
         usrp->set_rx_bandwidth(bw);
@@ -162,6 +157,34 @@ void USRP::_stop_stream() const {
     uhd::stream_cmd_t cmd(
         uhd::stream_cmd_t::stream_mode_t::STREAM_MODE_STOP_CONTINUOUS);
     rx_streamer->issue_stream_cmd(cmd);
+}
+
+void USRP::_configure(double center, double bw) {
+    _disable_console_output();
+    std::string err_msg = "";
+
+    try {
+        uhd::set_thread_priority_safe();
+        _open_usrp();
+        _configure_usrp(center, bw);
+        configured = true;
+    } catch (const std::exception &ex) {
+        err_msg = ex.what();
+    }
+
+    if (!err_msg.empty()) {
+        // Needed because UHD for some fucking reason feels the need to
+        // log everything...
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    _enable_console_output();
+
+    if (!err_msg.empty()) {
+        throw std::invalid_argument(err_msg);
+    }
+
+    configured = true;
 }
 
 void USRP::_disable_console_output() {
