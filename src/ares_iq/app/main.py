@@ -39,14 +39,15 @@ def capture(
         center: Annotated[float, typer.Option("--center", "-c", help='Center frequency of the capture in MHz')] = 2450,
         bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
-        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Show verbose output and progress bar')] = False):
+        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Show verbose output and progress bar')] = False,
+        extra_verbose: Annotated[bool, typer.Option("--extra-verbose", "-vvv", help='Like verbose, but show logging messages too')] = False):
     configs = load_config_section("platform")
     if "hw" not in configs:
         raise typer.Abort("Please run set-platform first")
 
     if PLATFORMS[configs["hw"]] is None:
         raise typer.Abort(f"{configs['hw']} is not supported yet.")
-    PLATFORMS[configs["hw"]].capture_iq(center * 1e6, bw * 1e6, file_size, verbose)
+    PLATFORMS[configs["hw"]].capture_iq(center * 1e6, bw * 1e6, file_size, verbose, extra_verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 

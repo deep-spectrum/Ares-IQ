@@ -75,7 +75,7 @@ class BB60Device:
             self._bw = self._max_bw
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool) -> None:
+    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
         self._bw = bw
         self._center = center
 
