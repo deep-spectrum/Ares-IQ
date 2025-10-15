@@ -94,7 +94,7 @@ class USRP {
      * timestamps.
      */
     py::tuple capture_iq(double center, double bw, double file_size_gb,
-                         bool verbose);
+                         bool verbose, bool extra);
 
     /**
      * Set the stream arguments.
@@ -159,6 +159,7 @@ class USRP {
     int _spp = 200;
     bool configured = false;
 
+    bool _extra_verbose = false;
     int _stdout = -1;
     int _stderr = -1;
     int _dev_null = -1;

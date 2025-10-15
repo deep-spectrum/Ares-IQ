@@ -74,7 +74,8 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
-                           bool verbose) {
+                           bool verbose, bool extra) {
+    _extra_verbose = extra;
     if (!configured) {
         _configure(center, bw);
     } else {
@@ -162,7 +163,7 @@ void USRP::_stop_stream() const {
 
 void USRP::_configure(double center, double bw) {
     _disable_console_output();
-    std::string err_msg = "";
+    std::string err_msg;
 
     try {
         uhd::set_thread_priority_safe();
@@ -189,6 +190,9 @@ void USRP::_configure(double center, double bw) {
 }
 
 void USRP::_disable_console_output() {
+    if (_extra_verbose) {
+        return;
+    }
     _dev_null = open("/dev/null", O_WRONLY);
     _stderr = dup(STDERR_FILENO);
     _stdout = dup(STDOUT_FILENO);
@@ -198,6 +202,9 @@ void USRP::_disable_console_output() {
 }
 
 void USRP::_enable_console_output() const {
+    if (_extra_verbose) {
+        return;
+    }
     dup2(_stdout, STDOUT_FILENO);
     dup2(_stderr, STDERR_FILENO);
 
