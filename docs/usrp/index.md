@@ -39,8 +39,10 @@ The following USRP models are supported by this software package:
 |-----------|----------|--------------------------|----------------------|
 | USRP X310 | X-Series | Depends on daughterboard | Dual 10 GigE or PCIe |
 
-> **Note**: Device compatibility may depend on firmware version and available FPGA images. 
-> Refer to the configuration section of this documentation for setup instructions.
+!!! note "FPGA and Firmware Images"
+
+    Device compatibility may depend on both the firmware version and the FPGA image version.
+    Ensure the installed images are compatible with UHD 4.9.0.0.
 
 ---
 
