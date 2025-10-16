@@ -75,7 +75,7 @@ class BB60Device:
             self._bw = self._max_bw
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, file_size_gb: float) -> None:
+    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
         self._bw = bw
         self._center = center
 
@@ -88,7 +88,7 @@ class BB60Device:
         captures = math.ceil(file_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]
 
-        with CaptureProgress(captures, SAMPLES_PER_CAPTURE) as progress:
+        with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:
             for iq in self._iq_data:
                 data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
                 iq.iq = data["iq"]
