@@ -6,7 +6,7 @@ be a royal pain to get the network configured properly.
 This page will describe how to set up and configure the 
 network for USRP SDRs.
 
-## Direct GbE Connection
+## Direct GbE Connection on x3x0 Series USRPs
 Before you begin, make sure your USRP is connected to your
 computer and powered on (this should be an obvious step).
 
