@@ -6,6 +6,9 @@ nav:
   - Extension:
       - Overview: extension/index.md
       - Style / Standards: extension/standards.md
+  - USRP:
+      - Overview: usrp/index.md
+      - Network Configuration: usrp/network-config.md
 
 extra_css:
 - stylesheets/extra.css
