@@ -69,6 +69,18 @@ struct USRPconfigs {
 };
 
 /**
+ * @struct USRPStreamArgs
+ *
+ * @brief Stream arguments for the USRP.
+ */
+struct USRPStreamArgs {
+    USRPStreamArgs() = default;
+
+    /// Samples per packet.
+    int spp = 200;
+};
+
+/**
  * @class USRP
  * The base class for the USRP platform. This should be wrapped with Python.
  */
@@ -78,7 +90,8 @@ class USRP {
      * .
      * @param[in] configs The configurations for the USRP device
      */
-    explicit USRP(const USRPconfigs &configs);
+    explicit USRP(const USRPconfigs &configs,
+                  const USRPStreamArgs &stream_args);
 
     /**
      * .
@@ -90,21 +103,13 @@ class USRP {
      * @param[in] center The center frequency to tune to.
      * @param[in] bw The bandwidth of the capture.
      * @param[in] file_size_gb The amount of data to capture in GB.
+     * @param[in] verbose Show the progress bar.
+     * @param[in] extra Like verbose, but show logging messages from UHD too.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
     py::tuple capture_iq(double center, double bw, double file_size_gb,
                          bool verbose, bool extra);
-
-    /**
-     * Set the stream arguments.
-     * @param[in] spp The samples per packet.
-     *
-     * @note This should be called before calling @ref capture_iq(). After @ref
-     * capture_iq() is called, the stream arguments are set for the duration of
-     * the lifetime of the object.
-     */
-    void set_stream_args(int spp);
 
     /**
      * .
@@ -156,7 +161,7 @@ class USRP {
     uhd::usrp::multi_usrp::sptr usrp;
     std::shared_ptr<uhd::rx_streamer> rx_streamer;
     uhd::rx_metadata_t rx_meta;
-    int _spp = 200;
+    USRPStreamArgs _stream_args;
     bool configured = false;
 
     bool _extra_verbose = false;

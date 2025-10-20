@@ -53,12 +53,16 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
         .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
 
+    py::class_<USRPStreamArgs>(m, "_UsrpStreamArgs",
+                               "Stream arguments for the USRP.")
+        .def(py::init<>())
+        .def_readwrite("spp", &USRPStreamArgs::spp, "Samples per packet");
+
     py::class_<USRP>(m, "_USRP",
                      "The base class for the USRP platform. This should be "
                      "wrapped with Python.")
-        .def(py::init<const USRPconfigs &>())
+        .def(py::init<const USRPconfigs &, const USRPStreamArgs &>())
         .def("capture_iq", &USRP::capture_iq, "Capture IQ data")
-        .def("set_stream_args", &USRP::set_stream_args)
         .def_property_readonly("dev_args", &USRP::dev_args, "Device arguments")
         .def_property_readonly("samples_per_capture",
                                &USRP::samples_per_capture,
@@ -71,7 +75,10 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_property_readonly("gain", &USRP::gain, "Overall RX gain");
 }
 
-USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
+USRP::USRP(const USRPconfigs &configs, const USRPStreamArgs &stream_args) {
+    _configs = configs;
+    _stream_args = stream_args;
+}
 
 py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
                            bool verbose, bool extra) {
@@ -104,7 +111,8 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
-    CaptureProgress::Progress progress(captures, samples_per_capture, !(verbose || extra));
+    CaptureProgress::Progress progress(captures, samples_per_capture,
+                                       !(verbose || extra));
 
     progress.start();
     _start_stream();
@@ -144,7 +152,7 @@ void USRP::_configure_usrp(double center, double bw) {
     usrp->set_rx_antenna(ant);
 
     uhd::stream_args_t stream_args = uhd::stream_args_t("fc32", "sc16");
-    stream_args.args = (boost::format("spp=%d") % _spp).str();
+    stream_args.args = (boost::format("spp=%d") % _stream_args.spp).str();
     rx_streamer = usrp->get_rx_stream(stream_args);
 }
 
@@ -211,17 +219,6 @@ void USRP::_enable_console_output() const {
     close(_stdout);
     close(_stderr);
     close(_dev_null);
-}
-
-void USRP::set_stream_args(int spp) {
-    if (spp < 1) {
-        throw py::value_error(
-            (boost::format(
-                 "Cannot set samples per packet to %d. Must be > 0.") %
-             spp)
-                .str());
-    }
-    this->_spp = spp;
 }
 
 const std::string &USRP::dev_args() const { return _configs.device_args; }
