@@ -1,17 +1,17 @@
 from .bbdevice.bb_api import (BBDeviceError, bb_get_serial_number_list_2, bb_open_device, bb_configure_ref_level,
                               bb_configure_gain_atten, bb_configure_IQ_center, bb_configure_IQ, bb_initiate,
                               bb_get_IQ_unpacked, bb_close_device, BB_DEVICE_BB60A,
-                              BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION, BB_MAX_DECIMATION,
-                              BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
+                              BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
+                              BB_MAX_DECIMATION, BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
 from ares_iq.print_utils import print_warning, print_error, CaptureProgress
 import param
 from ares_iq.iq_data import IQData
 import math
 import dataclasses
 
-
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
+
 
 @dataclasses.dataclass
 class BB60Configs:
@@ -26,7 +26,6 @@ class BB60:
     _bw: float = 0
     _iq_data: list[IQData] = []
     _quantized_data: list[None] = []
-    # app = typer.Typer()
 
     def __init__(self, configs: BB60Configs):
         self._configs = configs
