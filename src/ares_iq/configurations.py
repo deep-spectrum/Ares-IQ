@@ -1,18 +1,19 @@
 from configparser import ConfigParser, SectionProxy
 from pathlib import Path
+from .typing import PathLike
 
 
 CONFIG_DIR = Path.home() / ".ares_iq"
 CONFIG_FILE = CONFIG_DIR / "config.ini"
 
 
-def load_configs(config_file: str) -> ConfigParser:
+def load_configs(config_file: PathLike) -> ConfigParser:
     config = ConfigParser()
     config.read(config_file)
     return config
 
 
-def load_config_section(section: str, config_file: str | None = None) -> SectionProxy:
+def load_config_section(section: str, config_file: PathLike | None = None) -> SectionProxy:
     if config_file is None:
         config_file = CONFIG_FILE
     config = load_configs(config_file)
@@ -22,12 +23,12 @@ def load_config_section(section: str, config_file: str | None = None) -> Section
     return config[section]
 
 
-def save_configs(config_file: str, config: ConfigParser) -> None:
+def save_configs(config_file: PathLike, config: ConfigParser) -> None:
     with open(config_file, 'w') as f:
         config.write(f)
 
 
-def save_config_section(section: str, section_configs: dict | SectionProxy, config_file: str | None = None) -> None:
+def save_config_section(section: str, section_configs: dict | SectionProxy, config_file: PathLike | None = None) -> None:
     if config_file is None:
         config_file = CONFIG_FILE
     config = load_configs(config_file)

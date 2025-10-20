@@ -24,13 +24,13 @@ class IQData:
     def ts_sec(self):
         return self._ts_s
 
-    @property
-    def ts_nsec(self):
-        return self._ts_ns
-
     @ts_sec.setter
     def ts_sec(self, ts_s: int):
         self._ts_s = ts_s
+
+    @property
+    def ts_nsec(self):
+        return self._ts_ns
 
     @ts_nsec.setter
     def ts_nsec(self, ts_ns: int):

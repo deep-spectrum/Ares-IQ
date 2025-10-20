@@ -58,7 +58,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
                      "wrapped with Python.")
         .def(py::init<const USRPconfigs &>())
         .def("capture_iq", &USRP::capture_iq, "Capture IQ data")
-        .def("_set_stream_args", &USRP::set_stream_args)
+        .def("set_stream_args", &USRP::set_stream_args)
         .def_property_readonly("dev_args", &USRP::dev_args, "Device arguments")
         .def_property_readonly("samples_per_capture",
                                &USRP::samples_per_capture,
