@@ -53,14 +53,6 @@ class X310Device(UsrpX310):
 
         save_config_section("x310-stream-configs", configs)
 
-    def _stream_args(self):
-        configs = load_config_section("x310-stream-configs")
-        if "spp" not in configs:
-            spp = 200
-        else:
-            spp = int(configs["spp"])
-        self._usrp.set_stream_args(spp)
-
     @staticmethod
     @app.command('x310-configs', help='Set x310 device configs')
     def dev_configs(spc: Annotated[int | None, typer.Option(help='Samples per capture')] = None,
