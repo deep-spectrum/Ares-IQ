@@ -1,5 +1,7 @@
 from typing import Protocol
 from .iq_data import IQData
+import os
+import pathlib
 
 
 class SoftwareDefinedRadio(Protocol):
@@ -21,3 +23,6 @@ class SoftwareDefinedRadio(Protocol):
     @property
     def quantized_data(self) -> list[None]:
         """Quantized data from the capture"""
+
+
+PathLike = str | pathlib.Path | os.PathLike | bytes
