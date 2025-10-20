@@ -54,7 +54,7 @@ class X310Device(USRP):
             spp = 200
         else:
             spp = int(configs["spp"])
-        self._set_stream_args(spp)
+        self._usrp.set_stream_args(spp)
 
     @staticmethod
     @app.command('x310-configs', help='Set x310 device configs')
