@@ -27,7 +27,9 @@ class BB60:
     _iq_data: list[IQData] = []
     _quantized_data: list[None] = []
 
-    def __init__(self, configs: BB60Configs):
+    def __init__(self, configs: BB60Configs | None = None):
+        if configs is None:
+            configs = BB60Configs()
         self._configs = configs
 
     @staticmethod
