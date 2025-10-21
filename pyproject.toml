@@ -18,7 +18,7 @@ dependencies = [
     "requests",
     "distro",
     "h5py",
-    "param",
+    "attrs",
     "ares-iq-extensions",
 ]
 

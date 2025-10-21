@@ -4,19 +4,21 @@ from .bbdevice.bb_api import (BBDeviceError, bb_get_serial_number_list_2, bb_ope
                               BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
                               BB_MAX_DECIMATION, BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
 from ares_iq.print_utils import print_warning, print_error, CaptureProgress
-import param
 from ares_iq.iq_data import IQData
 import math
-import dataclasses
+from attrs import define, field, Converter
+from ares_iq.validators import clamp_bounds
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
 
 
-@dataclasses.dataclass
+@define
 class BB60Configs:
     ref_level: int | float = -20.0
-    decimation: int = param.Integer(BB_MIN_DECIMATION, bounds=(BB_MIN_DECIMATION, BB_MAX_DECIMATION))
+    decimation: int = field(default=BB_MIN_DECIMATION,
+                            metadata={"min": BB_MIN_DECIMATION, "max": BB_MAX_DECIMATION},
+                            converter=Converter(clamp_bounds, takes_field=True))
 
 
 class BB60:
