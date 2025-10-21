@@ -15,7 +15,6 @@
 #include <pybind11/numpy.h>
 #include <string>
 #include <uhd/usrp/multi_usrp.hpp>
-#include <vector>
 
 namespace py = pybind11;
 
@@ -88,7 +87,8 @@ class USRP {
   public:
     /**
      * .
-     * @param[in] configs The configurations for the USRP device
+     * @param[in] configs The configurations for the USRP device.
+     * @param[in] stream_args USRP stream arguments.
      */
     explicit USRP(const USRPconfigs &configs,
                   const USRPStreamArgs &stream_args);
