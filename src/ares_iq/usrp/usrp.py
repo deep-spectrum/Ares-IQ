@@ -3,6 +3,7 @@ from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import abstractmethod, ABC
 from ares_iq.print_utils import print_error
+from ares_iq.typing import QuantizedData
 
 
 class USRPConfigs:
@@ -110,5 +111,5 @@ class USRP(ABC):
         return self._iq_data
 
     @property
-    def quantized_data(self) -> list[None]:
+    def quantized_data(self) -> list[QuantizedData]:
         return self._quantized_data

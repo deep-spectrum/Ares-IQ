@@ -3,17 +3,21 @@ from .iq_data import IQData
 import os
 import pathlib
 
+QuantizedData = None
+
 
 class SoftwareDefinedRadio(Protocol):
+    """Protocol for SoftwareDefinedRadio classes."""
+
     def capture_iq(self, center: float, bw: float, file_size: float, verbose: bool, extra_verbose: bool) -> None:
-        """
-        Capture IQ data from the SDR.
-        :param center: The center frequency in Hz
-        :param bw: The bandwidth in Hz
-        :param file_size: The maximum amount of IQ data to collect in GB
-        :param verbose: Show progress bar.
-        :param extra_verbose: Extra verbose output. Shows the progress bar and logging messages.
-        :return: The captured IQ data and the
+        """Capture IQ data from the SDR.
+
+        Args:
+            center: The center frequency in Hz.
+            bw: The bandwidth in Hz.
+            file_size: The maximum amount of IQ data to collect in GB.
+            verbose: Show progress bar.
+            extra_verbose: Extra verbose output. Shows the progress bar and logging messages.
         """
 
     @property
@@ -21,7 +25,7 @@ class SoftwareDefinedRadio(Protocol):
         """IQ data from the capture"""
 
     @property
-    def quantized_data(self) -> list[None]:
+    def quantized_data(self) -> list[QuantizedData]:
         """Quantized data from the capture"""
 
 

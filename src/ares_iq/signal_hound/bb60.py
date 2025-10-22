@@ -8,7 +8,7 @@ from ares_iq.iq_data import IQData
 import math
 from attrs import define, field, Converter
 from ares_iq.validators import clamp_bounds, power_of_two
-from ares_iq.typing import RealNumber
+from ares_iq.typing import RealNumber, QuantizedData
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
@@ -39,7 +39,7 @@ class BB60:
     _center: float = 0
     _bw: float = 0
     _iq_data: list[IQData] = []
-    _quantized_data: list[None] = []
+    _quantized_data: list[QuantizedData] = []
 
     def __init__(self, configs: BB60Configs | None = None):
         """Initializes the BB60 instance based on the configurations passed in through BB60Configs.
