@@ -16,7 +16,7 @@ BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
 
 @define
 class BB60Configs:
-    """Configurations for the Signal Hound BB60 SDR.
+    """Configurations for the Signal Hound BB60 spectrum analyzer.
 
     Attributes:
         ref_level: Reference level for the BB60 in dBm.
@@ -30,6 +30,10 @@ class BB60Configs:
 
 
 class BB60:
+    """Signal Hound BB60 spectrum analyzer interface.
+
+    Interface for a Signal Hound BB60 spectrum analyzer.
+    """
     _handle: object = None
     _max_bw: float = 0
     _center: float = 0
@@ -38,6 +42,11 @@ class BB60:
     _quantized_data: list[None] = []
 
     def __init__(self, configs: BB60Configs | None = None):
+        """Initializes the BB60 instance based on the configurations passed in through BB60Configs.
+
+        Args:
+            configs: Defines the configurations for the BB60. If None, then the default configurations are used.
+        """
         if configs is None:
             configs = BB60Configs()
         self._configs = configs
@@ -88,6 +97,15 @@ class BB60:
         self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
 
     def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
+        """Capture I/Q data from the spectrum analyzer.
+
+        Args:
+            center: The center frequency in Hz.
+            bw: The capture bandwidth in Hz.
+            file_size_gb: The amount of uncompressed data to capture.
+            verbose: Show progress bar during the capture.
+            extra: Like verbose, but also shows logging messages.
+        """
         self._bw = bw
         self._center = center
 
@@ -115,10 +133,12 @@ class BB60:
 
     @property
     def iq_data(self):
+        """The captured IQ data from the last call to BB60.capture_iq()."""
         return self._iq_data
 
     @property
     def quantized_data(self):
+        """The quantized data from the data capture."""
         return self._quantized_data
 
     def _quantize(self):
