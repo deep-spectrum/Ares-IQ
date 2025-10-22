@@ -19,7 +19,7 @@ def clamp_bounds(value, field: Attribute):
         @define
         class Foo:
             bar: int = field(default=5,
-                             metadata={"min": 1, "max: 2},
+                             metadata={"min": 1, "max": 10},
                              converter=Converter(clamp_bounds, takes_field=True))
         ```
 
