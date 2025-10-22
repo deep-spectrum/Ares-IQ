@@ -1,7 +1,7 @@
 from attrs import Attribute
 
 
-def clamp_bounds(value, field: Attribute):
+def clamp_bounds(value: object, field: Attribute) -> object:
     """Clamp a field to bounds if value is out of range.
 
     Clamp the set value to the min or max. This must be used in an
@@ -13,15 +13,15 @@ def clamp_bounds(value, field: Attribute):
 
     Typical usage example:
 
-        ``` {.py}
-        from attrs import define, field, Converter
-        from ares_iq.validators import clamp_bounds
-        @define
-        class Foo:
-            bar: int = field(default=5,
-                             metadata={"min": 1, "max": 10},
-                             converter=Converter(clamp_bounds, takes_field=True))
-        ```
+    ```py
+    from attrs import define, field, Converter
+    from ares_iq.validators import clamp_bounds
+    @define
+    class Foo:
+        bar: int = field(default=5,
+                         metadata={"min": 1, "max": 10},
+                         converter=Converter(clamp_bounds, takes_field=True))
+    ```
 
     Args:
         value: The new set value.
@@ -34,7 +34,9 @@ def clamp_bounds(value, field: Attribute):
 
     Raises:
         AttributeError: metadata dictionary is not defined.
+        ValueError: Unable to cast value to proper type.
     """
+    value = field.type(value)
     if field.metadata is None:
         raise AttributeError(f"metadata for {field.name} must be defined in order to use {__name__}")
     if "min" in field.metadata:
