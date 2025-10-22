@@ -26,3 +26,4 @@ class SoftwareDefinedRadio(Protocol):
 
 
 PathLike = str | pathlib.Path | os.PathLike | bytes
+RealNumber = int | float

@@ -1,7 +1,9 @@
 from attrs import Attribute
+from .typing import RealNumber
+from typing import Any
 
 
-def clamp_bounds(value: object, field: Attribute) -> object:
+def clamp_bounds(value: RealNumber, field: Attribute):
     """Clamp a field to bounds if value is out of range.
 
     Clamp the set value to the min or max. This must be used in an
@@ -36,7 +38,6 @@ def clamp_bounds(value: object, field: Attribute) -> object:
         AttributeError: metadata dictionary is not defined.
         ValueError: Unable to cast value to proper type.
     """
-    value = field.type(value)
     if field.metadata is None:
         raise AttributeError(f"metadata for {field.name} must be defined in order to use {__name__}")
     if "min" in field.metadata:
@@ -46,3 +47,30 @@ def clamp_bounds(value: object, field: Attribute) -> object:
         if value > field.metadata["max"]:
             return field.metadata["max"]
     return value
+
+
+def power_of_two(_instance: Any, attribute: Attribute, value: int):
+    """Check if value is a power of 2.
+
+    Checks if the input value is a power of 2.
+
+    Typical usage example:
+
+    ```py
+    from attrs import define, field
+    from ares_iq.validators import power_of_two
+    @define
+    class Foo:
+        bar: int = field(default=1, validator=power_of_two)
+    ```
+
+    Args:
+        _instance: Unused
+        attribute: The attribute being set
+        value: The value to validate
+
+    Raises:
+        ValueError: Value is not a power of 2.
+    """
+    if not ((value & (value - 1) == 0) and value > 0):
+        raise ValueError(f"{attribute.name} must be a power of 2")

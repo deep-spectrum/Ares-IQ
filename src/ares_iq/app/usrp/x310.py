@@ -34,7 +34,7 @@ class X310Device(UsrpX310):
         configs = load_config_section("x310-stream-configs")
 
         if "spp" in configs:
-            configs_.spp = int(configs["spp"])
+            configs_.samples_per_packet = int(configs["spp"])
 
         return configs_
 
