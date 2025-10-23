@@ -82,7 +82,6 @@ class USRP(ABC):
     @abstractmethod
     def _quantize(self):
         """Convert the collected IQ data from complex numbers to ADC readings."""
-        pass
 
     @property
     def iq_data(self) -> list[IQData]:

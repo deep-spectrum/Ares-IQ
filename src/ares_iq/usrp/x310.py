@@ -1,17 +1,20 @@
 from .usrp import USRP, USRPConfigs
-from ares_iq_ext.usrp import _USRPConfigs, _UsrpStreamArgs
+from typing_extensions import override
 
 
 class UsrpX310(USRP):
-    def __init__(self, configs: USRPConfigs | None = None):
-        if configs is None:
-            configs_ = _USRPConfigs()
-            stream_args_ = _UsrpStreamArgs()
-        else:
-            configs_ = configs.configs_
-            stream_args_ = configs.stream_args_
-        configs_.dev_args = "type=x300"
-        super().__init__(configs_, stream_args_)
+    """USRP X310 SDR interface"""
 
+    def __init__(self, configs: USRPConfigs | None = None):
+        """Initializes the USRP X310 instance.
+
+        Args:
+            configs:
+                Configurations for the USRP X310. If none are provided, default
+                values will be used.
+        """
+        super().__init__("type=x300", configs)
+
+    @override
     def _quantize(self):
         pass
