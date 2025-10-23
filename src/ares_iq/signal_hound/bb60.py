@@ -51,14 +51,6 @@ class BB60:
             configs = BB60Configs()
         self._configs = configs
 
-    @staticmethod
-    def _print_bb_error(err: BBDeviceError, config_name: str):
-        s = f"{config_name}: {str(err)}"
-        if err.warning:
-            print_warning(s)
-        else:
-            print_error(s)
-
     def _open_device(self):
         devices = bb_get_serial_number_list_2()
         device_count = devices["device_count"].value
@@ -71,21 +63,15 @@ class BB60:
         self._handle = bb_open_device()["handle"]
         self._max_bw = max_bw.value
 
-    def _call_config_func(self, func, config_name, *args):
-        try:
-            func(self._handle, *args)
-        except BBDeviceError as e:
-            self._print_bb_error(e, config_name)
-
     def _configure_bb_device(self):
         # Reference level
-        self._call_config_func(bb_configure_ref_level, "Reference level", self._configs.ref_level)
+        bb_configure_ref_level(self._handle, self._configs.ref_level)
 
         # Gain and attenuation
         bb_configure_gain_atten(self._handle, BB_AUTO_GAIN, BB_AUTO_ATTEN)
 
         # Center frequency
-        self._call_config_func(bb_configure_IQ_center, "Center Frequency", self._center)
+        bb_configure_IQ_center(self._handle, self._center)
 
         # Bandwidth
         decimation = self._configs.decimation
@@ -94,7 +80,7 @@ class BB60:
             print_warning(
                 f"Unable to set the bandwidth to {self._bw / 1.0e6} MHz. Setting to {self._max_bw / 1.0e6} MHz")
             self._bw = self._max_bw
-        self._call_config_func(bb_configure_IQ, "Bandwidth", decimation, self._bw)
+        bb_configure_IQ(self._handle, decimation, self._bw)
 
     def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
         """Capture I/Q data from the spectrum analyzer.
