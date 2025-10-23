@@ -9,8 +9,8 @@ class UsrpX310(USRP):
             stream_args_ = _UsrpStreamArgs()
         else:
             configs_ = configs.configs_
-            configs_.dev_args = "type=x300"
             stream_args_ = configs.stream_args_
+        configs_.dev_args = "type=x300"
         super().__init__(configs_, stream_args_)
 
     def _quantize(self):

@@ -7,6 +7,10 @@ from ares_iq.typing import QuantizedData
 
 
 class USRPConfigs:
+    """USRP device configurations and stream configurations.
+
+    Device and stream configurations for USRP platforms.
+    """
     def __init__(self,
                  samples_per_capture: int = 200000,
                  subdev: str = "A:0",
@@ -14,6 +18,16 @@ class USRPConfigs:
                  rate: int | float = 25e6,
                  gain: int | float = 0,
                  samples_per_packet: int = 200):
+        """Initializes the instance based on given parameters.
+
+        Args:
+            samples_per_capture: Sample chunk size.
+            subdev: RX Frontend specification.
+            ref: Reference clock source.
+            rate: RX sample rate.
+            gain: Overall RX gain.
+            samples_per_packet: Number of samples per a packet.
+        """
         self._configs = _USRPConfigs()
         self._stream_args = _UsrpStreamArgs()
         self._configs.samples_per_capture = samples_per_capture
@@ -25,6 +39,7 @@ class USRPConfigs:
 
     @property
     def samples_per_capture(self):
+        """Number of samples per a capture."""
         return self._configs.samples_per_capture
 
     @samples_per_capture.setter
@@ -33,6 +48,7 @@ class USRPConfigs:
 
     @property
     def subdev(self):
+        """RX frontend specification."""
         return self._configs.subdev
 
     @subdev.setter
@@ -41,6 +57,7 @@ class USRPConfigs:
 
     @property
     def ref(self):
+        """Reference clock source."""
         return self._configs.ref
 
     @ref.setter
@@ -49,6 +66,7 @@ class USRPConfigs:
 
     @property
     def rate(self):
+        """RX sample rate."""
         return self._configs.rate
 
     @rate.setter
@@ -57,6 +75,7 @@ class USRPConfigs:
 
     @property
     def gain(self):
+        """Overall RX gain."""
         return self._configs.gain
 
     @gain.setter
@@ -65,6 +84,7 @@ class USRPConfigs:
 
     @property
     def samples_per_packet(self):
+        """Number of samples per a UDP packet."""
         return self._stream_args.spp
 
     @samples_per_packet.setter
