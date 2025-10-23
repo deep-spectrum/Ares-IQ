@@ -1,4 +1,4 @@
-from .bbdevice.bb_api import (BBDeviceError, bb_get_serial_number_list_2, bb_open_device, bb_configure_ref_level,
+from .bbdevice.bb_api import (bb_get_serial_number_list_2, bb_open_device, bb_configure_ref_level,
                               bb_configure_gain_atten, bb_configure_IQ_center, bb_configure_IQ, bb_initiate,
                               bb_get_IQ_unpacked, bb_close_device, BB_DEVICE_BB60A,
                               BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
