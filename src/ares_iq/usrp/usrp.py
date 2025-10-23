@@ -2,7 +2,6 @@ from ares_iq_ext.usrp import _USRP, _USRPConfigs, _UsrpStreamArgs
 from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import abstractmethod, ABC
-from ares_iq.print_utils import print_error
 from ares_iq.typing import QuantizedData, RealNumber
 from attrs import define, field
 from ares_iq.validators import is_positive
@@ -31,18 +30,46 @@ class USRPConfigs:
 
 
 class USRP(ABC):
+    """Base class for USRP platforms."""
     _iq_data: list[IQData]
     _quantized_data: list[None]
 
-    def __init__(self, configs: _USRPConfigs, stream_args: _UsrpStreamArgs):
-        self._usrp: _USRP = _USRP(configs, stream_args)
+    def __init__(self, dev_args: str, configs: USRPConfigs | None):
+        """Initializes the base USRP instance.
+
+        Args:
+            dev_args: The device arguments required for finding and opening a USRP device.
+            configs: The configurations for the USRP device.
+        """
+        configs_ = _USRPConfigs()
+        stream_ = _UsrpStreamArgs()
+
+        configs_.dev_args = dev_args
+
+        if configs is not None:
+            configs_.samples_per_capture = configs.samples_per_capture
+            configs_.subdev = configs.subdev
+            configs_.ref = configs.ref
+            configs_.rate = configs.rate
+            configs_.gain = configs.gain
+            stream_.spp = configs.samples_per_packet
+
+        self._usrp: _USRP = _USRP(configs_, stream_)
 
     def capture_iq(self, center: float, bw: float, file_size: float, verbose: bool, extra: bool):
-        try:
-            iq_data, timestamps = self._usrp.capture_iq(center, bw, file_size, verbose, extra)
-        except ValueError as e:
-            print_error(str(e))
-            raise
+        """Capture IQ data from the USRP.
+
+        Args:
+            center: The center frequency in Hz.
+            bw: The bandwidth in Hz.
+            file_size: The amount of data to capture in GB.
+            verbose: Show the progress bar.
+            extra: Like verbose, but show the logging messages too.
+
+        Raises:
+            ValueError: Bad configuration arguments.
+        """
+        iq_data, timestamps = self._usrp.capture_iq(center, bw, file_size, verbose, extra)
 
         self._iq_data = [IQData() for _ in range(len(timestamps))]
         for data, ts, iq in zip(iq_data, timestamps, self._iq_data):
@@ -54,12 +81,15 @@ class USRP(ABC):
 
     @abstractmethod
     def _quantize(self):
+        """Convert the collected IQ data from complex numbers to ADC readings."""
         pass
 
     @property
     def iq_data(self) -> list[IQData]:
+        """The captured IQ data from the last call to capture_iq()"""
         return self._iq_data
 
     @property
     def quantized_data(self) -> list[QuantizedData]:
+        """The quantized IQ data from the last call to capture_iq()"""
         return self._quantized_data
