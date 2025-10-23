@@ -3,101 +3,31 @@ from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import abstractmethod, ABC
 from ares_iq.print_utils import print_error
-from ares_iq.typing import QuantizedData
+from ares_iq.typing import QuantizedData, RealNumber
+from attrs import define, field
+from ares_iq.validators import is_positive
 
 
+@define
 class USRPConfigs:
     """USRP device configurations and stream configurations.
 
     Device and stream configurations for USRP platforms.
+
+    Attributes:
+        samples_per_capture: Sample chunk size.
+        subdev: RX Frontend specification.
+        ref: Reference clock source.
+        rate: RX sample rate.
+        gain: Overall RX gain.
+        samples_per_packet: Number of samples per a UDP packet.
     """
-    def __init__(self,
-                 samples_per_capture: int = 200000,
-                 subdev: str = "A:0",
-                 ref: str = "internal",
-                 rate: int | float = 25e6,
-                 gain: int | float = 0,
-                 samples_per_packet: int = 200):
-        """Initializes the instance based on given parameters.
-
-        Args:
-            samples_per_capture: Sample chunk size.
-            subdev: RX Frontend specification.
-            ref: Reference clock source.
-            rate: RX sample rate.
-            gain: Overall RX gain.
-            samples_per_packet: Number of samples per a packet.
-        """
-        self._configs = _USRPConfigs()
-        self._stream_args = _UsrpStreamArgs()
-        self._configs.samples_per_capture = samples_per_capture
-        self._configs.subdev = subdev
-        self._configs.ref = ref
-        self._configs.rate = rate
-        self._configs.gain = gain
-        self._stream_args.spp = samples_per_packet
-
-    @property
-    def samples_per_capture(self):
-        """Number of samples per a capture."""
-        return self._configs.samples_per_capture
-
-    @samples_per_capture.setter
-    def samples_per_capture(self, spc: int):
-        self._configs.samples_per_capture = spc
-
-    @property
-    def subdev(self):
-        """RX frontend specification."""
-        return self._configs.subdev
-
-    @subdev.setter
-    def subdev(self, dev: str):
-        self._configs.subdev = dev
-
-    @property
-    def ref(self):
-        """Reference clock source."""
-        return self._configs.ref
-
-    @ref.setter
-    def ref(self, osc: str):
-        self._configs.ref = osc
-
-    @property
-    def rate(self):
-        """RX sample rate."""
-        return self._configs.rate
-
-    @rate.setter
-    def rate(self, speed: int | float):
-        self._configs.rate = speed
-
-    @property
-    def gain(self):
-        """Overall RX gain."""
-        return self._configs.gain
-
-    @gain.setter
-    def gain(self, k: int | float):
-        self._configs.gain = k
-
-    @property
-    def samples_per_packet(self):
-        """Number of samples per a UDP packet."""
-        return self._stream_args.spp
-
-    @samples_per_packet.setter
-    def samples_per_packet(self, spp: int):
-        self._stream_args.spp = spp
-
-    @property
-    def configs_(self):
-        return self._configs
-
-    @property
-    def stream_args_(self):
-        return self._stream_args
+    samples_per_capture: int = field(default=200000, validator=is_positive)
+    subdev: str = "A:0"
+    ref: str = "internal"
+    rate: RealNumber = field(default=25e6, validator=is_positive)
+    gain: RealNumber = 0
+    samples_per_packet: int = field(default=200, validator=is_positive)
 
 
 class USRP(ABC):
