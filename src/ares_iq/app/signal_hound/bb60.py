@@ -1,7 +1,8 @@
 from ares_iq.configurations import load_config_section, save_config_section
 import typer
 from typing_extensions import Annotated
-from ares_iq.signal_hound import BB60, BB60Configs
+from ares_iq.signal_hound import BB60, BB60Configs, BB60Exception, BBDeviceError
+from ares_iq.print_utils import print_error
 
 
 class BB60Device(BB60):
@@ -9,6 +10,8 @@ class BB60Device(BB60):
 
     @staticmethod
     def _load_configs():
+        # TODO: Loading invalid values will cause the application to fail.
+        #  Validate in config setting. This will be fixed with configs refactor.
         configs = load_config_section("bb60-configs")
         configs_ = BB60Configs()
 
@@ -23,6 +26,12 @@ class BB60Device(BB60):
     def __init__(self):
         configs = self._load_configs()
         super().__init__(configs)
+
+    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
+        try:
+            super().capture_iq(center, bw, file_size_gb, verbose, extra)
+        except (BB60Exception, BBDeviceError) as e:
+            print_error(str(e))
 
     @staticmethod
     @app.command(name='bb60-config', help='Set default configurations for the BB60')
