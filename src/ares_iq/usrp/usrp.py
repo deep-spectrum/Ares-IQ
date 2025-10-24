@@ -5,10 +5,11 @@ from abc import abstractmethod, ABC
 from ares_iq.typing import QuantizedData, RealNumber
 from attrs import define, field
 from ares_iq.validators import is_positive
+from ares_iq.configs import ConfigBase
 
 
 @define
-class USRPConfigs:
+class USRPConfigs(ConfigBase):
     """USRP device configurations and stream configurations.
 
     Device and stream configurations for USRP platforms.
