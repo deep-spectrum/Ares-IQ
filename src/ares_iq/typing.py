@@ -1,24 +1,18 @@
-"""Protocols and types for the ares_iq package.
-
-Attributes:
-    QuantizedData: Type alias for the quantized data.
-    PathLike: Type alias for paths.
-    RealNumber: Type alias for numbers that are considered "real" in math terms.
-"""
+"""Protocols and types for the ares_iq package."""
 
 from typing import Protocol
 from .iq_data import IQData
 import os
 import pathlib
 
-#: Type alias for the quantized data.
 QuantizedData = None
+"""Type alias for the quantized data."""
 
-#: Type alias for paths.
 PathLike = str | pathlib.Path | os.PathLike | bytes
+"""Type alias for paths."""
 
-#: Type alias for numbers that are considered "real" in math terms.
 RealNumber = int | float
+"""Type alias for numbers that are considered "real" in math terms."""
 
 
 class SoftwareDefinedRadio(Protocol):
