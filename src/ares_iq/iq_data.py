@@ -24,8 +24,8 @@ class IQData:
         return dt.datetime.fromtimestamp(self._ts_s + (self._ts_ns / 1e9), tz=dt.timezone.utc)
 
     @property
-    def ts_sec(self):
-        """The timestamp integral part."""
+    def ts_sec(self) -> int:
+        """The timestamp seconds part."""
         return self._ts_s
 
     @ts_sec.setter
@@ -33,8 +33,8 @@ class IQData:
         self._ts_s = ts_s
 
     @property
-    def ts_nsec(self):
-        """The timestamp fractional part."""
+    def ts_nsec(self) -> int:
+        """The timestamp nanoseconds part."""
         return self._ts_ns
 
     @ts_nsec.setter
