@@ -3,7 +3,7 @@ from .bbdevice.bb_api import (bb_get_serial_number_list_2, bb_open_device, bb_co
                               bb_get_IQ_unpacked, bb_close_device, BB_DEVICE_BB60A,
                               BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
                               BB_MAX_DECIMATION, BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
-from ares_iq.print_utils import print_warning, print_error, CaptureProgress
+from ares_iq.print_utils import print_warning, CaptureProgress
 from ares_iq.iq_data import IQData
 import math
 from attrs import define, field, Converter
@@ -12,6 +12,10 @@ from ares_iq.typing import RealNumber, QuantizedData
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
+
+
+class BB60Exception(Exception):
+    """Exception for BB60 related errors"""
 
 
 @define
@@ -54,10 +58,11 @@ class BB60:
     def _open_device(self):
         devices = bb_get_serial_number_list_2()
         device_count = devices["device_count"].value
+        # TODO: allow serial number in the presence of multiple devices?
         if device_count == 0:
-            print_error("No BB60 devices found")
+            raise BB60Exception("No BB60 devices found")
         elif device_count > 1:
-            print_error("Multiple BB60 devices found. Please connect 1 device only")
+            raise BB60Exception("Multiple BB60 devices found. Please connect 1 device only")
 
         max_bw = BB60A_MAX_RT_SPAN if devices["device_types"][0] == BB_DEVICE_BB60A else BB60C_MAX_RT_SPAN
         self._handle = bb_open_device()["handle"]
