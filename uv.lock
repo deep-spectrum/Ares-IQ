@@ -24,6 +24,7 @@ dependencies = [
     { name = "distro" },
     { name = "h5py" },
     { name = "numpy" },
+    { name = "pyyaml" },
     { name = "requests" },
     { name = "typer" },
 ]
@@ -70,6 +71,7 @@ requires-dist = [
     { name = "pyright", marker = "extra == 'dev'", specifier = ">=1.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-cov", marker = "extra == 'dev'" },
+    { name = "pyyaml" },
     { name = "requests" },
     { name = "ruff", marker = "extra == 'dev'", specifier = ">=0.11.0" },
     { name = "ruff", marker = "extra == 'docs'", specifier = ">=0.11.0" },

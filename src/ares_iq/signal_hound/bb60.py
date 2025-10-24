@@ -9,6 +9,7 @@ import math
 from attrs import define, field, Converter
 from ares_iq.validators import clamp_bounds, power_of_two
 from ares_iq.typing import RealNumber, QuantizedData
+from ares_iq.configs import ConfigBase
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
@@ -19,7 +20,7 @@ class BB60Exception(Exception):
 
 
 @define
-class BB60Configs:
+class BB60Configs(ConfigBase):
     """Configurations for the Signal Hound BB60 spectrum analyzer.
 
     Attributes:
