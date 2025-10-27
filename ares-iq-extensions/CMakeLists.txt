@@ -5,6 +5,12 @@ project(${SKBUILD_PROJECT_NAME}
 
 set(CMAKE_CXX_STANDARD 11)
 
+set(ARES_IQ_UHD_PATH "${CMAKE_CURRENT_DIR}/extern/uhd/host")
+
+if (NOT IS_DIRECTORY "${ARES_IQ_UHD_PATH}")
+	message(FATAL_ERROR "Please run \"git submodule update --init\" before proceeding")
+endif()
+
 add_subdirectory(extern/pybind11)
 add_subdirectory(capture_progress)
 
