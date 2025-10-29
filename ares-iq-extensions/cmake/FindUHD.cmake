@@ -73,6 +73,7 @@ else()
             thread
     )
     include(UHDBoost)
+    add_custom_target(uhd DEPENDS ${_UHD_LIB_PATH})
 endif()
 
 add_custom_target(uhd_static_lib DEPENDS ${_UHD_LIB_PATH})
