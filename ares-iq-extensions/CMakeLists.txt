@@ -4,7 +4,6 @@ project(${SKBUILD_PROJECT_NAME}
         LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 11)
-set(CMAKE_CXX_FLAGS )
 
 set(ARES_IQ_UHD_PATH "${CMAKE_SOURCE_DIR}/extern/uhd/host")
 
