@@ -1,6 +1,6 @@
 from .usrp import USRP, USRPConfigs
 from typing_extensions import override
-from attrs import define
+from attrs import define, field
 from enum import Enum
 
 
@@ -15,10 +15,7 @@ class X310RefOptions(Enum):
 
 @define
 class X310Configs(USRPConfigs):
-    def __attrs_post_init__(self):
-        self._ref_options = tuple([str(x) for x in X310RefOptions])
-        self._initialized = True
-        self.validate_ref(None, self.ref)
+    _ref_options: tuple[str] = field(default=tuple([str(x) for x in X310RefOptions]), init=False, repr=False)
 
 
 class UsrpX310(USRP):
