@@ -1,11 +1,28 @@
 from .usrp import USRP, USRPConfigs
 from typing_extensions import override
+from attrs import define
+from enum import Enum
+
+
+class X310RefOptions(Enum):
+    INTERNAL = "internal"
+    EXTERNAL = "external"
+    GPSDO = "gpsdo"
+
+    def __str__(self):
+        return self.value
+
+
+@define
+class X310Configs(USRPConfigs):
+    def __attrs_post_init__(self):
+        self._ref_options = tuple([str(x) for x in X310RefOptions])
 
 
 class UsrpX310(USRP):
     """USRP X310 SDR interface"""
 
-    def __init__(self, configs: USRPConfigs | None = None):
+    def __init__(self, configs: X310Configs | None = None):
         """Initializes the USRP X310 instance.
 
         Args:

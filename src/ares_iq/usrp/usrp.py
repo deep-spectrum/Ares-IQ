@@ -25,7 +25,7 @@ class USRPConfigs(ConfigBase):
     _ref_options: tuple[str, ...] = field(default=("internal", "external"), init=False, repr=False)
     samples_per_capture: int = field(default=200000, validator=is_positive)
     subdev: str = "A:0"
-    ref: str =field(default="internal")
+    ref: str = field(default="internal", converter=str)
     rate: RealNumber = field(default=25e6, validator=is_positive)
     gain: RealNumber = 0
     samples_per_packet: int = field(default=200, validator=is_positive)
