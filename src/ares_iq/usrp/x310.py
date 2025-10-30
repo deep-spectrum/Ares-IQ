@@ -17,6 +17,8 @@ class X310RefOptions(Enum):
 class X310Configs(USRPConfigs):
     def __attrs_post_init__(self):
         self._ref_options = tuple([str(x) for x in X310RefOptions])
+        self._initialized = True
+        self.validate_ref(None, self.ref)
 
 
 class UsrpX310(USRP):
