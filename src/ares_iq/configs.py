@@ -13,13 +13,17 @@ class ConfigBase:
 
         Args:
             config_file: The file to save the BB60 configurations into.
+
+        Notes:
+            Any private attributes (starts with the "_" character) will not be
+            saved to the YAML file.
         """
         if Path(config_file).exists():
             with open(config_file, 'r') as f:
                 config = yaml.safe_load(f)
         else:
             config = {}
-        config[self.__class__.__name__] = asdict(self)
+        config[self.__class__.__name__] = asdict(self, filter=lambda attr, value: not attr.name.startswith("_"))
         with open(config_file, 'w') as f:
             yaml.safe_dump(config, f)
 

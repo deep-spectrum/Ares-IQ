@@ -22,12 +22,20 @@ class USRPConfigs(ConfigBase):
         gain: Overall RX gain.
         samples_per_packet: Number of samples per a UDP packet.
     """
+    _ref_options: tuple[str, ...] = field(default=("internal", "external"), init=False, repr=False)
     samples_per_capture: int = field(default=200000, validator=is_positive)
     subdev: str = "A:0"
-    ref: str = "internal"
+    ref: str =field(default="internal")
     rate: RealNumber = field(default=25e6, validator=is_positive)
     gain: RealNumber = 0
     samples_per_packet: int = field(default=200, validator=is_positive)
+
+    @ref.validator
+    def validate_ref(self, _, value):
+        for x in self._ref_options:
+            if value == x:
+                return
+        raise ValueError(f"ref must be on of the following: {', '.join(self._ref_options)}")
 
 
 class USRP(ABC):
