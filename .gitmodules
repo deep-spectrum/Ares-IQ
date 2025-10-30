@@ -4,4 +4,5 @@
 	branch = stable
 [submodule "ares-iq-extensions/extern/uhd"]
 	path = ares-iq-extensions/extern/uhd
-	url = https://github.com/EttusResearch/uhd.git
+	url = https://github.com/deep-spectrum/uhd.git
+	branch = UHD-4.9
