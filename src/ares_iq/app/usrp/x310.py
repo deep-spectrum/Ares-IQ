@@ -1,4 +1,4 @@
-from ares_iq.usrp import UsrpX310, USRPConfigs
+from ares_iq.usrp import UsrpX310, X310Configs
 import typer
 from typing_extensions import Annotated
 from ares_iq.print_utils import print_error
@@ -9,7 +9,7 @@ class X310Device(UsrpX310):
     app = typer.Typer()
 
     def __init__(self):
-        configs = USRPConfigs.from_yaml(CONFIG_FILE)
+        configs = X310Configs.from_yaml(CONFIG_FILE)
         super().__init__(configs)
 
     @staticmethod
@@ -20,7 +20,7 @@ class X310Device(UsrpX310):
                     rate: Annotated[float | None, typer.Option(help='RX sample rate')] = None,
                     gain: Annotated[float | None, typer.Option(help='Overall RX gain')] = None,
                     spp: Annotated[int | None, typer.Option(help="Samples per packet")] = None):
-        configs = USRPConfigs.from_yaml(CONFIG_FILE)
+        configs = X310Configs.from_yaml(CONFIG_FILE)
 
         try:
             if spc is not None:
@@ -28,8 +28,6 @@ class X310Device(UsrpX310):
             if subdev is not None:
                 configs.subdev = subdev
             if ref is not None:
-                if not (ref == "internal" or ref == "external" or ref == "gpsdo"):
-                    print_error("ref must be `internal`, `external`, or `gpsdo`")
                 configs.ref = ref
             if rate is not None:
                 configs.rate = rate
