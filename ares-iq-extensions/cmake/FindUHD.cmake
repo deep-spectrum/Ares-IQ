@@ -3,7 +3,7 @@ set(UHD_DIR ${_UHD_DIR})
 set(ENV{UHD_DIR} ${UHD_DIR})
 set(_UHD_STATIC_LIB "${UHD_DIR}/lib/libuhd.a")
 
-option(UHD_USE_STATIC_LIBS ON)
+set(UHD_USE_STATIC_LIBS ON)
 find_package(UHD QUIET PATHS ${UHD_DIR})
 
 if(NOT UHD_FOUND)
