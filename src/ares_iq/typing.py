@@ -15,13 +15,13 @@ PathLike = str | pathlib.Path | os.PathLike | bytes
 class SoftwareDefinedRadio(Protocol):
     """Protocol for SoftwareDefinedRadio classes."""
 
-    def capture_iq(self, center: float, bw: float, file_size: float, verbose: bool, extra_verbose: bool) -> None:
+    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool, extra_verbose: bool) -> None:
         """Capture IQ data from the SDR.
 
         Args:
             center: The center frequency in Hz.
             bw: The bandwidth in Hz.
-            file_size: The maximum amount of IQ data to collect in GB.
+            capture_size: The maximum amount of IQ data to collect in bytes.
             verbose: Show progress bar.
             extra_verbose: Extra verbose output. Shows the progress bar and logging messages.
         """

@@ -79,7 +79,7 @@ USRP::USRP(const USRPconfigs &configs, const USRPStreamArgs &stream_args) {
     _stream_args = stream_args;
 }
 
-py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
+py::tuple USRP::capture_iq(double center, double bw, uint64_t capture_size,
                            bool verbose, bool extra) {
     _extra_verbose = extra;
     if (!configured) {
@@ -90,11 +90,10 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
     }
 
     uint64_t samples_per_capture = _configs.spc;
-    auto file_size = static_cast<uint64_t>(file_size_gb * 1e9);
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) +
         timestamp_size;
-    uint64_t captures = file_size / bytes_per_capture;
+    uint64_t captures = capture_size / bytes_per_capture;
 
     std::vector<Capture> data(captures);
 

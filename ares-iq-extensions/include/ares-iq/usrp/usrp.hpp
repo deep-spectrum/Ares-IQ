@@ -116,13 +116,13 @@ class USRP {
      * Capture IQ data.
      * @param[in] center The center frequency to tune to.
      * @param[in] bw The bandwidth of the capture.
-     * @param[in] file_size_gb The amount of data to capture in GB.
+     * @param[in] capture_size The amount of data to capture in bytes.
      * @param[in] verbose Show the progress bar.
      * @param[in] extra Like verbose, but show logging messages from UHD too.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
-    py::tuple capture_iq(double center, double bw, double file_size_gb,
+    py::tuple capture_iq(double center, double bw, uint64_t capture_size,
                          bool verbose, bool extra);
 
     /**

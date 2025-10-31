@@ -87,13 +87,13 @@ class BB60:
             self._bw = self._max_bw
         bb_configure_IQ(self._handle, decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool, extra: bool) -> None:
+    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool, extra: bool) -> None:
         """Capture I/Q data from the spectrum analyzer.
 
         Args:
             center: The center frequency in Hz.
             bw: The capture bandwidth in Hz.
-            file_size_gb: The amount of uncompressed data to capture.
+            capture_size: The maximum amount of IQ data to collect in bytes.
             verbose: Show progress bar during the capture.
             extra: Like verbose, but also shows logging messages.
         """
@@ -105,8 +105,7 @@ class BB60:
         bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
         # Pre-allocate to avoid doing it later...
-        file_size = file_size_gb * 1e9
-        captures = math.ceil(file_size / BYTES_PER_CAPTURE)
+        captures = math.floor(capture_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]
 
         with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:

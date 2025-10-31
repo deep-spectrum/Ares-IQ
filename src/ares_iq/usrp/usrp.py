@@ -56,22 +56,22 @@ class USRP(ABC):
 
         self._usrp: _USRP = _USRP(configs_, stream_)
 
-    def capture_iq(self, center: float, bw: float, file_size: float, verbose: bool, extra: bool):
-        """Capture IQ data from the USRP.
+    def capture_iq(self, center: float, bw: float, capture_size: float, verbose: bool, extra: bool):
+        """Capture IQ data from the SDR.
 
         Args:
             center: The center frequency in Hz.
             bw: The bandwidth in Hz.
-            file_size: The amount of data to capture in GB.
+            capture_size: The maximum amount of IQ data to collect in bytes.
             verbose: Show the progress bar.
             extra: Like verbose, but show the logging messages too.
 
         Raises:
             ValueError: Bad configuration arguments.
         """
-        iq_data, timestamps = self._usrp.capture_iq(center, bw, file_size, verbose, extra)
+        iq_data, timestamps = self._usrp.capture_iq(center, bw, capture_size, verbose, extra)
 
-        self._iq_data = [IQData() for _ in range(len(timestamps))]
+        self._iq_data = [IQData() for _ in timestamps]
         for data, ts, iq in zip(iq_data, timestamps, self._iq_data):
             iq.iq = data
             iq.ts_sec = int(ts)
