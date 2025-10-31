@@ -11,7 +11,7 @@ QuantizedData = None
 PathLike = str | pathlib.Path | os.PathLike | bytes
 """Type alias for paths."""
 
-RealNumber = int | float
+RealNumber = float
 """Type alias for numbers that are considered "real" in math terms."""
 
 
