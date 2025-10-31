@@ -8,7 +8,7 @@ from ares_iq.iq_data import IQData
 import math
 from attrs import define, field, Converter
 from ares_iq.validators import clamp_bounds, power_of_two
-from ares_iq.typing import RealNumber, QuantizedData
+from ares_iq.typing import QuantizedData
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
@@ -26,7 +26,7 @@ class BB60Configs:
         ref_level: Reference level for the BB60 in dBm.
         decimation: The downsampling factor. Must be a power of 2 between `BB_MIN_DECIMATION` and `BB_MAX_DECIMATION`.
     """
-    ref_level: RealNumber = -20.0
+    ref_level: float = -20.0
     decimation: int = field(default=BB_MIN_DECIMATION,
                             metadata={"min": BB_MIN_DECIMATION, "max": BB_MAX_DECIMATION},
                             converter=Converter(clamp_bounds, takes_field=True),  # type: ignore[misc]

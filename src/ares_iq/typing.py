@@ -11,9 +11,6 @@ QuantizedData = None
 PathLike = str | pathlib.Path | os.PathLike | bytes
 """Type alias for paths."""
 
-RealNumber = float
-"""Type alias for numbers that are considered "real" in math terms."""
-
 
 class SoftwareDefinedRadio(Protocol):
     """Protocol for SoftwareDefinedRadio classes."""

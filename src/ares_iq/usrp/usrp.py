@@ -2,7 +2,7 @@ from ares_iq_ext.usrp import _USRP, _USRPConfigs, _UsrpStreamArgs
 from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import abstractmethod, ABC
-from ares_iq.typing import QuantizedData, RealNumber
+from ares_iq.typing import QuantizedData
 from attrs import define, field
 from ares_iq.validators import is_positive
 
@@ -24,8 +24,8 @@ class USRPConfigs:
     samples_per_capture: int = field(default=200000, validator=is_positive)
     subdev: str = "A:0"
     ref: str = "internal"
-    rate: RealNumber = field(default=25e6, validator=is_positive)
-    gain: RealNumber = 0
+    rate: float = field(default=25e6, validator=is_positive)
+    gain: float = 0
     samples_per_packet: int = field(default=200, validator=is_positive)
 
 

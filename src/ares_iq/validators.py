@@ -1,9 +1,8 @@
 from attrs import Attribute
-from .typing import RealNumber
 from typing import Any
 
 
-def clamp_bounds(value: RealNumber, field: Attribute):
+def clamp_bounds(value: float, field: Attribute):
     """Clamp a field to bounds if value is out of range.
 
     Clamp the set value to the min or max. This must be used in an
@@ -76,7 +75,7 @@ def power_of_two(_instance: Any, attribute: Attribute, value: int):
         raise ValueError(f"{attribute.name} must be a power of 2")
 
 
-def is_positive(_instance: Any, attribute: Attribute, value: RealNumber):
+def is_positive(_instance: Any, attribute: Attribute, value: float):
     """Validates if the input is positive.
 
     Validates if the input value is valid. If `0` is considered valid, then
