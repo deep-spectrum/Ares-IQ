@@ -6,8 +6,8 @@ from .bbdevice.bb_api import (bb_get_serial_number_list_2, bb_open_device, bb_co
 from ares_iq.print_utils import print_warning, CaptureProgress
 from ares_iq.iq_data import IQData
 import math
-from attrs import define, field, Converter
-from ares_iq.validators import clamp_bounds, power_of_two
+from attrs import define, field, validators
+from ares_iq.validators import power_of_two, validate_bounds
 from ares_iq.typing import QuantizedData
 
 SAMPLES_PER_CAPTURE = 262144
@@ -29,8 +29,7 @@ class BB60Configs:
     ref_level: float = -20.0
     decimation: int = field(default=BB_MIN_DECIMATION,
                             metadata={"min": BB_MIN_DECIMATION, "max": BB_MAX_DECIMATION},
-                            converter=Converter(clamp_bounds, takes_field=True),  # type: ignore[misc]
-                            validator=power_of_two)
+                            validator=[validators.instance_of(int), validate_bounds, power_of_two])
 
 
 class BB60:

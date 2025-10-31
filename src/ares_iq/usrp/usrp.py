@@ -3,8 +3,8 @@ from ares_iq.iq_data import IQData
 from decimal import Decimal
 from abc import abstractmethod, ABC
 from ares_iq.typing import QuantizedData
-from attrs import define, field
-from ares_iq.validators import is_positive
+from attrs import define, field, validators
+from ares_iq.validators import validate_bounds
 
 
 @define
@@ -21,12 +21,14 @@ class USRPConfigs:
         gain: Overall RX gain.
         samples_per_packet: Number of samples per a UDP packet.
     """
-    samples_per_capture: int = field(default=200000, validator=is_positive)
+    samples_per_capture: int = field(default=200000, metadata={"min": 1},
+                                     validator=[validators.instance_of(int), validate_bounds])
     subdev: str = "A:0"
     ref: str = "internal"
-    rate: float = field(default=25e6, validator=is_positive)
+    rate: float = field(default=25e6, metadata={"min": 0.1}, validator=validate_bounds)
     gain: float = 0
-    samples_per_packet: int = field(default=200, validator=is_positive)
+    samples_per_packet: int = field(default=200, metadata={"min": 1},
+                                    validator=[validators.instance_of(int), validate_bounds])
 
 
 class USRP(ABC):

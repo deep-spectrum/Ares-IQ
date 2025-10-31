@@ -48,6 +48,51 @@ def clamp_bounds(value: float, field: Attribute):
     return value
 
 
+def validate_bounds(_instance: Any, attribute: Attribute, value: float):
+    """Validate if the input is within bounds.
+
+    Validates if the input value is within bounds. In order for this to work, a min
+    and/or a max must be specified in the metadata. If no min is specified, then there
+    is no lower bound. If no max is specified, then there is no upper bound. Specifying
+    no bounds acts as a pass through.
+
+    Typical usage example:
+
+    ```py
+    from attrs import define, field
+    from ares_iq.validators import validate_bounds
+    @define
+    class Foo:
+        bar: int = field(default=1,
+                         metadata={"min": 0, "max": 10},
+                         validator=validate_bounds)
+    ```
+
+    Args:
+        _instance: Unused.
+        attribute: The attribute being set.
+        value: The value to validate
+
+    Raises:
+        AttributeError: metadata dictionary missing.
+        ValueError: Value is not within bounds.
+    """
+    if attribute.metadata is None:
+        raise AttributeError(f"metadata for {attribute.name} must be defined in order to use {__name__}")
+    if "min" in attribute.metadata:
+        if value < attribute.metadata["min"]:
+            raise ValueError(
+                f"{attribute.name} must be between {attribute.metadata['min']} and {attribute.metadata['max']}. "
+                f"Got {value}" if "max" in attribute.metadata else f"{attribute.name} must be greater than "
+                                                                   f"{attribute.metadata['min']}. Got {value}")
+    if "max" in attribute.metadata:
+        if value > attribute.metadata["max"]:
+            raise ValueError(
+                f"{attribute.name} must be between {attribute.metadata['min']} and {attribute.metadata['max']}. "
+                f"Got {value}" if "min" in attribute.metadata else f"{attribute.name} must be less than "
+                                                                   f"{attribute.metadata['max']}. Got {value}")
+
+
 def power_of_two(_instance: Any, attribute: Attribute, value: int):
     """Check if value is a power of 2.
 
@@ -73,40 +118,3 @@ def power_of_two(_instance: Any, attribute: Attribute, value: int):
     """
     if not ((value & (value - 1) == 0) and value > 0):
         raise ValueError(f"{attribute.name} must be a power of 2")
-
-
-def is_positive(_instance: Any, attribute: Attribute, value: float):
-    """Validates if the input is positive.
-
-    Validates if the input value is valid. If `0` is considered valid, then
-    that must be specified in the metadata with the `"zero_valid"` key. If
-    `0` is considered to be invalid, then specifying metadata is not necessary.
-
-    Typical usage example:
-
-    ```py
-    from attrs import define, field
-    from ares_iq.validators import is_positive
-    @define
-    class Foo:
-        bar: int field(default=1,
-                       metadata={"zero_valid": False},  # Not necessary if `0` is considered invalid.
-                       validator=is_positive)
-    ```
-
-    Args:
-        _instance: Unused
-        attribute: The attribute being set
-        value: The value to validate
-
-    Raises:
-        ValueError: Value is not a positive number.
-    """
-    zero_valid = False
-    if attribute.metadata is not None:
-        if "zero_valid" in attribute.metadata:
-            zero_valid = bool(attribute.metadata["zero_valid"])
-
-    if value < 0 or (value == 0 and not zero_valid):
-        raise ValueError(
-            f"{attribute.name} must be greater than 0" if not zero_valid else f"{attribute.name} must be greater or equal to 0")
