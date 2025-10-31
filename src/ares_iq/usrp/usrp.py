@@ -41,18 +41,18 @@ class USRP(ABC):
             dev_args: The device arguments required for finding and opening a USRP device.
             configs: The configurations for the USRP device.
         """
-        configs_ = _USRPConfigs()
-        stream_ = _UsrpStreamArgs()
 
-        configs_.dev_args = dev_args
-
-        if configs is not None:
-            configs_.samples_per_capture = configs.samples_per_capture
-            configs_.subdev = configs.subdev
-            configs_.ref = configs.ref
-            configs_.rate = configs.rate
-            configs_.gain = configs.gain
-            stream_.spp = configs.samples_per_packet
+        if configs is None:
+            configs_ = _USRPConfigs(dev_args=dev_args)
+            stream_ = _UsrpStreamArgs()
+        else:
+            configs_ = _USRPConfigs(dev_args=dev_args,
+                                    spc=configs.samples_per_capture,
+                                    subdev=configs.subdev,
+                                    ref=configs.ref,
+                                    rate=configs.rate,
+                                    gain=configs.gain)
+            stream_ = _UsrpStreamArgs(spp=configs.samples_per_packet)
 
         self._usrp: _USRP = _USRP(configs_, stream_)
 
