@@ -54,7 +54,7 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 
     py::class_<USRPStreamArgs>(m, "_UsrpStreamArgs",
                                "Stream arguments for the USRP.")
-        .def(py::init<>())
+        .def(py::init<const py::kwargs &>())
         .def_readwrite("spp", &USRPStreamArgs::spp, "Samples per packet");
 
     py::class_<USRP>(m, "_USRP",
@@ -274,3 +274,7 @@ void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
 }
 
 uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
+
+USRPStreamArgs::USRPStreamArgs(const py::kwargs &kwargs) {
+    _USRP_CONFIG_SET(kwargs, spp);
+}

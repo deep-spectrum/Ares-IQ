@@ -82,6 +82,13 @@ struct USRPconfigs {
 struct USRPStreamArgs {
     USRPStreamArgs() = default;
 
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit USRPStreamArgs(const py::kwargs &kwargs);
+
     /// Samples per packet.
     int spp = 200;
 };
