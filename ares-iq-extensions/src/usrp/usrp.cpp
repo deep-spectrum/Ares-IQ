@@ -41,9 +41,8 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 
     py::class_<USRPconfigs>(m, "_USRPConfigs",
                             "Configuration parameters for the USRP.")
-        .def(py::init<>())
-        .def_readwrite("dev_args", &USRPconfigs::device_args,
-                       "Device arguments")
+        .def(py::init<const py::kwargs &>())
+        .def_readwrite("dev_args", &USRPconfigs::dev_args, "Device arguments")
         .def_property(
             "samples_per_capture", &USRPconfigs::get_samples_per_capture,
             &USRPconfigs::set_samples_per_capture, "Samples per capture")
@@ -90,7 +89,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
         usrp->set_rx_bandwidth(bw);
     }
 
-    uint64_t samples_per_capture = _configs.samples_per_capture;
+    uint64_t samples_per_capture = _configs.spc;
     auto file_size = static_cast<uint64_t>(file_size_gb * 1e9);
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) +
@@ -136,10 +135,10 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb,
 }
 
 void USRP::_open_usrp() {
-    if (_configs.device_args.empty()) {
+    if (_configs.dev_args.empty()) {
         throw std::invalid_argument("usage error. device arguments missing.");
     }
-    this->usrp = uhd::usrp::multi_usrp::make(_configs.device_args);
+    this->usrp = uhd::usrp::multi_usrp::make(_configs.dev_args);
 }
 
 void USRP::_configure_usrp(double center, double bw) {
@@ -221,11 +220,9 @@ void USRP::_enable_console_output() const {
     close(_dev_null);
 }
 
-const std::string &USRP::dev_args() const { return _configs.device_args; }
+const std::string &USRP::dev_args() const { return _configs.dev_args; }
 
-uint64_t USRP::samples_per_capture() const {
-    return _configs.samples_per_capture;
-}
+uint64_t USRP::samples_per_capture() const { return _configs.spc; }
 
 const std::string &USRP::subdev() const {
     if (configured) {
@@ -253,13 +250,27 @@ double USRP::gain() const {
     return _configs.gain;
 }
 
-void USRPconfigs::set_samples_per_capture(uint64_t spc) {
+#define _USRP_CONFIG_SET(_kwargs, _key)                                        \
+    do {                                                                       \
+        if (_kwargs.contains(#_key)) {                                         \
+            _key = _kwargs[#_key].cast<decltype(_key)>();                      \
+        }                                                                      \
+    } while (false)
+
+USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
+    _USRP_CONFIG_SET(kwargs, dev_args);
+    _USRP_CONFIG_SET(kwargs, spc);
+    _USRP_CONFIG_SET(kwargs, subdev);
+    _USRP_CONFIG_SET(kwargs, ref);
+    _USRP_CONFIG_SET(kwargs, rate);
+    _USRP_CONFIG_SET(kwargs, gain);
+}
+
+void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
     if (spc == 0u) {
         throw std::range_error("samples_per_capture must be above 0");
     }
-    samples_per_capture = spc;
+    this->spc = spc_;
 }
 
-uint64_t USRPconfigs::get_samples_per_capture() const {
-    return samples_per_capture;
-}
+uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
