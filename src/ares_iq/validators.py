@@ -54,7 +54,10 @@ def validate_bounds(_instance: Any, attribute: Attribute, value: float):
     Validates if the input value is within bounds. In order for this to work, a min
     and/or a max must be specified in the metadata. If no min is specified, then there
     is no lower bound. If no max is specified, then there is no upper bound. Specifying
-    no bounds acts as a pass through.
+    no bounds acts as a pass through. By default, the bounds are inclusive, however,
+    one or both of the bounds can be marked as exclusive through the metadata. In order
+    to mark a bound as exclusive, min_exclusive and/or max_exclusive must be specified
+    in the metadata with the value being a boolean.
 
     Typical usage example:
 
@@ -63,8 +66,12 @@ def validate_bounds(_instance: Any, attribute: Attribute, value: float):
     from ares_iq.validators import validate_bounds
     @define
     class Foo:
+        # bar has the following bound validation: 0 < bar <= 10
         bar: int = field(default=1,
-                         metadata={"min": 0, "max": 10},
+                         metadata=metadata={"min": 0,
+                                            "max": 10,
+                                            "min_exclusive": True,
+                                            "max_exclusive": False},
                          validator=validate_bounds)
     ```
 
@@ -79,18 +86,30 @@ def validate_bounds(_instance: Any, attribute: Attribute, value: float):
     """
     if attribute.metadata is None:
         raise AttributeError(f"metadata for {attribute.name} must be defined in order to use {__name__}")
+
+    min_exclusive = False
+    max_exclusive = False
+    lower_bound = "<="
+    upper_bound = "<="
+    if "min_exclusive" in attribute.metadata:
+        min_exclusive = bool(attribute.metadata["min_exclusive"])
+        lower_bound = "<" if min_exclusive else "<="
+    if "max_exclusive" in attribute.metadata:
+        max_exclusive = bool(attribute.metadata["max_exclusive"])
+        upper_bound = "<" if max_exclusive else "<="
+
     if "min" in attribute.metadata:
-        if value < attribute.metadata["min"]:
+        if value < attribute.metadata["min"] or (min_exclusive and value <= attribute.metadata["min"]):
             raise ValueError(
-                f"{attribute.name} must be between {attribute.metadata['min']} and {attribute.metadata['max']}. "
-                f"Got {value}" if "max" in attribute.metadata else f"{attribute.name} must be greater than "
-                                                                   f"{attribute.metadata['min']}. Got {value}")
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}{upper_bound}{attribute.metadata['max']}. "
+                f"Got {value}" if "max" in attribute.metadata else
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}. Got {value}.")
     if "max" in attribute.metadata:
-        if value > attribute.metadata["max"]:
+        if value > attribute.metadata["max"] or (max_exclusive and value >= attribute.metadata["max"]):
             raise ValueError(
-                f"{attribute.name} must be between {attribute.metadata['min']} and {attribute.metadata['max']}. "
-                f"Got {value}" if "min" in attribute.metadata else f"{attribute.name} must be less than "
-                                                                   f"{attribute.metadata['max']}. Got {value}")
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}{upper_bound}{attribute.metadata['max']}. "
+                f"Got {value}" if "min" in attribute.metadata else
+                f"{attribute.name}{upper_bound}{attribute.metadata['max']}. Got {value}.")
 
 
 def power_of_two(_instance: Any, attribute: Attribute, value: int):

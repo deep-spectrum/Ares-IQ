@@ -25,7 +25,7 @@ class USRPConfigs:
                                      validator=[validators.instance_of(int), validate_bounds])
     subdev: str = "A:0"
     ref: str = "internal"
-    rate: float = field(default=25e6, metadata={"min": 0.1}, validator=validate_bounds)
+    rate: float = field(default=25e6, metadata={"min": 0, "min_exclusive": True}, validator=validate_bounds)
     gain: float = 0
     samples_per_packet: int = field(default=200, metadata={"min": 1},
                                     validator=[validators.instance_of(int), validate_bounds])
