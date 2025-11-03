@@ -3,8 +3,9 @@ from .bbdevice.bb_api import (bb_get_serial_number_list_2, bb_open_device, bb_co
                               bb_get_IQ_unpacked, bb_close_device, BB_DEVICE_BB60A,
                               BB60A_MAX_RT_SPAN, BB60C_MAX_RT_SPAN, BB_AUTO_GAIN, BB_AUTO_ATTEN, BB_MIN_DECIMATION,
                               BB_MAX_DECIMATION, BB_STREAMING, BB_STREAM_IQ, BB_FALSE)
-from ares_iq.print_utils import print_warning, CaptureProgress
+from ares_iq.print_utils import CaptureProgress
 from ares_iq.iq_data import IQData
+from ares_iq.print_utils import logging as aiq_logging
 import math
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -14,7 +15,6 @@ import logging
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
 logger = logging.getLogger(__name__)
-logger.info("There!")
 
 
 class BB60Exception(Exception):
@@ -56,8 +56,7 @@ class BB60:
         if configs is None:
             configs = BB60Configs()
         self._configs = configs
-        logger.info("Here!")
-        logger.setLevel(logging.CRITICAL)
+        logger.setLevel(aiq_logging.OFF)
 
     def _open_device(self):
         logger.debug("Discovering BB60 devices")
@@ -87,7 +86,7 @@ class BB60:
         decimation = self._configs.decimation
         self._max_bw = self._max_bw / decimation
         if self._bw > self._max_bw:
-            print_warning(
+            logger.warning(
                 f"Unable to set the bandwidth to {self._bw / 1.0e6} MHz. Setting to {self._max_bw / 1.0e6} MHz")
             self._bw = self._max_bw
         bb_configure_IQ(self._handle, decimation, self._bw)
@@ -134,7 +133,7 @@ class BB60:
 
         bb_close_device(self._handle)
 
-        logger.setLevel(logging.CRITICAL)
+        logger.setLevel(aiq_logging.OFF)
 
     @property
     def iq_data(self):
