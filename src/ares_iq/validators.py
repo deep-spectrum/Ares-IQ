@@ -2,7 +2,7 @@ from attrs import Attribute
 from typing import Any
 
 
-def clamp_bounds(value: float, field: Attribute):
+def clamp_bounds(value: float, field: Attribute) -> float:
     """Clamp a field to bounds if value is out of range.
 
     Clamp the set value to the min or max. This must be used in an
