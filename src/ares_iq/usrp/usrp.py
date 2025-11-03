@@ -33,8 +33,6 @@ class USRPConfigs:
 
 class USRP(ABC):
     """Base class for USRP platforms."""
-    _iq_data: list[IQData]
-    _quantized_data: list[None]
 
     def __init__(self, dev_args: str, configs: USRPConfigs | None):
         """Initializes the base USRP instance.
@@ -58,7 +56,7 @@ class USRP(ABC):
 
         self._usrp: _USRP = _USRP(configs_, stream_)
 
-    def capture_iq(self, center: float, bw: float, capture_size: float, verbose: bool, extra: bool):
+    def capture_iq(self, center: float, bw: float, capture_size: float, verbose: bool = False, extra: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
         """Capture IQ data from the SDR.
 
         Args:
@@ -73,24 +71,15 @@ class USRP(ABC):
         """
         iq_data, timestamps = self._usrp.capture_iq(center, bw, capture_size, verbose, extra)
 
-        self._iq_data = [IQData() for _ in timestamps]
-        for data, ts, iq in zip(iq_data, timestamps, self._iq_data):
+        iq_data_ = [IQData() for _ in timestamps]
+        for data, ts, iq in zip(iq_data, timestamps, iq_data_):
             iq.iq = data
             iq.ts_sec = int(ts)
             iq.ts_nsec = int((Decimal(ts) - iq.ts_sec) * Decimal('1e9'))
 
-        self._quantize()
+        quant_data = self._quantize(iq_data_)
+        return iq_data_, quant_data
 
     @abstractmethod
-    def _quantize(self):
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
         """Convert the collected IQ data from complex numbers to ADC readings."""
-
-    @property
-    def iq_data(self) -> list[IQData]:
-        """The captured IQ data from the last call to capture_iq()"""
-        return self._iq_data
-
-    @property
-    def quantized_data(self) -> list[QuantizedData]:
-        """The quantized IQ data from the last call to capture_iq()"""
-        return self._quantized_data

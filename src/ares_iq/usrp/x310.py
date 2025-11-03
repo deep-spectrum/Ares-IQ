@@ -1,5 +1,7 @@
 from .usrp import USRP, USRPConfigs
 from typing_extensions import override
+from ares_iq.iq_data import IQData
+from ares_iq.typing import QuantizedData
 
 
 class UsrpX310(USRP):
@@ -16,5 +18,6 @@ class UsrpX310(USRP):
         super().__init__("type=x300", configs)
 
     @override
-    def _quantize(self):
-        pass
+    def _quantize(self, iq_data: list[IQData]):
+        # TODO: implement me
+        return [QuantizedData() for _ in iq_data]

@@ -44,8 +44,6 @@ class BB60:
     _max_bw: float = 0
     _center: float = 0
     _bw: float = 0
-    _iq_data: list[IQData] = []
-    _quantized_data: list[QuantizedData] = []
 
     def __init__(self, configs: BB60Configs | None = None):
         """Initializes the BB60 instance based on the configurations passed in through BB60Configs.
@@ -91,7 +89,7 @@ class BB60:
             self._bw = self._max_bw
         bb_configure_IQ(self._handle, decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool, extra: bool) -> None:
+    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool = False, extra: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
         """Capture I/Q data from the spectrum analyzer.
 
         Args:
@@ -114,13 +112,13 @@ class BB60:
 
         # Pre-allocate to avoid doing it later...
         captures = math.floor(capture_size / BYTES_PER_CAPTURE)
-        self._iq_data = [IQData() for _ in range(captures)]
+        iq_data = [IQData() for _ in range(captures)]
 
         logger.info("BB60 configured. Starting stream")
         bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
         with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:
-            for iq in self._iq_data:
+            for iq in iq_data:
                 data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
                 iq.iq = data["iq"]
                 iq.ts_sec = data["sec"]
@@ -129,21 +127,13 @@ class BB60:
             progress.update()
 
         logger.info("Finished collecting IQ data. Quantizing the data.")
-        self._quantize()
+        quant_data = self._quantize(iq_data)
 
         bb_close_device(self._handle)
 
         logger.setLevel(aiq_logging.OFF)
+        return iq_data, quant_data
 
-    @property
-    def iq_data(self):
-        """The captured IQ data from the last call to BB60.capture_iq()."""
-        return self._iq_data
-
-    @property
-    def quantized_data(self):
-        """The quantized data from the data capture."""
-        return self._quantized_data
-
-    def _quantize(self):
-        pass
+    def _quantize(self, iq_data):
+        # TODO: Implement me
+        return [QuantizedData() for _ in iq_data]

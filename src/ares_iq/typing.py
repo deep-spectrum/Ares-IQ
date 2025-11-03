@@ -5,7 +5,7 @@ from .iq_data import IQData
 import os
 import pathlib
 
-QuantizedData = None
+QuantizedData = object
 """Type alias for the quantized data."""
 
 PathLike = str | pathlib.Path | os.PathLike | bytes
@@ -15,7 +15,7 @@ PathLike = str | pathlib.Path | os.PathLike | bytes
 class SoftwareDefinedRadio(Protocol):
     """Protocol for SoftwareDefinedRadio classes."""
 
-    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool, extra_verbose: bool) -> None:
+    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool = False, extra_verbose: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
         """Capture IQ data from the SDR.
 
         Args:
@@ -24,12 +24,7 @@ class SoftwareDefinedRadio(Protocol):
             capture_size: The maximum amount of IQ data to collect in bytes.
             verbose: Show progress bar.
             extra_verbose: Extra verbose output. Shows the progress bar and logging messages.
+
+        Returns:
+            A list of IQ data and a list of QuantizedData
         """
-
-    @property
-    def iq_data(self) -> list[IQData]:
-        """IQ data from the capture"""
-
-    @property
-    def quantized_data(self) -> list[QuantizedData]:
-        """Quantized data from the capture"""
