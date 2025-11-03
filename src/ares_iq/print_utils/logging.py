@@ -1,4 +1,18 @@
 import logging
+from .console_print import print_error, print_warning
+from rich import print as rprint
+
+
+def _dbg_print(msg: str):
+    rprint(f"[DBG] {msg}")
+
+
+def _info_print(msg: str):
+    rprint(f"[green][INFO][/green] {msg}")
+
+
+def _crit_print(msg: str):
+    rprint(f"[][CRITICAL][/] {msg}")
 
 
 class AresIqLoggingHandle(logging.Handler):
@@ -13,12 +27,12 @@ class AresIqLoggingHandle(logging.Handler):
 
         match record.levelno:
             case logging.DEBUG:
-                pass
+                _dbg_print(msg)
             case logging.INFO:
-                pass
+                _info_print(msg)
             case logging.WARNING:
-                pass
+                print_warning(msg)
             case logging.ERROR:
-                pass
+                print_error(msg)
             case logging.CRITICAL:
-                pass
+                _crit_print(msg)
