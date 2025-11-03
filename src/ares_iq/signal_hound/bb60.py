@@ -9,9 +9,12 @@ import math
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
 from ares_iq.typing import QuantizedData
+import logging
 
 SAMPLES_PER_CAPTURE = 262144
 BYTES_PER_CAPTURE = (16 * SAMPLES_PER_CAPTURE) + 8
+logger = logging.getLogger(__name__)
+logger.info("There!")
 
 
 class BB60Exception(Exception):
@@ -53,8 +56,11 @@ class BB60:
         if configs is None:
             configs = BB60Configs()
         self._configs = configs
+        logger.info("Here!")
+        logger.setLevel(logging.CRITICAL)
 
     def _open_device(self):
+        logger.debug("Discovering BB60 devices")
         devices = bb_get_serial_number_list_2()
         device_count = devices["device_count"].value
         # TODO: allow serial number in the presence of multiple devices?
@@ -62,22 +68,22 @@ class BB60:
             raise BB60Exception("No BB60 devices found")
         elif device_count > 1:
             raise BB60Exception("Multiple BB60 devices found. Please connect 1 device only")
-
+        logger.debug("Found a BB60 device. Attempting to open it.")
         max_bw = BB60A_MAX_RT_SPAN if devices["device_types"][0] == BB_DEVICE_BB60A else BB60C_MAX_RT_SPAN
         self._handle = bb_open_device()["handle"]
         self._max_bw = max_bw.value
 
     def _configure_bb_device(self):
-        # Reference level
+        logger.debug(f"Setting reference level to {self._configs.ref_level} dBm")
         bb_configure_ref_level(self._handle, self._configs.ref_level)
 
-        # Gain and attenuation
+        logger.debug("Configuring the gain and attenuation")
         bb_configure_gain_atten(self._handle, BB_AUTO_GAIN, BB_AUTO_ATTEN)
 
-        # Center frequency
+        logger.debug(f"Setting the center frequency to {self._center}")
         bb_configure_IQ_center(self._handle, self._center)
 
-        # Bandwidth
+        logger.debug("Setting the bandwidth and down sampling factor")
         decimation = self._configs.decimation
         self._max_bw = self._max_bw / decimation
         if self._bw > self._max_bw:
@@ -96,16 +102,23 @@ class BB60:
             verbose: Show progress bar during the capture.
             extra: Like verbose, but also shows logging messages.
         """
+
+        if extra:
+            logger.setLevel(logging.INFO)
+
         self._bw = bw
         self._center = center
 
+        logger.info("Opening and configuring BB60")
         self._open_device()
         self._configure_bb_device()
-        bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
         # Pre-allocate to avoid doing it later...
         captures = math.floor(capture_size / BYTES_PER_CAPTURE)
         self._iq_data = [IQData() for _ in range(captures)]
+
+        logger.info("BB60 configured. Starting stream")
+        bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
         with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:
             for iq in self._iq_data:
@@ -116,9 +129,12 @@ class BB60:
                 progress.update()
             progress.update()
 
+        logger.info("Finished collecting IQ data. Quantizing the data.")
         self._quantize()
 
         bb_close_device(self._handle)
+
+        logger.setLevel(logging.CRITICAL)
 
     @property
     def iq_data(self):
