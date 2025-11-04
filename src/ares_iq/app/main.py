@@ -7,6 +7,12 @@ import os
 import pkgutil
 from ares_iq.typing import SoftwareDefinedRadio
 from ares_iq.save_iq_data import save_iq_data
+from ares_iq.print_utils.logging import AresIqHandler
+import logging
+
+
+logger = logging.getLogger()
+logger.addHandler(AresIqHandler(warning_panel=True, error_panel=True, critical_error_panel=True))
 
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
