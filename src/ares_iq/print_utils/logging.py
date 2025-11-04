@@ -2,18 +2,22 @@ import logging
 from .console_print import print_debug, print_info, print_warning, print_error, print_critical
 
 
-class AresIqLoggingHandle(logging.Handler):
+class AresIqHandler(logging.Handler):
     def __init__(self,
                  level: int | str = 0,
                  dbg_panel: bool = False,
                  info_panel: bool = False,
                  warning_panel: bool = False,
                  error_panel: bool = False,
-                 critical_error_panel: bool = False):
+                 critical_error_panel: bool = False,
+                 fmt: str | logging.Formatter = "%(message)s"):
         super().__init__(level=level)
 
-        formatter = logging.Formatter("%(message)s")
-        self.setFormatter(formatter)
+        if isinstance(fmt, logging.Formatter):
+            self.setFormatter(fmt)
+        else:
+            formatter = logging.Formatter(fmt)
+            self.setFormatter(formatter)
 
         self._dbg_panel = dbg_panel
         self._inf_panel = info_panel
