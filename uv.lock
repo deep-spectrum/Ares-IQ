@@ -77,7 +77,7 @@ provides-extras = ["jax", "dev", "docs"]
 
 [[package]]
 name = "ares-iq-extensions"
-version = "0.0.2"
+version = "0.0.4"
 source = { editable = "ares-iq-extensions" }
 dependencies = [
     { name = "numpy" },
