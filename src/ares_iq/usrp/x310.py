@@ -19,7 +19,7 @@ class X310RefOptions(Enum):
 @define
 class X310Configs(USRPConfigs):
     """Configurations for the USRP x310 platform."""
-    _ref_options: tuple[str] = field(default=tuple([str(x) for x in X310RefOptions]), init=False, repr=False)
+    _ref_options: tuple[str, ...] = field(default=tuple([str(x) for x in X310RefOptions]), init=False, repr=False)
 
 
 class UsrpX310(USRP):

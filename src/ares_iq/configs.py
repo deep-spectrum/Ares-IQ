@@ -1,11 +1,10 @@
 import yaml
-from .typing import PathLike
 from pathlib import Path
 from attrs import asdict
 
 
 class ConfigBase:
-    def to_yaml(self, config_file: PathLike) -> None:
+    def to_yaml(self, config_file: Path | str) -> None:
         """Save configurations to YAML file.
 
         Save the BB60 configurations to the given YAML file. Other YAML contents
@@ -23,12 +22,13 @@ class ConfigBase:
                 config = yaml.safe_load(f)
         else:
             config = {}
-        config[self.__class__.__name__] = asdict(self, filter=lambda attr, value: not attr.name.startswith("_"))
+        config[self.__class__.__name__] = asdict(
+            self, filter=lambda attr, value: not attr.name.startswith("_"))  # type: ignore[arg-type]
         with open(config_file, 'w') as f:
             yaml.safe_dump(config, f)
 
     @classmethod
-    def from_yaml(cls, config_file: PathLike):
+    def from_yaml(cls, config_file: Path | str):
         """Load configurations from YAML file.
 
         Loads the BB60 configurations from the given YAML file. If the

@@ -2,14 +2,9 @@
 
 from typing import Protocol
 from .iq_data import IQData
-import os
-import pathlib
 
 QuantizedData = object
 """Type alias for the quantized data."""
-
-PathLike = str | pathlib.Path | os.PathLike | bytes
-"""Type alias for paths."""
 
 
 class SoftwareDefinedRadio(Protocol):

@@ -35,7 +35,8 @@ dev = [
     "pytest-cov",
     "pyright >= 1.0.0",
     "ruff >= 0.11.0",
-    "mypy"
+    "mypy",
+    "types-PyYAML",
 ]
 docs = [
     "mkdocs == 1.6.*",
