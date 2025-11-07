@@ -4,12 +4,14 @@ import datetime as dt
 
 
 class IQData:
+    """Storage structure for I/Q data"""
     _iq: npt.NDArray[np.complex64]
     _ts_s = 0
     _ts_ns = 0
 
     @property
     def iq(self) -> npt.NDArray[np.complex64]:
+        """The captured I/Q data."""
         return self._iq
 
     @iq.setter
@@ -18,10 +20,12 @@ class IQData:
 
     @property
     def ts(self) -> dt.datetime:
+        """The timestamp of the first sample in the I/Q data."""
         return dt.datetime.fromtimestamp(self._ts_s + (self._ts_ns / 1e9), tz=dt.timezone.utc)
 
     @property
-    def ts_sec(self):
+    def ts_sec(self) -> int:
+        """The timestamp seconds part."""
         return self._ts_s
 
     @ts_sec.setter
@@ -29,7 +33,8 @@ class IQData:
         self._ts_s = ts_s
 
     @property
-    def ts_nsec(self):
+    def ts_nsec(self) -> int:
+        """The timestamp nanoseconds part."""
         return self._ts_ns
 
     @ts_nsec.setter
