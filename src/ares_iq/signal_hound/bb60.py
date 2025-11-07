@@ -100,8 +100,8 @@ class BB60:
             verbose: Show progress bar during the capture.
             extra: Like verbose, but also shows logging messages.
         """
-
-        if extra:
+        base_lvl = logger.level
+        if extra and base_lvl > logging.INFO:
             logger.setLevel(logging.INFO)
 
         self._bw = bw
@@ -132,7 +132,7 @@ class BB60:
 
         bb_close_device(self._handle)
 
-        logger.setLevel(aiq_logging.OFF)
+        logger.setLevel(base_lvl)
         return iq_data, quant_data
 
     def _quantize(self, iq_data):
