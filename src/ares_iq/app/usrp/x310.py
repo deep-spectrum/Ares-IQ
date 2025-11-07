@@ -2,7 +2,7 @@ from ares_iq.usrp import UsrpX310, X310Configs
 import typer
 from typing_extensions import Annotated
 from ares_iq.util import CONFIG_FILE
-from ares_iq.app.utils import config_set
+from ares_iq.app.utils import config_set, print_config_errors
 
 
 class X310Device(UsrpX310):
@@ -22,11 +22,15 @@ class X310Device(UsrpX310):
                     spp: Annotated[int | None, typer.Option(help="Samples per packet")] = None):
         configs = X310Configs.from_yaml(CONFIG_FILE)
 
-        config_set(lambda v: setattr(configs, "samples_per_capture", v), spc)
-        config_set(lambda v: setattr(configs, "subdev", v), subdev)
-        config_set(lambda v: setattr(configs, "ref", v), ref)
-        config_set(lambda v: setattr(configs, "rate", v), rate)
-        config_set(lambda v: setattr(configs, "gain", v), gain)
-        config_set(lambda v: setattr(configs, "samples_per_packet", v), spp)
+        errors: list[str | None] = [
+            config_set(lambda v: setattr(configs, "samples_per_capture", v), spc),
+            config_set(lambda v: setattr(configs, "subdev", v), subdev),
+            config_set(lambda v: setattr(configs, "ref", v), ref),
+            config_set(lambda v: setattr(configs, "rate", v), rate),
+            config_set(lambda v: setattr(configs, "gain", v), gain),
+            config_set(lambda v: setattr(configs, "samples_per_packet", v), spp),
+        ]
+
+        print_config_errors(errors)
 
         configs.to_yaml(CONFIG_FILE)
