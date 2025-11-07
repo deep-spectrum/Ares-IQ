@@ -14,10 +14,11 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "typer",
-    "numpy<2.0.0", # numpy<2.0 needed by UHD
+    "numpy<2.0.0", # A lot of radio stuff has not been updated to numpy>=2.0
     "requests",
     "distro",
     "h5py",
+    "attrs",
     "ares-iq-extensions",
 ]
 

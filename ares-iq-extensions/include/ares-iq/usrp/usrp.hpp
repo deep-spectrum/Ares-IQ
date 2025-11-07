@@ -15,7 +15,6 @@
 #include <pybind11/numpy.h>
 #include <string>
 #include <uhd/usrp/multi_usrp.hpp>
-#include <vector>
 
 namespace py = pybind11;
 
@@ -34,14 +33,21 @@ namespace py = pybind11;
  * configurations should be handled in the Python abstraction layer.
  */
 struct USRPconfigs {
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit USRPconfigs(const py::kwargs &kwargs);
+
     USRPconfigs() = default;
 
     /**
      * .
-     * @param spc Samples per second.
+     * @param spc_ Samples per second.
      * @throws std::range_error If samples per second is less than 1.
      */
-    void set_samples_per_capture(uint64_t spc);
+    void set_samples_per_capture(uint64_t spc_);
 
     /**
      * .
@@ -50,15 +56,15 @@ struct USRPconfigs {
     uint64_t get_samples_per_capture() const;
 
     /// Device arguments. These must be defined before trying to run a capture.
-    std::string device_args;
+    std::string dev_args;
 
     /// Buffer size for each capture.
-    uint64_t samples_per_capture = 200000;
+    uint64_t spc = 200000;
 
     /// Sub device.
     std::string subdev = "A:0";
 
-    /// CLock reference.
+    /// Clock reference.
     std::string ref = "internal";
 
     /// Sample rate in MS/s
@@ -69,6 +75,25 @@ struct USRPconfigs {
 };
 
 /**
+ * @struct USRPStreamArgs
+ *
+ * @brief Stream arguments for the USRP.
+ */
+struct USRPStreamArgs {
+    USRPStreamArgs() = default;
+
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit USRPStreamArgs(const py::kwargs &kwargs);
+
+    /// Samples per packet.
+    int spp = 200;
+};
+
+/**
  * @class USRP
  * The base class for the USRP platform. This should be wrapped with Python.
  */
@@ -76,9 +101,11 @@ class USRP {
   public:
     /**
      * .
-     * @param[in] configs The configurations for the USRP device
+     * @param[in] configs The configurations for the USRP device.
+     * @param[in] stream_args USRP stream arguments.
      */
-    explicit USRP(const USRPconfigs &configs);
+    explicit USRP(const USRPconfigs &configs,
+                  const USRPStreamArgs &stream_args);
 
     /**
      * .
@@ -89,22 +116,14 @@ class USRP {
      * Capture IQ data.
      * @param[in] center The center frequency to tune to.
      * @param[in] bw The bandwidth of the capture.
-     * @param[in] file_size_gb The amount of data to capture in GB.
+     * @param[in] capture_size The amount of data to capture in bytes.
+     * @param[in] verbose Show the progress bar.
+     * @param[in] extra Like verbose, but show logging messages from UHD too.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
-    py::tuple capture_iq(double center, double bw, double file_size_gb,
+    py::tuple capture_iq(double center, double bw, uint64_t capture_size,
                          bool verbose, bool extra);
-
-    /**
-     * Set the stream arguments.
-     * @param[in] spp The samples per packet.
-     *
-     * @note This should be called before calling @ref capture_iq(). After @ref
-     * capture_iq() is called, the stream arguments are set for the duration of
-     * the lifetime of the object.
-     */
-    void set_stream_args(int spp);
 
     /**
      * .
@@ -156,7 +175,7 @@ class USRP {
     uhd::usrp::multi_usrp::sptr usrp;
     std::shared_ptr<uhd::rx_streamer> rx_streamer;
     uhd::rx_metadata_t rx_meta;
-    int _spp = 200;
+    USRPStreamArgs _stream_args;
     bool configured = false;
 
     bool _extra_verbose = false;
