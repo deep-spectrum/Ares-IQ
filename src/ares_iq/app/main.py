@@ -59,7 +59,7 @@ def capture(
 
     if PLATFORMS[platform] is None:
         raise typer.Abort(f"{platform} is not supported yet.")
-    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, file_size, verbose, extra_verbose)
+    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), verbose, extra_verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 

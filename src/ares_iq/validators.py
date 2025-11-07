@@ -1,9 +1,8 @@
 from attrs import Attribute
-from .typing import RealNumber
 from typing import Any
 
 
-def clamp_bounds(value: RealNumber, field: Attribute):
+def clamp_bounds(value: float, field: Attribute) -> float:
     """Clamp a field to bounds if value is out of range.
 
     Clamp the set value to the min or max. This must be used in an
@@ -49,6 +48,70 @@ def clamp_bounds(value: RealNumber, field: Attribute):
     return value
 
 
+def validate_bounds(_instance: Any, attribute: Attribute, value: float):
+    """Validate if the input is within bounds.
+
+    Validates if the input value is within bounds. In order for this to work, a min
+    and/or a max must be specified in the metadata. If no min is specified, then there
+    is no lower bound. If no max is specified, then there is no upper bound. Specifying
+    no bounds acts as a pass through. By default, the bounds are inclusive, however,
+    one or both of the bounds can be marked as exclusive through the metadata. In order
+    to mark a bound as exclusive, min_exclusive and/or max_exclusive must be specified
+    in the metadata with the value being a boolean.
+
+    Typical usage example:
+
+    ```py
+    from attrs import define, field
+    from ares_iq.validators import validate_bounds
+    @define
+    class Foo:
+        # bar has the following bound validation: 0 < bar <= 10
+        bar: int = field(default=1,
+                         metadata=metadata={"min": 0,
+                                            "max": 10,
+                                            "min_exclusive": True,
+                                            "max_exclusive": False},
+                         validator=validate_bounds)
+    ```
+
+    Args:
+        _instance: Unused.
+        attribute: The attribute being set.
+        value: The value to validate
+
+    Raises:
+        AttributeError: metadata dictionary missing.
+        ValueError: Value is not within bounds.
+    """
+    if attribute.metadata is None:
+        raise AttributeError(f"metadata for {attribute.name} must be defined in order to use {__name__}")
+
+    min_exclusive = False
+    max_exclusive = False
+    lower_bound = "<="
+    upper_bound = "<="
+    if "min_exclusive" in attribute.metadata:
+        min_exclusive = bool(attribute.metadata["min_exclusive"])
+        lower_bound = "<" if min_exclusive else "<="
+    if "max_exclusive" in attribute.metadata:
+        max_exclusive = bool(attribute.metadata["max_exclusive"])
+        upper_bound = "<" if max_exclusive else "<="
+
+    if "min" in attribute.metadata:
+        if value < attribute.metadata["min"] or (min_exclusive and value <= attribute.metadata["min"]):
+            raise ValueError(
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}{upper_bound}{attribute.metadata['max']}. "
+                f"Got {value}" if "max" in attribute.metadata else
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}. Got {value}.")
+    if "max" in attribute.metadata:
+        if value > attribute.metadata["max"] or (max_exclusive and value >= attribute.metadata["max"]):
+            raise ValueError(
+                f"{attribute.metadata['min']}{lower_bound}{attribute.name}{upper_bound}{attribute.metadata['max']}. "
+                f"Got {value}" if "min" in attribute.metadata else
+                f"{attribute.name}{upper_bound}{attribute.metadata['max']}. Got {value}.")
+
+
 def power_of_two(_instance: Any, attribute: Attribute, value: int):
     """Check if value is a power of 2.
 
@@ -74,40 +137,3 @@ def power_of_two(_instance: Any, attribute: Attribute, value: int):
     """
     if not ((value & (value - 1) == 0) and value > 0):
         raise ValueError(f"{attribute.name} must be a power of 2")
-
-
-def is_positive(_instance: Any, attribute: Attribute, value: RealNumber):
-    """Validates if the input is positive.
-
-    Validates if the input value is valid. If `0` is considered valid, then
-    that must be specified in the metadata with the `"zero_valid"` key. If
-    `0` is considered to be invalid, then specifying metadata is not necessary.
-
-    Typical usage example:
-
-    ```py
-    from attrs import define, field
-    from ares_iq.validators import is_positive
-    @define
-    class Foo:
-        bar: int field(default=1,
-                       metadata={"zero_valid": False},  # Not necessary if `0` is considered invalid.
-                       validator=is_positive)
-    ```
-
-    Args:
-        _instance: Unused
-        attribute: The attribute being set
-        value: The value to validate
-
-    Raises:
-        ValueError: Value is not a positive number.
-    """
-    zero_valid = False
-    if attribute.metadata is not None:
-        if "zero_valid" in attribute.metadata:
-            zero_valid = bool(attribute.metadata["zero_valid"])
-
-    if value < 0 or (value == 0 and not zero_valid):
-        raise ValueError(
-            f"{attribute.name} must be greater than 0" if not zero_valid else f"{attribute.name} must be greater or equal to 0")

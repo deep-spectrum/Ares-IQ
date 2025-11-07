@@ -33,14 +33,21 @@ namespace py = pybind11;
  * configurations should be handled in the Python abstraction layer.
  */
 struct USRPconfigs {
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit USRPconfigs(const py::kwargs &kwargs);
+
     USRPconfigs() = default;
 
     /**
      * .
-     * @param spc Samples per second.
+     * @param spc_ Samples per second.
      * @throws std::range_error If samples per second is less than 1.
      */
-    void set_samples_per_capture(uint64_t spc);
+    void set_samples_per_capture(uint64_t spc_);
 
     /**
      * .
@@ -49,15 +56,15 @@ struct USRPconfigs {
     uint64_t get_samples_per_capture() const;
 
     /// Device arguments. These must be defined before trying to run a capture.
-    std::string device_args;
+    std::string dev_args;
 
     /// Buffer size for each capture.
-    uint64_t samples_per_capture = 200000;
+    uint64_t spc = 200000;
 
     /// Sub device.
     std::string subdev = "A:0";
 
-    /// CLock reference.
+    /// Clock reference.
     std::string ref = "internal";
 
     /// Sample rate in MS/s
@@ -74,6 +81,13 @@ struct USRPconfigs {
  */
 struct USRPStreamArgs {
     USRPStreamArgs() = default;
+
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit USRPStreamArgs(const py::kwargs &kwargs);
 
     /// Samples per packet.
     int spp = 200;
@@ -102,13 +116,13 @@ class USRP {
      * Capture IQ data.
      * @param[in] center The center frequency to tune to.
      * @param[in] bw The bandwidth of the capture.
-     * @param[in] file_size_gb The amount of data to capture in GB.
+     * @param[in] capture_size The amount of data to capture in bytes.
      * @param[in] verbose Show the progress bar.
      * @param[in] extra Like verbose, but show logging messages from UHD too.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
-    py::tuple capture_iq(double center, double bw, double file_size_gb,
+    py::tuple capture_iq(double center, double bw, uint64_t capture_size,
                          bool verbose, bool extra);
 
     /**
