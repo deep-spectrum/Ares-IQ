@@ -7,6 +7,7 @@ from ares_iq.print_utils import print_error
 from ares_iq.util import CONFIG_FILE
 from ares_iq.typing import QuantizedData
 import logging
+from ares_iq.app.utils import config_set
 
 
 class BB60Device(BB60):
@@ -31,13 +32,7 @@ class BB60Device(BB60):
                decimation: Annotated[int | None, typer.Option(help='Downsample factor')] = None):
         configs = BB60Configs.from_yaml(CONFIG_FILE)
 
-        try:
-            if ref_level is not None:
-                configs.ref_level = ref_level
-            if decimation is not None:
-                configs.decimation = decimation
-        except ValueError as e:
-            print_error(str(e))
-            raise typer.Exit()
+        config_set(lambda v: setattr(configs, "ref_level", v), ref_level)
+        config_set(lambda v: setattr(configs, "decimation", v), decimation)
 
         configs.to_yaml(CONFIG_FILE)
