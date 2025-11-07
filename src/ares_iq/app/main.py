@@ -12,10 +12,8 @@ from ares_iq.print_utils import print_error
 from ares_iq.print_utils.logging import AresIqHandler
 import logging
 
-
 logger = logging.getLogger()
 logger.addHandler(AresIqHandler(warning_panel=True, error_panel=True, critical_error_panel=True))
-
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
 
@@ -48,12 +46,14 @@ def capture(
         bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
         verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Show verbose output and progress bar')] = False,
-        extra_verbose: Annotated[bool, typer.Option("--extra-verbose", "-vvv", help='Like verbose, but show logging messages too')] = False):
+        extra_verbose: Annotated[
+            bool, typer.Option("--extra-verbose", "-vvv", help='Like verbose, but show logging messages too')] = False):
     if CONFIG_FILE.exists():
         with open(CONFIG_FILE, "r") as f:
             configs = yaml.safe_load(f)
     else:
         print_error("Platform not set.")
+        raise typer.Exit()
 
     try:
         with open(CONFIG_FILE, "r") as f:
@@ -61,10 +61,11 @@ def capture(
         platform: str = configs["platform"]
     except (FileNotFoundError, KeyError):
         print_error("Platform not set")
-        raise
+        raise typer.Exit()
 
     if PLATFORMS[platform] is None:
-        raise typer.Abort(f"{platform} is not supported yet.")
+        print_error(f"{platform} is not supported yet.")
+        raise typer.Exit()
     PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), verbose, extra_verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 

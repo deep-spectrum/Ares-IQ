@@ -37,5 +37,6 @@ class X310Device(UsrpX310):
                 configs.samples_per_packet = spp
         except ValueError as e:
             print_error(str(e))
+            raise typer.Exit()
 
         configs.to_yaml(CONFIG_FILE)

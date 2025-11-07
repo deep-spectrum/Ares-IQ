@@ -35,5 +35,6 @@ class BB60Device(BB60):
                 configs.decimation = decimation
         except ValueError as e:
             print_error(str(e))
+            raise typer.Exit()
 
         configs.to_yaml(CONFIG_FILE)
