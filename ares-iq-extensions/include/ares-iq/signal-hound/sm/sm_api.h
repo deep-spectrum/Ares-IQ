@@ -1,5 +1,6 @@
 // Copyright (c).2025, Signal Hound, Inc.
-// For licensing information, please see the API license in the software_licenses folder
+// For licensing information, please see the API license in the
+// software_licenses folder
 
 /*!
  * \file sm_api.h
@@ -14,43 +15,45 @@
 #define SM_API_H
 
 #if defined(_WIN32) // Windows
-    #ifdef SM_EXPORTS
-        #define SM_API __declspec(dllexport)
-    #else
-        #define SM_API
-    #endif
+#ifdef SM_EXPORTS
+#define SM_API __declspec(dllexport)
+#else
+#define SM_API
+#endif
 
-    // bare minimum stdint typedef support
-    #if _MSC_VER < 1700 // For VS2010 or earlier
-        typedef signed char        int8_t;
-        typedef short              int16_t;
-        typedef int                int32_t;
-        typedef long long          int64_t;
-        typedef unsigned char      uint8_t;
-        typedef unsigned short     uint16_t;
-        typedef unsigned int       uint32_t;
-        typedef unsigned long long uint64_t;
-    #else
-        #include <stdint.h>
-    #endif
+// bare minimum stdint typedef support
+#if _MSC_VER < 1700 // For VS2010 or earlier
+typedef signed char int8_t;
+typedef short int16_t;
+typedef int int32_t;
+typedef long long int64_t;
+typedef unsigned char uint8_t;
+typedef unsigned short uint16_t;
+typedef unsigned int uint32_t;
+typedef unsigned long long uint64_t;
+#else
+#include <stdint.h>
+#endif
 
-    #define SM_DEPRECATED(comment) __declspec(deprecated(comment))
+#define SM_DEPRECATED(comment) __declspec(deprecated(comment))
 #else // Linux
-    #include <cstdint>
-    #define SM_API __attribute__((visibility("default")))
+#include <cstdint>
+#define SM_API __attribute__((visibility("default")))
 
-    #if defined(__GNUC__)
-        #define SM_DEPRECATED(comment) __attribute__((deprecated))
-    #else
-        #define SM_DEPRECATED(comment) comment
-    #endif
+#if defined(__GNUC__)
+#define SM_DEPRECATED(comment) __attribute__((deprecated))
+#else
+#define SM_DEPRECATED(comment) comment
+#endif
 #endif
 
 #define SM_INVALID_HANDLE (-1)
 
-/** Used for boolean true when integer parameters are being used. Also see #SmBool. */
+/** Used for boolean true when integer parameters are being used. Also see
+ * #SmBool. */
 #define SM_TRUE (1)
-/** Used for boolean false when integer parameters are being used. Also see #SmBool. */
+/** Used for boolean false when integer parameters are being used. Also see
+ * #SmBool. */
 #define SM_FALSE (0)
 
 /** Max number of devices that can be interfaced in the API. */
@@ -63,25 +66,32 @@
 /** Default port number for networked devices. */
 #define SM_DEFAULT_PORT (51665)
 
-/** Tells the API to automatically choose attenuation based on reference level. */
+/** Tells the API to automatically choose attenuation based on reference level.
+ */
 #define SM_AUTO_ATTEN (-1)
 /** Valid atten values [0,6] or -1 for auto */
 #define SM_MAX_ATTEN (6)
 /** Maximum reference level in dBm */
 #define SM_MAX_REF_LEVEL (20.0)
 
-/** Maximum number of sweeps that can be queued up. Valid sweep indices between [0,15] */
+/** Maximum number of sweeps that can be queued up. Valid sweep indices between
+ * [0,15] */
 #define SM_MAX_SWEEP_QUEUE_SZ (16)
 
-/** Min frequency for sweeps, and min center frequency for I/Q measurements for SM200 devices. */
+/** Min frequency for sweeps, and min center frequency for I/Q measurements for
+ * SM200 devices. */
 #define SM200_MIN_FREQ (100.0e3)
-/** Max frequency for sweeps, and max center frequency for I/Q measurements for SM200 devices. */
+/** Max frequency for sweeps, and max center frequency for I/Q measurements for
+ * SM200 devices. */
 #define SM200_MAX_FREQ (20.6e9)
-/** Min frequency for sweeps, and min center frequency for I/Q measurements for SM435 devices. */
+/** Min frequency for sweeps, and min center frequency for I/Q measurements for
+ * SM435 devices. */
 #define SM435_MIN_FREQ (100.0e3)
-/** Max frequency for sweeps, and max center frequency for I/Q measurements for SM435 devices. */
+/** Max frequency for sweeps, and max center frequency for I/Q measurements for
+ * SM435 devices. */
 #define SM435_MAX_FREQ (44.2e9)
-/** Max frequency for sweeps, and max center frequency for I/Q measurements for SM435 devices with the IF output option. */
+/** Max frequency for sweeps, and max center frequency for I/Q measurements for
+ * SM435 devices with the IF output option. */
 #define SM435_MAX_FREQ_IF_OPT (40.8e9)
 
 /** Max decimation for I/Q streaming. */
@@ -206,17 +216,22 @@ typedef enum SmStatus {
 
     /** One or more of the provided settings were adjusted */
     smSettingClamped = 1,
-    /** Measurement includes data which caused an ADC overload (clipping/compression) */
+    /** Measurement includes data which caused an ADC overload
+       (clipping/compression) */
     smAdcOverflow = 2,
     /** Measurement is uncalibrated, overrides ADC overflow */
     smUncalData = 3,
-    /** Temperature drift occured, measurements uncalibrated, reconfigure the device */
+    /** Temperature drift occured, measurements uncalibrated, reconfigure the
+       device */
     smTempDriftWarning = 4,
-    /** Warning when the preselector span is smaller than the user selected span */
+    /** Warning when the preselector span is smaller than the user selected span
+     */
     smSpanExceedsPreselector = 5,
-    /** Warning when the internal temperature gets too hot. The device is close to shutting down */
+    /** Warning when the internal temperature gets too hot. The device is close
+       to shutting down */
     smTempHighWarning = 6,
-    /** Returned when the API was unable to keep up with the necessary processing */
+    /** Returned when the API was unable to keep up with the necessary
+       processing */
     smCpuLimited = 7,
     /**
      * Returned when the API detects a device with newer features than what was
@@ -265,16 +280,19 @@ typedef enum SmMode {
  * Sweep speed
  */
 typedef enum SmSweepSpeed {
-    /** Automatically choose the fastest sweep speed while maintaining customer requested settings */
+    /** Automatically choose the fastest sweep speed while maintaining customer
+       requested settings */
     smSweepSpeedAuto = 0,
     /** Use standard sweep speed, always available */
     smSweepSpeedNormal = 1,
-    /** Choose fast sweep speed whenever possible, possibly ignoring some requested settings */
+    /** Choose fast sweep speed whenever possible, possibly ignoring some
+       requested settings */
     smSweepSpeedFast = 2
 } SmSweepSpeed;
 
 /**
- * Base sample rate used for I/Q streaming. See @ref iqAcquisition for more information.
+ * Base sample rate used for I/Q streaming. See @ref iqAcquisition for more
+ * information.
  */
 typedef enum SmIQStreamSampleRate {
     /** Use device native sample rate */
@@ -440,14 +458,16 @@ typedef enum SmAudioType {
 typedef enum SmGPSState {
     /** GPS is not locked */
     smGPSStateNotPresent = 0,
-    /** GPS is locked, NMEA data is valid, but the timebase is not being disciplined by the GPS */
+    /** GPS is locked, NMEA data is valid, but the timebase is not being
+       disciplined by the GPS */
     smGPSStateLocked = 1,
-    /** GPS is locked, NMEA data is valid, timebase is being disciplined by the GPS */
+    /** GPS is locked, NMEA data is valid, timebase is being disciplined by the
+       GPS */
     smGPSStateDisciplined = 2
 } SmGPSState;
 
 /**
- * Available u-blox dynamic platform models. 
+ * Available u-blox dynamic platform models.
  * See #smSetGPSPlatformModel for more information.
  */
 typedef enum SmGPSPlatformModel {
@@ -457,9 +477,9 @@ typedef enum SmGPSPlatformModel {
      */
     SmGPSPlatformModelPortable = 0,
     /**
-     * Used in timing applications (antenna must be stationary) or other stationary
-     * applications. Velocity restricted to 0 m/s. Zero dynamics assumed.
-     * This is the default setting.
+     * Used in timing applications (antenna must be stationary) or other
+     * stationary applications. Velocity restricted to 0 m/s. Zero dynamics
+     * assumed. This is the default setting.
      */
     SmGPSPlatformModelStationary = 2,
     /**
@@ -468,25 +488,25 @@ typedef enum SmGPSPlatformModel {
      */
     SmGPSPlatformModelPedestrian = 3,
     /**
-    * Used for applications with equivalent dynamics to those of a passenger car.
-    * Low vertical acceleration assumed.
-    */
+     * Used for applications with equivalent dynamics to those of a passenger
+     * car. Low vertical acceleration assumed.
+     */
     SmGPSPlatformModelAutomotive = 4,
     /**
-    * Recommended for applications at sea, with zero vertical velocity.
-    * Zero vertical velocity assumed, sea level assumed.
-    */
+     * Recommended for applications at sea, with zero vertical velocity.
+     * Zero vertical velocity assumed, sea level assumed.
+     */
     SmGPSPlatformModelAtSea = 5,
     /**
-    * Used for applications with a higher dynamic range and greater vertical acceleration than a passenger car.
-    * No 2D position fixes supported
-    */
+     * Used for applications with a higher dynamic range and greater vertical
+     * acceleration than a passenger car. No 2D position fixes supported
+     */
     SmGPSPlatformModelAirborne_1g = 6,
     /**
      * Recommended for typical airborne environment.
      * No 2D position fixes supported.
      */
-     SmGPSPlatformModelAirborne_2g = 7
+    SmGPSPlatformModelAirborne_2g = 7
 } SmGPSPlatformModel;
 
 /**
@@ -500,7 +520,8 @@ typedef struct SmGPIOStep {
 } SmGPIOStep;
 
 /**
- * For troubleshooting purposes. For standard diagnostics use #smGetDeviceDiagnostics
+ * For troubleshooting purposes. For standard diagnostics use
+ * #smGetDeviceDiagnostics
  */
 typedef struct SmDeviceDiagnostics {
     /** Device voltage */
@@ -573,7 +594,8 @@ SM_API SmStatus smGetDeviceList(int *serials, int *deviceCount);
  *
  * @return
  */
-SM_API SmStatus smGetDeviceList2(int *serials, SmDeviceType *deviceTypes, int *deviceCount);
+SM_API SmStatus smGetDeviceList2(int *serials, SmDeviceType *deviceTypes,
+                                 int *deviceCount);
 
 /**
  * This function is for USB SM devices only. Claim the first unopened USB SM
@@ -629,10 +651,8 @@ SM_API SmStatus smOpenDeviceBySerial(int *device, int serialNumber);
  *
  * @return
  */
-SM_API SmStatus smOpenNetworkedDevice(int *device,
-                                      const char *hostAddr,
-                                      const char *deviceAddr,
-                                      uint16_t port);
+SM_API SmStatus smOpenNetworkedDevice(int *device, const char *hostAddr,
+                                      const char *deviceAddr, uint16_t port);
 
 /**
  * This function should be called when you want to release the resources for a
@@ -693,7 +713,8 @@ SM_API SmStatus smPresetSerial(int serialNumber);
  *
  * @return
  */
-SM_API SmStatus smNetworkedSpeedTest(int device, double durationSeconds, double *bytesPerSecond);
+SM_API SmStatus smNetworkedSpeedTest(int device, double durationSeconds,
+                                     double *bytesPerSecond);
 
 /**
  * This function returns basic information about a specific open device. Also
@@ -708,7 +729,8 @@ SM_API SmStatus smNetworkedSpeedTest(int device, double durationSeconds, double 
  *
  * @return
  */
-SM_API SmStatus smGetDeviceInfo(int device, SmDeviceType *deviceType, int *serialNumber);
+SM_API SmStatus smGetDeviceInfo(int device, SmDeviceType *deviceType,
+                                int *serialNumber);
 
 /**
  * Get the firmware version of the device. The firmware version is of the form
@@ -724,7 +746,8 @@ SM_API SmStatus smGetDeviceInfo(int device, SmDeviceType *deviceType, int *seria
  *
  * @return
  */
-SM_API SmStatus smGetFirmwareVersion(int device, int *major, int *minor, int *revision);
+SM_API SmStatus smGetFirmwareVersion(int device, int *major, int *minor,
+                                     int *revision);
 
 /**
  * Returns whethe the SM435 device has the IF output option. See @ref
@@ -754,7 +777,8 @@ SM_API SmStatus smHasIFOutput(int device, SmBool *present);
  *
  * @return
  */
-SM_API SmStatus smGetDeviceDiagnostics(int device, float *voltage, float *current, float *temperature);
+SM_API SmStatus smGetDeviceDiagnostics(int device, float *voltage,
+                                       float *current, float *temperature);
 
 /**
  * Returns operational information about a device. If any temperature sensors
@@ -767,7 +791,8 @@ SM_API SmStatus smGetDeviceDiagnostics(int device, float *voltage, float *curren
  *
  * @return
  */
-SM_API SmStatus smGetFullDeviceDiagnostics(int device, SmDeviceDiagnostics *diagnostics);
+SM_API SmStatus smGetFullDeviceDiagnostics(int device,
+                                           SmDeviceDiagnostics *diagnostics);
 
 /**
  * For networked (10GbE) devices only. Returns a number of diagnostic
@@ -787,11 +812,8 @@ SM_API SmStatus smGetFullDeviceDiagnostics(int device, SmDeviceDiagnostics *diag
  *
  * @return
  */
-SM_API SmStatus smGetSFPDiagnostics(int device,
-                                    float *temp,
-                                    float *voltage,
-                                    float *txPower,
-                                    float *rxPower);
+SM_API SmStatus smGetSFPDiagnostics(int device, float *temp, float *voltage,
+                                    float *txPower, float *rxPower);
 
 /**
  * Change the power state of the device. The power state controls the power
@@ -905,10 +927,12 @@ SM_API SmStatus smGetPreselector(int device, SmBool *enabled);
  *
  * @return
  */
-SM_API SmStatus smSetGPIOState(int device, SmGPIOState lowerState, SmGPIOState upperState);
+SM_API SmStatus smSetGPIOState(int device, SmGPIOState lowerState,
+                               SmGPIOState upperState);
 
 /**
- * Get the direction (read/write) of the GPIO pins. See the @ref gpio section for more information.
+ * Get the direction (read/write) of the GPIO pins. See the @ref gpio section
+ * for more information.
  *
  * @param[in] device Device handle.
  *
@@ -918,7 +942,8 @@ SM_API SmStatus smSetGPIOState(int device, SmGPIOState lowerState, SmGPIOState u
  *
  * @return
  */
-SM_API SmStatus smGetGPIOState(int device, SmGPIOState *lowerState, SmGPIOState *upperState);
+SM_API SmStatus smGetGPIOState(int device, SmGPIOState *lowerState,
+                               SmGPIOState *upperState);
 
 /**
  * Set the GPIO output levels. Will only affect GPIO pins configured as
@@ -953,7 +978,8 @@ SM_API SmStatus smWriteGPIOImm(int device, uint8_t data);
 SM_API SmStatus smReadGPIOImm(int device, uint8_t *data);
 
 /**
- * Output up to 4 bytes on the SPI data pins. See the @ref spi section for more information.
+ * Output up to 4 bytes on the SPI data pins. See the @ref spi section for more
+ * information.
  *
  * @param[in] device Device handle.
  *
@@ -1020,7 +1046,8 @@ SM_API SmStatus smSetGPIOSwitchingDisabled(int device);
  *
  * @return
  */
-SM_API SmStatus smSetGPIOSwitching(int device, uint8_t *gpio, uint32_t *counts, int gpioSteps);
+SM_API SmStatus smSetGPIOSwitching(int device, uint8_t *gpio, uint32_t *counts,
+                                   int gpioSteps);
 
 /**
  * Enable or disable the 10MHz reference out port. If enabled, the current
@@ -1113,11 +1140,12 @@ SM_API SmStatus smGetGPSTimebaseUpdate(int device, SmBool *enabled);
  *
  * @return
  */
-SM_API SmStatus smGetGPSHoldoverInfo(int device, SmBool *usingGPSHoldover, uint64_t *lastHoldoverTime);
+SM_API SmStatus smGetGPSHoldoverInfo(int device, SmBool *usingGPSHoldover,
+                                     uint64_t *lastHoldoverTime);
 
 /**
- * Determine the lock and discipline status of the GPS. See the @ref gpsLock section
- * for more information.
+ * Determine the lock and discipline status of the GPS. See the @ref gpsLock
+ * section for more information.
  *
  * @param[in] device Device handle.
  *
@@ -1149,7 +1177,8 @@ SM_API SmStatus smSetSweepSpeed(int device, SmSweepSpeed sweepSpeed);
  *
  * @return
  */
-SM_API SmStatus smSetSweepCenterSpan(int device, double centerFreqHz, double spanHz);
+SM_API SmStatus smSetSweepCenterSpan(int device, double centerFreqHz,
+                                     double spanHz);
 
 /**
  * Set sweep start/stop frequency.
@@ -1162,7 +1191,8 @@ SM_API SmStatus smSetSweepCenterSpan(int device, double centerFreqHz, double spa
  *
  * @return
  */
-SM_API SmStatus smSetSweepStartStop(int device, double startFreqHz, double stopFreqHz);
+SM_API SmStatus smSetSweepStartStop(int device, double startFreqHz,
+                                    double stopFreqHz);
 
 /**
  *Set sweep RBW/VBW parameters.
@@ -1179,7 +1209,8 @@ SM_API SmStatus smSetSweepStartStop(int device, double startFreqHz, double stopF
  *
  * @return
  */
-SM_API SmStatus smSetSweepCoupling(int device, double rbw, double vbw, double sweepTime);
+SM_API SmStatus smSetSweepCoupling(int device, double rbw, double vbw,
+                                   double sweepTime);
 
 /**
  * Set sweep detector.
@@ -1192,7 +1223,8 @@ SM_API SmStatus smSetSweepCoupling(int device, double rbw, double vbw, double sw
  *
  * @return
  */
-SM_API SmStatus smSetSweepDetector(int device, SmDetector detector, SmVideoUnits videoUnits);
+SM_API SmStatus smSetSweepDetector(int device, SmDetector detector,
+                                   SmVideoUnits videoUnits);
 
 /**
  * Set the sweep mode output unit type.
@@ -1238,7 +1270,8 @@ SM_API SmStatus smSetSweepSpurReject(int device, SmBool spurRejectEnabled);
  *
  * @return
  */
-SM_API SmStatus smSetRealTimeCenterSpan(int device, double centerFreqHz, double spanHz);
+SM_API SmStatus smSetRealTimeCenterSpan(int device, double centerFreqHz,
+                                        double spanHz);
 
 /**
  * Set the resolution bandwidth for real-time spectrum analysis.
@@ -1277,7 +1310,8 @@ SM_API SmStatus smSetRealTimeDetector(int device, SmDetector detector);
  *
  * @return
  */
-SM_API SmStatus smSetRealTimeScale(int device, SmScale scale, double frameRef, double frameScale);
+SM_API SmStatus smSetRealTimeScale(int device, SmScale scale, double frameRef,
+                                   double frameScale);
 
 /**
  * Specify the window function used for real-time spectrum analysis.
@@ -1300,7 +1334,8 @@ SM_API SmStatus smSetRealTimeWindow(int device, SmWindowType window);
  *
  * @return
  */
-SM_API SmStatus smSetIQBaseSampleRate(int device, SmIQStreamSampleRate sampleRate);
+SM_API SmStatus smSetIQBaseSampleRate(int device,
+                                      SmIQStreamSampleRate sampleRate);
 
 /**
  * Set the I/Q data type of the samples returned for I/Q streaming.
@@ -1360,7 +1395,8 @@ SM_API SmStatus smSetIQSampleRate(int device, int decimation);
  *
  * @return
  */
-SM_API SmStatus smSetIQBandwidth(int device, SmBool enableSoftwareFilter, double bandwidth);
+SM_API SmStatus smSetIQBandwidth(int device, SmBool enableSoftwareFilter,
+                                 double bandwidth);
 
 /**
  * Configure the external trigger edge detect in I/Q streaming.
@@ -1518,7 +1554,8 @@ SM_API SmStatus smSetIQSweepListAtten(int device, int step, int atten);
  *
  * @return
  */
-SM_API SmStatus smSetIQSweepListSampleCount(int device, int step, uint32_t samples);
+SM_API SmStatus smSetIQSweepListSampleCount(int device, int step,
+                                            uint32_t samples);
 
 /**
  * Set the data type for the data returned for segmented I/Q captures.
@@ -1554,7 +1591,8 @@ SM_API SmStatus smSetSegIQCenterFreq(int device, double centerFreqHz);
  *
  * @return
  */
-SM_API SmStatus smSetSegIQVideoTrigger(int device, double triggerLevel, SmTriggerEdge triggerEdge);
+SM_API SmStatus smSetSegIQVideoTrigger(int device, double triggerLevel,
+                                       SmTriggerEdge triggerEdge);
 
 /**
  * Configure the external trigger available in segmented I/Q captures. Only 1
@@ -1592,11 +1630,9 @@ SM_API SmStatus smSetSegIQExtTrigger(int device, SmTriggerEdge extTriggerEdge);
  *
  * @return
  */
-SM_API SmStatus smSetSegIQFMTParams(int device,
-                                    int fftSize,
+SM_API SmStatus smSetSegIQFMTParams(int device, int fftSize,
                                     const double *frequencies,
-                                    const double *ampls,
-                                    int count);
+                                    const double *ampls, int count);
 
 /**
  * Set the number of segments in the segmented I/Q captures.
@@ -1620,13 +1656,13 @@ SM_API SmStatus smSetSegIQSegmentCount(int device, int segmentCount);
  *
  * @param[in] triggerType Specify the trigger used for this segment.
  *
- * @param[in] preTrigger The number of samples to capture before the trigger event.
- * This is in addition to the capture size. For immediate trigger, pretrigger
- * is added to capture size and then set to zero.
+ * @param[in] preTrigger The number of samples to capture before the trigger
+ * event. This is in addition to the capture size. For immediate trigger,
+ * pretrigger is added to capture size and then set to zero.
  *
- * @param[in] captureSize The number of sample to capture after the trigger event.
- * For immediate triggers, pretrigger is added to this value and pretrigger is
- * set to zero.
+ * @param[in] captureSize The number of sample to capture after the trigger
+ * event. For immediate triggers, pretrigger is added to this value and
+ * pretrigger is set to zero.
  *
  * @param[in] timeoutSeconds The amount of time to wait for the trigger before
  * returning. If a timeout occurs, a capture still occurs at the moment of the
@@ -1634,12 +1670,9 @@ SM_API SmStatus smSetSegIQSegmentCount(int device, int segmentCount);
  *
  * @return
  */
-SM_API SmStatus smSetSegIQSegment(int device,
-                                  int segment,
-                                  SmTriggerType triggerType,
-                                  int preTrigger,
-                                  int captureSize,
-                                  double timeoutSeconds);
+SM_API SmStatus smSetSegIQSegment(int device, int segment,
+                                  SmTriggerType triggerType, int preTrigger,
+                                  int captureSize, double timeoutSeconds);
 
 /**
  * Set the center frequency for audio demodulation.
@@ -1676,10 +1709,8 @@ SM_API SmStatus smSetAudioType(int device, SmAudioType audioType);
  *
  * @return
  */
-SM_API SmStatus smSetAudioFilters(int device,
-                                  double ifBandwidth,
-                                  double audioLpf,
-                                  double audioHpf);
+SM_API SmStatus smSetAudioFilters(int device, double ifBandwidth,
+                                  double audioLpf, double audioHpf);
 
 /**
  * Set the FM deemphasis for audio demodulation.
@@ -1752,12 +1783,9 @@ SM_API SmStatus smAbort(int device);
  *
  * @return
  */
-SM_API SmStatus smGetSweepParameters(int device,
-                                     double *actualRBW,
-                                     double *actualVBW,
-                                     double *actualStartFreq,
-                                     double *binSize,
-                                     int *sweepSize);
+SM_API SmStatus smGetSweepParameters(int device, double *actualRBW,
+                                     double *actualVBW, double *actualStartFreq,
+                                     double *binSize, int *sweepSize);
 
 /**
  * Retrieve the real-time measurement mode parameters for an active real-time
@@ -1785,14 +1813,10 @@ SM_API SmStatus smGetSweepParameters(int device,
  *
  * @return
  */
-SM_API SmStatus smGetRealTimeParameters(int device,
-                                        double *actualRBW,
-                                        int *sweepSize,
-                                        double *actualStartFreq,
-                                        double *binSize,
-                                        int *frameWidth,
-                                        int *frameHeight,
-                                        double *poi);
+SM_API SmStatus smGetRealTimeParameters(int device, double *actualRBW,
+                                        int *sweepSize, double *actualStartFreq,
+                                        double *binSize, int *frameWidth,
+                                        int *frameHeight, double *poi);
 
 /**
  * Retrieve the I/Q measurement mode parameters for an active I/Q stream or
@@ -1807,7 +1831,8 @@ SM_API SmStatus smGetRealTimeParameters(int device,
  *
  * @return
  */
-SM_API SmStatus smGetIQParameters(int device, double *sampleRate, double *bandwidth);
+SM_API SmStatus smGetIQParameters(int device, double *sampleRate,
+                                  double *bandwidth);
 
 /**
  * Retrieve the I/Q correction factor for an active I/Q stream or segmented I/Q
@@ -1873,7 +1898,8 @@ SM_API SmStatus smSegIQGetMaxCaptures(int device, int *maxCaptures);
  *
  * @return
  */
-SM_API SmStatus smGetSweep(int device, float *sweepMin, float *sweepMax, int64_t *nsSinceEpoch);
+SM_API SmStatus smGetSweep(int device, float *sweepMin, float *sweepMax,
+                           int64_t *nsSinceEpoch);
 
 /**
  * Set the GPIO setting to use for a queued sweep. The next time this sweep is
@@ -1919,7 +1945,8 @@ SM_API SmStatus smStartSweep(int device, int pos);
  *
  * @return
  */
-SM_API SmStatus smFinishSweep(int device, int pos, float *sweepMin, float *sweepMax, int64_t *nsSinceEpoch);
+SM_API SmStatus smFinishSweep(int device, int pos, float *sweepMin,
+                              float *sweepMax, int64_t *nsSinceEpoch);
 
 /**
  * Retrieve a single real-time frame. See @ref realTime for more information.
@@ -1947,12 +1974,9 @@ SM_API SmStatus smFinishSweep(int device, int pos, float *sweepMin, float *sweep
  *
  * @return
  */
-SM_API SmStatus smGetRealTimeFrame(int device,
-                                   float *colorFrame,
-                                   float *alphaFrame,
-                                   float *sweepMin,
-                                   float *sweepMax,
-                                   int *frameCount,
+SM_API SmStatus smGetRealTimeFrame(int device, float *colorFrame,
+                                   float *alphaFrame, float *sweepMin,
+                                   float *sweepMax, int *frameCount,
                                    int64_t *nsSinceEpoch);
 
 /**
@@ -1994,14 +2018,9 @@ SM_API SmStatus smGetRealTimeFrame(int device,
  *
  * @return
  */
-SM_API SmStatus smGetIQ(int device,
-                        void *iqBuf,
-                        int iqBufSize,
-                        double *triggers,
-                        int triggerBufSize,
-                        int64_t *nsSinceEpoch,
-                        SmBool purge,
-                        int *sampleLoss,
+SM_API SmStatus smGetIQ(int device, void *iqBuf, int iqBufSize,
+                        double *triggers, int triggerBufSize,
+                        int64_t *nsSinceEpoch, SmBool purge, int *sampleLoss,
                         int *samplesRemaining);
 
 /**
@@ -2027,7 +2046,8 @@ SM_API SmStatus smGetIQ(int device,
  *
  * @return
  */
-SM_API SmStatus smIQSweepListGetSweep(int device, void *dst, int64_t *timestamps);
+SM_API SmStatus smIQSweepListGetSweep(int device, void *dst,
+                                      int64_t *timestamps);
 
 /**
  * Starts an I/Q sweep at the given queue position. Up to 16 sweeps can be
@@ -2054,7 +2074,8 @@ SM_API SmStatus smIQSweepListGetSweep(int device, void *dst, int64_t *timestamps
  *
  * @return
  */
-SM_API SmStatus smIQSweepListStartSweep(int device, int pos, void *dst, int64_t *timestamps);
+SM_API SmStatus smIQSweepListStartSweep(int device, int pos, void *dst,
+                                        int64_t *timestamps);
 
 /**
  * Finishes an I/Q sweep at the given queue position. Blocks until the sweep is
@@ -2104,7 +2125,8 @@ SM_API SmStatus smSegIQCaptureWait(int device, int capture);
  *
  * @return
  */
-SM_API SmStatus smSegIQCaptureWaitAsync(int device, int capture, SmBool *completed);
+SM_API SmStatus smSegIQCaptureWaitAsync(int device, int capture,
+                                        SmBool *completed);
 
 /**
  * Determines if the capture timed out.
@@ -2121,7 +2143,8 @@ SM_API SmStatus smSegIQCaptureWaitAsync(int device, int capture, SmBool *complet
  *
  * @return
  */
-SM_API SmStatus smSegIQCaptureTimeout(int device, int capture, int segment, SmBool *timedOut);
+SM_API SmStatus smSegIQCaptureTimeout(int device, int capture, int segment,
+                                      SmBool *timedOut);
 
 /**
  * Retrieve the timestamp of the capture. The capture should be completed
@@ -2145,7 +2168,8 @@ SM_API SmStatus smSegIQCaptureTimeout(int device, int capture, int segment, SmBo
  *
  * @return
  */
-SM_API SmStatus smSegIQCaptureTime(int device, int capture, int segment, int64_t *nsSinceEpoch);
+SM_API SmStatus smSegIQCaptureTime(int device, int capture, int segment,
+                                   int64_t *nsSinceEpoch);
 
 /**
  * Retrieves the I/Q sampes of the capture. The capture should be completed
@@ -2168,7 +2192,8 @@ SM_API SmStatus smSegIQCaptureTime(int device, int capture, int segment, int64_t
  *
  * @return
  */
-SM_API SmStatus smSegIQCaptureRead(int device, int capture, int segment, void *iq, int offset, int len);
+SM_API SmStatus smSegIQCaptureRead(int device, int capture, int segment,
+                                   void *iq, int offset, int len);
 
 /**
  * Frees the capture so that it can be started again.
@@ -2204,12 +2229,8 @@ SM_API SmStatus smSegIQCaptureFinish(int device, int capture);
  *
  * @return
  */
-SM_API SmStatus smSegIQCaptureFull(int device,
-                                   int capture,
-                                   void *iq,
-                                   int offset,
-                                   int len,
-                                   int64_t *nsSinceEpoch,
+SM_API SmStatus smSegIQCaptureFull(int device, int capture, void *iq,
+                                   int offset, int len, int64_t *nsSinceEpoch,
                                    SmBool *timedOut);
 
 /**
@@ -2229,8 +2250,8 @@ SM_API SmStatus smSegIQCaptureFull(int device,
  * accept a resampled input. To guarantee this, a simple approach would be to
  * ensure the output buffer is the same size as the input buffer.
  *
- * @param[inout] outputLen The integer pointed to by outputLen should initially be
- * the size of the output buffer. If the function returns successfully, the
+ * @param[inout] outputLen The integer pointed to by outputLen should initially
+ * be the size of the output buffer. If the function returns successfully, the
  * integer pointed to by outputLen will contain the number of I/Q samples in
  * the output buffer.
  *
@@ -2240,11 +2261,8 @@ SM_API SmStatus smSegIQCaptureFull(int device,
  *
  * @return
  */
-SM_API SmStatus smSegIQLTEResample(float *input,
-                                   int inputLen,
-                                   float *output,
-                                   int *outputLen,
-                                   bool clearDelayLine);
+SM_API SmStatus smSegIQLTEResample(float *input, int inputLen, float *output,
+                                   int *outputLen, bool clearDelayLine);
 
 /**
  * Configure the attenuation for the full band I/Q measurement.
@@ -2295,7 +2313,8 @@ SM_API SmStatus smSetIQFullBandSamples(int device, int samples);
  *
  * @return
  */
-SM_API SmStatus smSetIQFullBandTriggerType(int device, SmTriggerType triggerType);
+SM_API SmStatus smSetIQFullBandTriggerType(int device,
+                                           SmTriggerType triggerType);
 
 /**
  * Configure the video trigger level for full band I/Q measurements.
@@ -2311,9 +2330,9 @@ SM_API SmStatus smSetIQFullBandVideoTrigger(int device, double triggerLevel);
 /**
  * Specify the video/external trigger timeout for full band I/Q captures. This
  * is how long the device will wait for a trigger. This setting can only be
- * changed for devices that support video triggering. See @ref iqFullBand for more
- * information. If the device does not support video triggering, this value is 
- * fixed at 1 second.
+ * changed for devices that support video triggering. See @ref iqFullBand for
+ * more information. If the device does not support video triggering, this value
+ * is fixed at 1 second.
  *
  * @param[in] device Device handle.
  *
@@ -2321,7 +2340,8 @@ SM_API SmStatus smSetIQFullBandVideoTrigger(int device, double triggerLevel);
  *
  * @return
  */
-SM_API SmStatus smSetIQFullBandTriggerTimeout(int device, double triggerTimeout);
+SM_API SmStatus smSetIQFullBandTriggerTimeout(int device,
+                                              double triggerTimeout);
 
 /**
  * The device must be idle to call this function. When this function returns
@@ -2435,7 +2455,8 @@ SM_API SmStatus smGetIQFullBand(int device, float *iq, int freq);
  *
  * @return
  */
-SM_API SmStatus smGetIQFullBandSweep(int device, float *iq, int startIndex, int stepSize, int steps);
+SM_API SmStatus smGetIQFullBandSweep(int device, float *iq, int startIndex,
+                                     int stepSize, int steps);
 
 /**
  * If the device is configured to audio demodulation, use this function to
@@ -2499,14 +2520,9 @@ SM_API SmStatus smGetAudio(int device, float *audio);
  *
  * @return
  */
-SM_API SmStatus smGetGPSInfo(int device,
-                             SmBool refresh,
-                             SmBool *updated,
-                             int64_t *secSinceEpoch,
-                             double *latitude,
-                             double *longitude,
-                             double *altitude,
-                             char *nmea,
+SM_API SmStatus smGetGPSInfo(int device, SmBool refresh, SmBool *updated,
+                             int64_t *secSinceEpoch, double *latitude,
+                             double *longitude, double *altitude, char *nmea,
                              int *nmeaLen);
 
 /**
@@ -2526,15 +2542,15 @@ SM_API SmStatus smGetGPSInfo(int device,
 SM_API SmStatus smWriteToGPS(int device, const uint8_t *mem, int len);
 
 /**
- * Sets the dynamic platform model of the internal GPS. Setting the correct model
- * is required to achieve GPS lock. By default, the GPS is configured to stationary.
- * The device should be idle and not making any measurements when this function is called.
- * This value is reset on device power cycle.
+ * Sets the dynamic platform model of the internal GPS. Setting the correct
+ * model is required to achieve GPS lock. By default, the GPS is configured to
+ * stationary. The device should be idle and not making any measurements when
+ * this function is called. This value is reset on device power cycle.
  *
  * It is recommended to use stationary and portable for most use cases.
  *
- * The device must have a valid GPS lock (but does not need to be disciplined) before
- * calling this function.
+ * The device must have a valid GPS lock (but does not need to be disciplined)
+ * before calling this function.
  *
  * This function can take up to 2 seconds to complete.
  *
@@ -2542,11 +2558,12 @@ SM_API SmStatus smWriteToGPS(int device, const uint8_t *mem, int len);
  *
  * @param[in] platformModel The model to use.
  *
- * @return smGPSErr will be returned if this function fails. The main reason this function
- * will fail is if the GPS is not currently locked. You can check the state of the GPS with the
- * #smGetGPSState function.
+ * @return smGPSErr will be returned if this function fails. The main reason
+ * this function will fail is if the GPS is not currently locked. You can check
+ * the state of the GPS with the #smGetGPSState function.
  */
-SM_API SmStatus smSetGPSPlatformModel(int device, SmGPSPlatformModel platformModel);
+SM_API SmStatus smSetGPSPlatformModel(int device,
+                                      SmGPSPlatformModel platformModel);
 
 /**
  * Specify the temperature at which the fan should be enabled. This function
@@ -2624,8 +2641,7 @@ SM_API SmStatus smGetCalDate(int device, uint64_t *lastCalDate);
  * @return
  */
 SM_API SmStatus smBroadcastNetworkConfig(const char *hostAddr,
-                                         const char *deviceAddr,
-                                         uint16_t port,
+                                         const char *deviceAddr, uint16_t port,
                                          SmBool nonVolatile);
 
 /**
@@ -2648,7 +2664,8 @@ SM_API SmStatus smNetworkConfigGetDeviceList(int *serials, int *deviceCount);
  * settings of a networked SM device over the USB 2.0 port. The handle used for
  * these functions can only be used with the other network config functions.
  *
- * @param[out] device If successful, device will point to an integer that can be used to
+ * @param[out] device If successful, device will point to an integer that can be
+ * used to
  *
  * @param[in] serialNumber Serial number of the device to open. A list of
  * connected serial numbers can be retrieved from the
@@ -2708,7 +2725,8 @@ SM_API SmStatus smNetworkConfigGetMAC(int device, char *mac);
  *
  * @return
  */
-SM_API SmStatus smNetworkConfigSetIP(int device, const char *addr, SmBool nonVolatile);
+SM_API SmStatus smNetworkConfigSetIP(int device, const char *addr,
+                                     SmBool nonVolatile);
 
 /**
  * This function is part of a group of functions used to configure the network
@@ -2744,7 +2762,8 @@ SM_API SmStatus smNetworkConfigGetIP(int device, char *addr);
  *
  * @return
  */
-SM_API SmStatus smNetworkConfigSetPort(int device, int port, SmBool nonVolatile);
+SM_API SmStatus smNetworkConfigSetPort(int device, int port,
+                                       SmBool nonVolatile);
 
 /**
  * This function is part of a group of functions used to configure the network
@@ -2776,7 +2795,7 @@ SM_API SmStatus smNetworkConfigGetPort(int device, int *port);
  *
  * ['3' | '.' | '0' | '.' | '1' | '1' | '\0'] = "3.0.11"
  */
-SM_API const char* smGetAPIVersion();
+SM_API const char *smGetAPIVersion();
 
 /**
  * Retrieve a descriptive string of a SmStatus enumeration. Useful for
@@ -2786,7 +2805,7 @@ SM_API const char* smGetAPIVersion();
  *
  * @return
  */
-SM_API const char* smGetErrorString(SmStatus status);
+SM_API const char *smGetErrorString(SmStatus status);
 
 SM_DEPRECATED("smSetIQUSBQueueSize has been deprecated, use smSetIQQueueSize")
 SM_API SmStatus smSetIQUSBQueueSize(int device, float ms);
@@ -2796,30 +2815,30 @@ SM_API SmStatus smSetIQUSBQueueSize(int device, float ms);
 #endif
 
 // Deprecated macros
-#define SM200A_AUTO_ATTEN (SM_AUTO_ATTEN)
-#define SM200A_MAX_ATTEN (SM_MAX_ATTEN)
-#define SM200A_MAX_REF_LEVEL (SM_MAX_REF_LEVEL)
-#define SM200A_MAX_SWEEP_QUEUE_SZ (SM_MAX_SWEEP_QUEUE_SZ)
-#define SM200A_MIN_FREQ (SM200_MIN_FREQ)
-#define SM200A_MAX_FREQ (SM200_MAX_FREQ)
-#define SM200A_MAX_IQ_DECIMATION (SM_MAX_IQ_DECIMATION)
-#define SM200A_PRESELECTOR_MAX_FREQ (SM_PRESELECTOR_MAX_FREQ)
-#define SM200A_FAST_SWEEP_MIN_RBW (SM_FAST_SWEEP_MIN_RBW)
-#define SM200A_RTSA_MIN_SPAN (SM_REAL_TIME_MIN_SPAN)
-#define SM200A_RTSA_MAX_SPAN (SM_REAL_TIME_MAX_SPAN)
-#define SM200A_MIN_SWEEP_TIME (SM_MIN_SWEEP_TIME)
-#define SM200A_MAX_SWEEP_TIME (SM_MAX_SWEEP_TIME)
-#define SM200A_SPI_MAX_BYTES (SM_SPI_MAX_BYTES)
-#define SM200A_GPIO_SWEEP_MAX_STEPS (SM_GPIO_SWEEP_MAX_STEPS)
-#define SM200A_GPIO_SWITCH_MAX_STEPS (SM_GPIO_SWITCH_MAX_STEPS)
-#define SM200A_GPIO_SWITCH_MIN_COUNT (SM_GPIO_SWITCH_MIN_COUNT)
-#define SM200A_GPIO_SWITCH_MAX_COUNT (SM_GPIO_SWITCH_MAX_COUNT)
-#define SM200A_TEMP_WARNING (SM_TEMP_WARNING)
-#define SM200A_TEMP_MAX (SM_TEMP_MAX)
+#define SM200A_AUTO_ATTEN                (SM_AUTO_ATTEN)
+#define SM200A_MAX_ATTEN                 (SM_MAX_ATTEN)
+#define SM200A_MAX_REF_LEVEL             (SM_MAX_REF_LEVEL)
+#define SM200A_MAX_SWEEP_QUEUE_SZ        (SM_MAX_SWEEP_QUEUE_SZ)
+#define SM200A_MIN_FREQ                  (SM200_MIN_FREQ)
+#define SM200A_MAX_FREQ                  (SM200_MAX_FREQ)
+#define SM200A_MAX_IQ_DECIMATION         (SM_MAX_IQ_DECIMATION)
+#define SM200A_PRESELECTOR_MAX_FREQ      (SM_PRESELECTOR_MAX_FREQ)
+#define SM200A_FAST_SWEEP_MIN_RBW        (SM_FAST_SWEEP_MIN_RBW)
+#define SM200A_RTSA_MIN_SPAN             (SM_REAL_TIME_MIN_SPAN)
+#define SM200A_RTSA_MAX_SPAN             (SM_REAL_TIME_MAX_SPAN)
+#define SM200A_MIN_SWEEP_TIME            (SM_MIN_SWEEP_TIME)
+#define SM200A_MAX_SWEEP_TIME            (SM_MAX_SWEEP_TIME)
+#define SM200A_SPI_MAX_BYTES             (SM_SPI_MAX_BYTES)
+#define SM200A_GPIO_SWEEP_MAX_STEPS      (SM_GPIO_SWEEP_MAX_STEPS)
+#define SM200A_GPIO_SWITCH_MAX_STEPS     (SM_GPIO_SWITCH_MAX_STEPS)
+#define SM200A_GPIO_SWITCH_MIN_COUNT     (SM_GPIO_SWITCH_MIN_COUNT)
+#define SM200A_GPIO_SWITCH_MAX_COUNT     (SM_GPIO_SWITCH_MAX_COUNT)
+#define SM200A_TEMP_WARNING              (SM_TEMP_WARNING)
+#define SM200A_TEMP_MAX                  (SM_TEMP_MAX)
 #define SM200B_MAX_SEGMENTED_IQ_SEGMENTS (SM_MAX_SEGMENTED_IQ_SEGMENTS)
-#define SM200B_MAX_SEGMENTED_IQ_SAMPLES (SM_MAX_SEGMENTED_IQ_SAMPLES)
-#define SM200_ADDR_ANY (SM_ADDR_ANY)
-#define SM200_DEFAULT_ADDR (SM_DEFAULT_ADDR)
-#define SM200_DEFAULT_PORT (SM_DEFAULT_PORT)
+#define SM200B_MAX_SEGMENTED_IQ_SAMPLES  (SM_MAX_SEGMENTED_IQ_SAMPLES)
+#define SM200_ADDR_ANY                   (SM_ADDR_ANY)
+#define SM200_DEFAULT_ADDR               (SM_DEFAULT_ADDR)
+#define SM200_DEFAULT_PORT               (SM_DEFAULT_PORT)
 
 #endif // SM_API_H

@@ -1,5 +1,6 @@
 // Copyright (c).2022, Signal Hound, Inc.
-// For licensing information, please see the API license in the software_licenses folder
+// For licensing information, please see the API license in the
+// software_licenses folder
 
 /**
  * \file sm_api_vrt.h
@@ -50,7 +51,8 @@ SM_API SmStatus smGetVrtContextPktSize(int device, uint32_t *wordCount);
  *
  * @return
  */
-SM_API SmStatus smGetVrtContextPkt(int device, uint32_t *words, uint32_t *wordCount);
+SM_API SmStatus smGetVrtContextPkt(int device, uint32_t *words,
+                                   uint32_t *wordCount);
 
 /**
  * This function specifies the number of I/Q samples in each VRT data packet.
@@ -77,7 +79,8 @@ SM_API SmStatus smSetVrtPacketSize(int device, uint16_t samplesPerPkt);
  *
  * @return
  */
-SM_API SmStatus smGetVrtPacketSize(int device, uint16_t *samplesPerPkt, uint32_t *wordCount);
+SM_API SmStatus smGetVrtPacketSize(int device, uint16_t *samplesPerPkt,
+                                   uint32_t *wordCount);
 
 /**
  * Retrieve one block of one or more VRT data packets. This function blocks
@@ -98,10 +101,8 @@ SM_API SmStatus smGetVrtPacketSize(int device, uint16_t *samplesPerPkt, uint32_t
  *
  * @return
  */
-SM_API SmStatus smGetVrtPackets(int device,
-                                uint32_t *words,
-                                uint32_t *wordCount,
-                                uint32_t packetCount,
+SM_API SmStatus smGetVrtPackets(int device, uint32_t *words,
+                                uint32_t *wordCount, uint32_t packetCount,
                                 SmBool purgeBeforeAcquire);
 
 #endif
