@@ -1,19 +1,16 @@
-from ._usrp import USRP
-from ares_iq_ext.usrp import _USRPConfigs
+from ares_iq.usrp import UsrpX310, USRPConfigs
 import typer
 from typing_extensions import Annotated
 from ares_iq.configurations import load_config_section, save_config_section
 from ares_iq.print_utils import print_error
 
 
-class X310Device(USRP):
+class X310Device(UsrpX310):
     app = typer.Typer()
 
     @staticmethod
-    def _load_configs():
+    def _load_configs(configs_: USRPConfigs):
         configs = load_config_section('x310-configs')
-        configs_ = _USRPConfigs()
-        configs_.dev_args = "type=x300"
 
         if "spc" in configs:
             configs_.samples_per_capture = int(configs["spc"])
@@ -32,12 +29,20 @@ class X310Device(USRP):
 
         return configs_
 
-    def __init__(self):
-        configs = self._load_configs()
-        super().__init__(configs)
+    @staticmethod
+    def _load_stream_args(configs_: USRPConfigs):
+        configs = load_config_section("x310-stream-configs")
 
-    def _quantize(self):
-        pass
+        if "spp" in configs:
+            configs_.samples_per_packet = int(configs["spp"])
+
+        return configs_
+
+    def __init__(self):
+        configs = USRPConfigs()
+        configs = self._load_configs(configs)
+        configs = self._load_stream_args(configs)
+        super().__init__(configs)
 
     @staticmethod
     @app.command('x310-stream-args', help='Set USRP platform stream arguments')
@@ -47,14 +52,6 @@ class X310Device(USRP):
             configs["spp"] = str(spp)
 
         save_config_section("x310-stream-configs", configs)
-
-    def _stream_args(self):
-        configs = load_config_section("x310-stream-configs")
-        if "spp" not in configs:
-            spp = 200
-        else:
-            spp = int(configs["spp"])
-        self._usrp.set_stream_args(spp)
 
     @staticmethod
     @app.command('x310-configs', help='Set x310 device configs')

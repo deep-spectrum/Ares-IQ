@@ -1,6 +1,8 @@
 import logging
 from .console_print import print_debug, print_info, print_warning, print_error, print_critical
 
+OFF = logging.CRITICAL + 10
+
 
 class AresIqHandler(logging.Handler):
     def __init__(self,
