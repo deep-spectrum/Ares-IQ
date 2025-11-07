@@ -10,7 +10,13 @@
 
 namespace py = pybind11;
 
-struct SMConfigs {};
+struct SMConfigs {
+    SMConfigs() = default;
+    explicit SMConfigs(const py::kwargs &kwargs);
+
+    SmDeviceType type;
+    int serial = -1;
+};
 
 struct SMDevice {
     SMDevice() = default;

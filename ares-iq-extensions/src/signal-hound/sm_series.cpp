@@ -4,6 +4,7 @@
 
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.h>
+#include <ares-iq/util.hpp>
 #include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
 
@@ -18,6 +19,12 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .value("SM435C", smDeviceTypeSM435C)
         .export_values()
         .finalize();
+
+    py::class_<SMConfigs>(m, "_SmCOnfigs", "SM device configs")
+        .def(py::init<const py::kwargs &>())
+        .def_readwrite("type", &SMConfigs::type, "The device type")
+        .def_readwrite("serial", &SMConfigs::serial,
+                       "The device serial number");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")
@@ -37,6 +44,11 @@ static py::tuple array_to_tuple(const T *data, size_t count) {
         t[i] = data[i];
     }
     return t;
+}
+
+SMConfigs::SMConfigs(const py::kwargs &kwargs) {
+    KWARG_TO_STRUCT_PARAM(kwargs, type);
+    KWARG_TO_STRUCT_PARAM(kwargs, serial);
 }
 
 int SMDevice::getSerial() const { return serial; }
