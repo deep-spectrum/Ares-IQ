@@ -7,11 +7,11 @@ class ConfigBase:
     def to_yaml(self, config_file: Path | str) -> None:
         """Save configurations to YAML file.
 
-        Save the BB60 configurations to the given YAML file. Other YAML contents
+        Save the configurations to the given YAML file. Other YAML contents
         will not be overwritten.
 
         Args:
-            config_file: The file to save the BB60 configurations into.
+            config_file: The file to save the configurations into.
 
         Notes:
             Any private attributes (starts with the "_" character) will not be
@@ -31,13 +31,13 @@ class ConfigBase:
     def from_yaml(cls, config_file: Path | str):
         """Load configurations from YAML file.
 
-        Loads the BB60 configurations from the given YAML file. If the
+        Loads the configurations from the given YAML file. If the
         configurations are undefined, the default values are used.
 
         Args:
-            config_file: The file to load the BB60 configurations from.
+            config_file: The file to load the configurations from.
 
-        Returns: A BB60Configs instance.
+        Returns: A configs class instance.
         """
         if Path(config_file).exists():
             with open(config_file, 'r') as f:
