@@ -37,7 +37,7 @@ class USRPConfigs(ConfigBase):
         for x in self._ref_options:
             if value == x:
                 return
-        raise ValueError(f"ref must be on of the following: {', '.join(self._ref_options)}.")
+        raise ValueError(f"ref must be one of the following: {', '.join(self._ref_options)}.")
 
 
 class USRP(ABC):
