@@ -80,8 +80,8 @@ USRP::USRP(const USRPconfigs &configs, const USRPStreamArgs &stream_args) {
 }
 
 py::tuple USRP::capture_iq(double center, double bw, uint64_t capture_size,
-                           bool verbose, bool extra) {
-    _extra_verbose = extra;
+                           bool silent, bool verbose) {
+    _verbose = verbose;
     if (!configured) {
         _configure(center, bw);
     } else {
@@ -109,8 +109,7 @@ py::tuple USRP::capture_iq(double center, double bw, uint64_t capture_size,
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
-    CaptureProgress::Progress progress(captures, samples_per_capture,
-                                       !(verbose || extra));
+    CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
     progress.start();
     _start_stream();
@@ -196,7 +195,7 @@ void USRP::_configure(double center, double bw) {
 }
 
 void USRP::_disable_console_output() {
-    if (_extra_verbose) {
+    if (_verbose) {
         return;
     }
     _dev_null = open("/dev/null", O_WRONLY);
@@ -208,7 +207,7 @@ void USRP::_disable_console_output() {
 }
 
 void USRP::_enable_console_output() const {
-    if (_extra_verbose) {
+    if (_verbose) {
         return;
     }
     dup2(_stdout, STDOUT_FILENO);

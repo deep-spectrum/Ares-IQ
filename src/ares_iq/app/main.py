@@ -1,7 +1,6 @@
 import importlib
 import typer
 from ares_iq.util import CONFIG_FILE, CONFIG_DIR
-from pathlib import Path
 from typing_extensions import Annotated
 import os
 import pkgutil
@@ -36,8 +35,6 @@ def import_platforms():
 import_platforms()
 
 app = typer.Typer()
-configs_path = Path().home() / ".ares_iq"
-configs_file = configs_path / "config.ini"
 
 
 @app.command()
@@ -45,9 +42,8 @@ def capture(
         center: Annotated[float, typer.Option("--center", "-c", help='Center frequency of the capture in MHz')] = 2450,
         bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
-        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Show verbose output and progress bar')] = False,
-        extra_verbose: Annotated[
-            bool, typer.Option("--extra-verbose", "-vvv", help='Like verbose, but show logging messages too')] = False):
+        silent: Annotated[bool, typer.Option("--silent", help='Do not show the progress bar')] = False,
+        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
     try:
         with open(CONFIG_FILE, "r") as f:
             configs = yaml.safe_load(f)
@@ -59,7 +55,7 @@ def capture(
     if PLATFORMS[platform] is None:
         print_error(f"{platform} is not supported yet.")
         raise typer.Exit()
-    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), verbose, extra_verbose)
+    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 
