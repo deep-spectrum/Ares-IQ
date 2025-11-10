@@ -48,19 +48,12 @@ def capture(
         verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Show verbose output and progress bar')] = False,
         extra_verbose: Annotated[
             bool, typer.Option("--extra-verbose", "-vvv", help='Like verbose, but show logging messages too')] = False):
-    if CONFIG_FILE.exists():
-        with open(CONFIG_FILE, "r") as f:
-            configs = yaml.safe_load(f)
-    else:
-        print_error("Platform not set.")
-        raise typer.Exit()
-
     try:
         with open(CONFIG_FILE, "r") as f:
             configs = yaml.safe_load(f)
         platform: str = configs["platform"]
     except (FileNotFoundError, KeyError):
-        print_error("Platform not set")
+        print_error("Platform not set.")
         raise typer.Exit()
 
     if PLATFORMS[platform] is None:
