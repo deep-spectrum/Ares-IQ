@@ -29,10 +29,10 @@ class BB60Device(BB60):
         configs = self._load_configs()
         super().__init__(configs)
 
-    def capture_iq(self, center: float, bw: float, file_size_gb: float, verbose: bool = False, extra: bool = False) -> \
+    def capture_iq(self, center: float, bw: float, file_size_gb: float, silent: bool = True, verbose: bool = False) -> \
     tuple[list[IQData], list[QuantizedData]]:
         try:
-            return super().capture_iq(center, bw, int(file_size_gb), verbose, extra)
+            return super().capture_iq(center, bw, int(file_size_gb), silent, verbose)
         except (BB60Exception, BBDeviceError) as e:
             print_error(str(e))
             raise typer.Exit()

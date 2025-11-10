@@ -89,18 +89,18 @@ class BB60:
             self._bw = self._max_bw
         bb_configure_IQ(self._handle, decimation, self._bw)
 
-    def capture_iq(self, center: float, bw: float, capture_size: int, verbose: bool = False, extra: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
+    def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
         """Capture I/Q data from the spectrum analyzer.
 
         Args:
             center: The center frequency in Hz.
             bw: The capture bandwidth in Hz.
             capture_size: The maximum amount of IQ data to collect in bytes.
-            verbose: Show progress bar during the capture.
-            extra: Like verbose, but also shows logging messages.
+            silent: Do not show the progress bar.
+            verbose: Show the logging messages.
         """
 
-        if extra:
+        if verbose:
             logger.setLevel(logging.INFO)
 
         self._bw = bw
@@ -117,7 +117,7 @@ class BB60:
         logger.info("BB60 configured. Starting stream")
         bb_initiate(self._handle, BB_STREAMING, BB_STREAM_IQ)
 
-        with CaptureProgress(captures, SAMPLES_PER_CAPTURE, not (verbose or extra)) as progress:
+        with CaptureProgress(captures, SAMPLES_PER_CAPTURE, silent) as progress:
             for iq in iq_data:
                 data = bb_get_IQ_unpacked(self._handle, SAMPLES_PER_CAPTURE, BB_FALSE)
                 iq.iq = data["iq"]
