@@ -10,6 +10,7 @@ import math
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
 from ares_iq.typing import QuantizedData
+from ares_iq.configs import ConfigBase
 import logging
 
 SAMPLES_PER_CAPTURE = 262144
@@ -22,7 +23,7 @@ class BB60Exception(Exception):
 
 
 @define
-class BB60Configs:
+class BB60Configs(ConfigBase):
     """Configurations for the Signal Hound BB60 spectrum analyzer.
 
     Attributes:
@@ -99,8 +100,8 @@ class BB60:
             verbose: Show progress bar during the capture.
             extra: Like verbose, but also shows logging messages.
         """
-
-        if extra:
+        base_lvl = logger.level
+        if extra and base_lvl > logging.INFO:
             logger.setLevel(logging.INFO)
 
         self._bw = bw
@@ -131,7 +132,7 @@ class BB60:
 
         bb_close_device(self._handle)
 
-        logger.setLevel(aiq_logging.OFF)
+        logger.setLevel(base_lvl)
         return iq_data, quant_data
 
     def _quantize(self, iq_data):
