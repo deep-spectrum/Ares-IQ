@@ -5,10 +5,11 @@ from abc import abstractmethod, ABC
 from ares_iq.typing import QuantizedData
 from attrs import define, field, validators
 from ares_iq.validators import validate_bounds
+from ares_iq.configs import ConfigBase
 
 
 @define
-class USRPConfigs:
+class USRPConfigs(ConfigBase):
     """USRP device configurations and stream configurations.
 
     Device and stream configurations for USRP platforms.
@@ -21,14 +22,22 @@ class USRPConfigs:
         gain: Overall RX gain.
         samples_per_packet: Number of samples per a UDP packet.
     """
+    _ref_options: tuple[str, ...] = field(default=("internal", "external"), init=False, repr=False)
     samples_per_capture: int = field(default=200000, metadata={"min": 1},
                                      validator=[validators.instance_of(int), validate_bounds])
     subdev: str = "A:0"
-    ref: str = "internal"
+    ref: str = field(default="internal", converter=str)
     rate: float = field(default=25e6, metadata={"min": 0, "min_exclusive": True}, validator=validate_bounds)
     gain: float = 0
     samples_per_packet: int = field(default=200, metadata={"min": 1},
                                     validator=[validators.instance_of(int), validate_bounds])
+
+    @ref.validator
+    def validate_ref(self, _, value):
+        for x in self._ref_options:
+            if value == x:
+                return
+        raise ValueError(f"ref must be one of the following: {', '.join(self._ref_options)}.")
 
 
 class USRP(ABC):

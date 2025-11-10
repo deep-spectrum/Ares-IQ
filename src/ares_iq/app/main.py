@@ -1,19 +1,19 @@
 import importlib
 import typer
-from ares_iq.configurations import load_config_section, save_config_section, CONFIG_DIR
+from ares_iq.util import CONFIG_FILE, CONFIG_DIR
 from pathlib import Path
 from typing_extensions import Annotated
 import os
 import pkgutil
 from ares_iq.typing import SoftwareDefinedRadio
 from ares_iq.save_iq_data import save_iq_data
+import yaml
+from ares_iq.print_utils import print_error
 from ares_iq.print_utils.logging import AresIqHandler
 import logging
 
-
 logger = logging.getLogger()
 logger.addHandler(AresIqHandler(warning_panel=True, error_panel=True, critical_error_panel=True))
-
 
 PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
 
@@ -47,13 +47,18 @@ def capture(
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
         silent: Annotated[bool, typer.Option("--silent", help='Do not show the progress bar')] = False,
         verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
-    configs = load_config_section("platform")
-    if "hw" not in configs:
-        raise typer.Abort("Please run set-platform first")
+    try:
+        with open(CONFIG_FILE, "r") as f:
+            configs = yaml.safe_load(f)
+        platform: str = configs["platform"]
+    except (FileNotFoundError, KeyError):
+        print_error("Platform not set.")
+        raise typer.Exit()
 
-    if PLATFORMS[configs["hw"]] is None:
-        raise typer.Abort(f"{configs['hw']} is not supported yet.")
-    PLATFORMS[configs["hw"]].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
+    if PLATFORMS[platform] is None:
+        print_error(f"{platform} is not supported yet.")
+        raise typer.Exit()
+    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 
@@ -72,9 +77,16 @@ platform_help = "The signal analyzer platform being used. Must be one of the fol
 @app.command(name='set-platform')
 def set_platform(platform: Annotated[str, typer.Argument(
     help=platform_help, callback=valid_platforms)]):
-    configs = load_config_section("platform")
-    configs["hw"] = platform
-    save_config_section("platform", configs)
+    if CONFIG_FILE.exists():
+        with open(CONFIG_FILE, "r") as f:
+            configs = yaml.safe_load(f)
+    else:
+        configs = {}
+
+    configs["platform"] = platform
+
+    with open(CONFIG_FILE, "w") as f:
+        yaml.safe_dump(configs, f)
 
 
 def import_extended_commands():
