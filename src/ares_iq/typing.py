@@ -1,21 +1,25 @@
+"""Protocols and types for the ares_iq package."""
+
 from typing import Protocol
 from .iq_data import IQData
 
+QuantizedData = object
+"""Type alias for the quantized data."""
+
 
 class SoftwareDefinedRadio(Protocol):
-    def capture_iq(self, center: float, bw: float, file_size: float) -> None:
-        """
-        Capture IQ data from the SDR.
-        :param center: The center frequency in Hz
-        :param bw: The bandwidth in Hz
-        :param file_size: The maximum amount of IQ data to collect in GB
-        :return: The captured IQ data and the
-        """
+    """Protocol for SoftwareDefinedRadio classes."""
 
-    @property
-    def iq_data(self) -> list[IQData]:
-        """IQ data from the capture"""
+    def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> tuple[list[IQData], list[QuantizedData]]:
+        """Capture IQ data from the SDR.
 
-    @property
-    def quantized_data(self) -> list[None]:
-        """Quantized data from the capture"""
+        Args:
+            center: The center frequency in Hz.
+            bw: The bandwidth in Hz.
+            capture_size: The maximum amount of IQ data to collect in bytes.
+            silent: Do not show the progress bar.
+            verbose: Show the logging messages.
+
+        Returns:
+            A list of IQ data and a list of QuantizedData
+        """

@@ -47,10 +47,11 @@ class __attribute__((visibility("hidden"))) StupidFuckingIdiom {
     py::object ctx;
     py::object progress;
 
-    StupidFuckingIdiom(uint64_t captures, uint64_t samples_per_capture) {
+    StupidFuckingIdiom(uint64_t captures, uint64_t samples_per_capture,
+                       bool hide) {
         // TODO: Put print utils somewhere else???
         py::module_ mod_ = py::module_::import("ares_iq.print_utils");
-        ctx = mod_.attr("CaptureProgress")(captures, samples_per_capture);
+        ctx = mod_.attr("CaptureProgress")(captures, samples_per_capture, hide);
     }
 
     void start() { progress = ctx.attr("__enter__")(); }
@@ -68,11 +69,12 @@ class __attribute__((visibility("hidden"))) StupidFuckingIdiom {
 };
 #endif // defined(USE_PYTHON_LIB)
 
-Progress::Progress(uint64_t captures, uint64_t samples_per_capture) {
+Progress::Progress(uint64_t captures, uint64_t samples_per_capture, bool hide) {
 #if defined(USE_PYTHON_LIB)
     _impl = std::unique_ptr<StupidFuckingIdiom>(
-        new StupidFuckingIdiom(captures, samples_per_capture));
+        new StupidFuckingIdiom(captures, samples_per_capture, hide));
 #else
+    _hide = hide;
     _total_samples = captures * samples_per_capture;
     _spc = samples_per_capture;
     LOG_DBG("Number of captures: %" PRIu64, captures);
@@ -87,6 +89,9 @@ void Progress::start() {
 #if defined(USE_PYTHON_LIB)
     _impl->start();
 #else
+    if (_hide) {
+        return;
+    }
     LOG_INF("Starting progress bar");
     _start = std::chrono::system_clock::now();
     _refresh_thread = std::thread(&Progress::_refresh_task, this);
@@ -97,6 +102,9 @@ void Progress::update() {
 #if defined(USE_PYTHON_LIB)
     _impl->update();
 #else
+    if (_hide) {
+        return;
+    }
     LOG_DBG("Updating progress bar");
     std::lock_guard<std::mutex> guard(this->_samples_mtx);
     _samples_captured += _spc;
@@ -108,6 +116,9 @@ void Progress::stop(const void *exception) {
     _impl->stop(exception);
 #else
     LOG_INF("Stopping progress bar");
+    if (_hide) {
+        return;
+    }
     (void)exception;
     _terminate.store(true);
     if (_refresh_thread.joinable()) {

@@ -1,60 +1,16 @@
-from ._usrp import USRP
-from ares_iq_ext.usrp import _USRPConfigs
+from ares_iq.usrp import UsrpX310, X310Configs
 import typer
 from typing_extensions import Annotated
-from ares_iq.configurations import load_config_section, save_config_section
-from ares_iq.print_utils import print_error
+from ares_iq.util import CONFIG_FILE
+from ares_iq.app.utils import config_set, print_config_errors
 
 
-class X310Device(USRP):
+class X310Device(UsrpX310):
     app = typer.Typer()
 
-    @staticmethod
-    def _load_configs():
-        configs = load_config_section('x310-configs')
-        configs_ = _USRPConfigs()
-        configs_.dev_args = "type=x300"
-
-        if "spc" in configs:
-            configs_.samples_per_capture = int(configs["spc"])
-
-        if "subdev" in configs:
-            configs_.subdev = configs["subdev"]
-
-        if "ref" in configs:
-            configs_.ref = configs["ref"]
-
-        if "rate" in configs:
-            configs_.rate = float(configs["rate"])
-
-        if "gain" in configs:
-            configs_.gain = float(configs["gain"])
-
-        return configs_
-
     def __init__(self):
-        configs = self._load_configs()
+        configs = X310Configs.from_yaml(CONFIG_FILE)
         super().__init__(configs)
-
-    def _quantize(self):
-        pass
-
-    @staticmethod
-    @app.command('x310-stream-args', help='Set USRP platform stream arguments')
-    def stream_args(spp: Annotated[int | None, typer.Option(help="Samples per packet")] = None):
-        configs = load_config_section("x310-stream-configs")
-        if spp is not None:
-            configs["spp"] = str(spp)
-
-        save_config_section("x310-stream-configs", configs)
-
-    def _stream_args(self):
-        configs = load_config_section("x310-stream-configs")
-        if "spp" not in configs:
-            spp = 200
-        else:
-            spp = int(configs["spp"])
-        self._set_stream_args(spp)
 
     @staticmethod
     @app.command('x310-configs', help='Set x310 device configs')
@@ -62,26 +18,19 @@ class X310Device(USRP):
                     subdev: Annotated[str | None, typer.Option(help='RX frontend specification')] = None,
                     ref: Annotated[str | None, typer.Option(help='Clock source for the USRP device')] = None,
                     rate: Annotated[float | None, typer.Option(help='RX sample rate')] = None,
-                    gain: Annotated[float | None, typer.Option(help='Overall RX gain')] = None):
-        configs = load_config_section('x310-configs')
+                    gain: Annotated[float | None, typer.Option(help='Overall RX gain')] = None,
+                    spp: Annotated[int | None, typer.Option(help="Samples per packet")] = None):
+        configs = X310Configs.from_yaml(CONFIG_FILE)
 
-        if spc is not None:
-            if spc <= 0:
-                print_error("spc must be a non-zero positive integer")
-            configs["spc"] = str(spc)
+        errors: list[str | None] = [
+            config_set(lambda v: setattr(configs, "samples_per_capture", v), spc),
+            config_set(lambda v: setattr(configs, "subdev", v), subdev),
+            config_set(lambda v: setattr(configs, "ref", v), ref),
+            config_set(lambda v: setattr(configs, "rate", v), rate),
+            config_set(lambda v: setattr(configs, "gain", v), gain),
+            config_set(lambda v: setattr(configs, "samples_per_packet", v), spp),
+        ]
 
-        if subdev is not None:
-            configs["subdev"] = subdev
+        print_config_errors(errors)
 
-        if ref is not None:
-            if not (ref == "internal" or ref == "external" or ref == "gpsdo"):
-                print_error("ref must be `internal`, `external`, or `gpsdo`")
-            configs["ref"] = ref
-
-        if rate is not None:
-            configs["rate"] = str(rate)
-
-        if gain is not None:
-            configs["gain"] = str(gain)
-
-        save_config_section('x310-configs', configs)
+        configs.to_yaml(CONFIG_FILE)

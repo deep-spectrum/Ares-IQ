@@ -41,9 +41,8 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
 
     py::class_<USRPconfigs>(m, "_USRPConfigs",
                             "Configuration parameters for the USRP.")
-        .def(py::init<>())
-        .def_readwrite("dev_args", &USRPconfigs::device_args,
-                       "Device arguments")
+        .def(py::init<const py::kwargs &>())
+        .def_readwrite("dev_args", &USRPconfigs::dev_args, "Device arguments")
         .def_property(
             "samples_per_capture", &USRPconfigs::get_samples_per_capture,
             &USRPconfigs::set_samples_per_capture, "Samples per capture")
@@ -53,12 +52,16 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_readwrite("rate", &USRPconfigs::rate, "RX sample rate")
         .def_readwrite("gain", &USRPconfigs::gain, "Overall RX gain");
 
+    py::class_<USRPStreamArgs>(m, "_UsrpStreamArgs",
+                               "Stream arguments for the USRP.")
+        .def(py::init<const py::kwargs &>())
+        .def_readwrite("spp", &USRPStreamArgs::spp, "Samples per packet");
+
     py::class_<USRP>(m, "_USRP",
                      "The base class for the USRP platform. This should be "
                      "wrapped with Python.")
-        .def(py::init<const USRPconfigs &>())
+        .def(py::init<const USRPconfigs &, const USRPStreamArgs &>())
         .def("capture_iq", &USRP::capture_iq, "Capture IQ data")
-        .def("_set_stream_args", &USRP::set_stream_args)
         .def_property_readonly("dev_args", &USRP::dev_args, "Device arguments")
         .def_property_readonly("samples_per_capture",
                                &USRP::samples_per_capture,
@@ -71,9 +74,14 @@ PYBIND11_MODULE(_usrp, m, py::mod_gil_not_used()) {
         .def_property_readonly("gain", &USRP::gain, "Overall RX gain");
 }
 
-USRP::USRP(const USRPconfigs &configs) { _configs = configs; }
+USRP::USRP(const USRPconfigs &configs, const USRPStreamArgs &stream_args) {
+    _configs = configs;
+    _stream_args = stream_args;
+}
 
-py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
+py::tuple USRP::capture_iq(double center, double bw, uint64_t capture_size,
+                           bool silent, bool verbose) {
+    _verbose = verbose;
     if (!configured) {
         _configure(center, bw);
     } else {
@@ -81,12 +89,11 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
         usrp->set_rx_bandwidth(bw);
     }
 
-    uint64_t samples_per_capture = _configs.samples_per_capture;
-    auto file_size = static_cast<uint64_t>(file_size_gb * 1e9);
+    uint64_t samples_per_capture = _configs.spc;
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(COMPLEX_TEMPLATE_TYPE)) +
         timestamp_size;
-    uint64_t captures = file_size / bytes_per_capture;
+    uint64_t captures = capture_size / bytes_per_capture;
 
     std::vector<Capture> data(captures);
 
@@ -102,7 +109,7 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
         data[i].timestamp = static_cast<double *>(time_buf_info.ptr) + i;
     }
 
-    CaptureProgress::Progress progress(captures, samples_per_capture);
+    CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
     progress.start();
     _start_stream();
@@ -126,10 +133,10 @@ py::tuple USRP::capture_iq(double center, double bw, double file_size_gb) {
 }
 
 void USRP::_open_usrp() {
-    if (_configs.device_args.empty()) {
+    if (_configs.dev_args.empty()) {
         throw std::invalid_argument("usage error. device arguments missing.");
     }
-    this->usrp = uhd::usrp::multi_usrp::make(_configs.device_args);
+    this->usrp = uhd::usrp::multi_usrp::make(_configs.dev_args);
 }
 
 void USRP::_configure_usrp(double center, double bw) {
@@ -142,7 +149,7 @@ void USRP::_configure_usrp(double center, double bw) {
     usrp->set_rx_antenna(ant);
 
     uhd::stream_args_t stream_args = uhd::stream_args_t("fc32", "sc16");
-    stream_args.args = (boost::format("spp=%d") % _spp).str();
+    stream_args.args = (boost::format("spp=%d") % _stream_args.spp).str();
     rx_streamer = usrp->get_rx_stream(stream_args);
 }
 
@@ -161,7 +168,7 @@ void USRP::_stop_stream() const {
 
 void USRP::_configure(double center, double bw) {
     _disable_console_output();
-    std::string err_msg = "";
+    std::string err_msg;
 
     try {
         uhd::set_thread_priority_safe();
@@ -188,6 +195,9 @@ void USRP::_configure(double center, double bw) {
 }
 
 void USRP::_disable_console_output() {
+    if (_verbose) {
+        return;
+    }
     _dev_null = open("/dev/null", O_WRONLY);
     _stderr = dup(STDERR_FILENO);
     _stdout = dup(STDOUT_FILENO);
@@ -197,6 +207,9 @@ void USRP::_disable_console_output() {
 }
 
 void USRP::_enable_console_output() const {
+    if (_verbose) {
+        return;
+    }
     dup2(_stdout, STDOUT_FILENO);
     dup2(_stderr, STDERR_FILENO);
 
@@ -205,22 +218,9 @@ void USRP::_enable_console_output() const {
     close(_dev_null);
 }
 
-void USRP::set_stream_args(int spp) {
-    if (spp < 1) {
-        throw py::value_error(
-            (boost::format(
-                 "Cannot set samples per packet to %d. Must be > 0.") %
-             spp)
-                .str());
-    }
-    this->_spp = spp;
-}
+const std::string &USRP::dev_args() const { return _configs.dev_args; }
 
-const std::string &USRP::dev_args() const { return _configs.device_args; }
-
-uint64_t USRP::samples_per_capture() const {
-    return _configs.samples_per_capture;
-}
+uint64_t USRP::samples_per_capture() const { return _configs.spc; }
 
 const std::string &USRP::subdev() const {
     if (configured) {
@@ -248,13 +248,31 @@ double USRP::gain() const {
     return _configs.gain;
 }
 
-void USRPconfigs::set_samples_per_capture(uint64_t spc) {
+#define _USRP_CONFIG_SET(_kwargs, _key)                                        \
+    do {                                                                       \
+        if (_kwargs.contains(#_key)) {                                         \
+            _key = _kwargs[#_key].cast<decltype(_key)>();                      \
+        }                                                                      \
+    } while (false)
+
+USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
+    _USRP_CONFIG_SET(kwargs, dev_args);
+    _USRP_CONFIG_SET(kwargs, spc);
+    _USRP_CONFIG_SET(kwargs, subdev);
+    _USRP_CONFIG_SET(kwargs, ref);
+    _USRP_CONFIG_SET(kwargs, rate);
+    _USRP_CONFIG_SET(kwargs, gain);
+}
+
+void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
     if (spc == 0u) {
         throw std::range_error("samples_per_capture must be above 0");
     }
-    samples_per_capture = spc;
+    this->spc = spc_;
 }
 
-uint64_t USRPconfigs::get_samples_per_capture() const {
-    return samples_per_capture;
+uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
+
+USRPStreamArgs::USRPStreamArgs(const py::kwargs &kwargs) {
+    _USRP_CONFIG_SET(kwargs, spp);
 }

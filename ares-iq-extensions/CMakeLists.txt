@@ -5,53 +5,27 @@ project(${SKBUILD_PROJECT_NAME}
 
 set(CMAKE_CXX_STANDARD 11)
 
+set(ARES_IQ_UHD_PATH "${CMAKE_SOURCE_DIR}/extern/uhd/host")
+
+if (NOT IS_DIRECTORY "${ARES_IQ_UHD_PATH}")
+	message(FATAL_ERROR "Please run \"git submodule update --init\" before proceeding")
+endif()
+
 add_subdirectory(extern/pybind11)
 add_subdirectory(capture_progress)
 
-include(ExternalProject)
-set(UHD_INSTALL_DIR ${CMAKE_BINARY_DIR}/uhd-install)
-ExternalProject_Add(
-        uhd
-        SOURCE_DIR ${CMAKE_SOURCE_DIR}/extern/uhd/host
-        BINARY_DIR ${CMAKE_BINARY_DIR}/uhd-build
-        CMAKE_ARGS
-         -DCMAKE_INSTALL_PREFIX=${UHD_INSTALL_DIR}
-         -DENABLE_PYTHON_API=OFF
-         -DENABLE_LIBUHD=ON
-         -DENABLE_TESTS=OFF
-         -DENABLE_UTILS=OFF
-         -DENABLE_EXAMPLES=OFF
-         -DENABLE_USB=OFF
-         -DENABLE_MANUAL=OFF
-         -DENABLE_DOXYGEN=OFF
-         -DENABLE_MAN_PAGES=OFF
-         -DCMAKE_BUILD_TYPE=${CMAKE_BUILD_TYPE}
-        BUILD_ALWAYS TRUE
-        # INSTALL_COMMAND make install
-)
-list(APPEND CMAKE_PREFIX_PATH "${UHD_INSTALL_DIR}")
-
-find_package(UHD REQUIRED)
-
-include(UHDMinDepVersions)
-set(UHD_BOOST_REQUIRED_COMPONENTS
-        program_options
-        system
-        thread
-)
-include(UHDBoost)
+include(cmake/FindUHD.cmake)
 
 include_directories(
         include
-        ${Boost_INCLUDE_DIRS}
-        ${UHD_INCLUDE_DIRS}
+		${Boost_INCLUDE_DIRS}
+		${UHD_INCLUDE_DIRS}
 )
-link_directories(${Boost_LIBRARY_DIRS})
 
 # USRP module
 python_add_library(_usrp MODULE src/usrp/usrp.cpp WITH_SOABI)
-target_link_libraries(_usrp PRIVATE pybind11::headers ${UHD_LIBRARIES} ${Boost_LIBRARIES} capture_progress)
-add_dependencies(_usrp uhd capture_progress)
+add_dependencies(_usrp uhd_static_lib uhd capture_progress)
+target_link_libraries(_usrp PRIVATE pybind11::headers capture_progress ${UHD_STATIC_LIB_LINK_FLAG} ${UHD_STATIC_LIB_DEPS})
 install(TARGETS _usrp DESTINATION ares_iq_ext/usrp)
 install(FILES src/ares_iq_ext/usrp/__init__.py DESTINATION ares_iq_ext/usrp)
 

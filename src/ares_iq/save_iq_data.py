@@ -4,6 +4,7 @@ import numpy as np
 import h5py
 import datetime as dt
 from pathlib import Path
+from .warnings import deprecated
 
 
 SAVE_DIR = Path.cwd() / "ares-iq-data"
@@ -17,7 +18,13 @@ def _save_file(iq, ts):
         f.create_dataset("iq_ts", data=ts)
 
 
+@deprecated("Being split into separate package.")
 def save_iq_data(data: list[IQData]):
+    """Save the captured IQ data.
+
+    Args:
+        data: The captured IQ data.
+    """
     if not data:
         return
     print_warning("TODO: I'm not sure if this is a good way to store data. Will likely factor data saving into a separate repo maintained by Tianshu...")
