@@ -1,7 +1,6 @@
 import importlib
 import typer
 from ares_iq.util import CONFIG_FILE, CONFIG_DIR
-from pathlib import Path
 from typing_extensions import Annotated
 import os
 import pkgutil
@@ -36,8 +35,6 @@ def import_platforms():
 import_platforms()
 
 app = typer.Typer()
-configs_path = Path().home() / ".ares_iq"
-configs_file = configs_path / "config.ini"
 
 
 @app.command()
