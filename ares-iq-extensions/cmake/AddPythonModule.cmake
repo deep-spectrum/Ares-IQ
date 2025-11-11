@@ -73,8 +73,15 @@ function(python_module name src_dir)
 endfunction()
 
 #[[
-  python_package(<package_src_dir>)
+  python_package(<package_src_dir>
+      [DESTINATION <path>])
   Installs a Python package given the relative path to the package.
+
+  Arguments:
+    <package_src_dir>  - Path to the Python package to be installed.
+    DESTINATION        - Install path (relative to the prefix).
+
+  Requires CMake >= 3.15
 ]]
 function(python_package package_src_dir)
     set(options)
