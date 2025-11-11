@@ -4,6 +4,24 @@ else()
     set(origin_token "$ORIGIN")
 endif()
 
+#[[
+  python_module(<name> <src_dir>
+      [DESTINATION <path>]
+      [DEPENDENCIES <target>...]
+      [LIBS <lib>...]
+      [DEFINITIONS <def>...]
+      [INSTALL_LIBS <file>...])
+  Defines and installs a Python C++ extension module.
+
+  Arguments:
+    <name>         – Target name for the module.
+    <src_dir>      – Path to the .cpp file for pybind11.
+    DESTINATION    – Install path (relative to prefix).
+    DEPENDENCIES   – Other targets this depends on.
+    LIBS           – Libraries to link against.
+    DEFINITIONS    – Preprocessor definitions.
+    INSTALL_LIBS   – Shared libraries to install with the module.
+]]
 function(python_module name src_dir)
     # Required arguments
     set(options)
@@ -42,6 +60,10 @@ function(python_module name src_dir)
     endif()
 endfunction()
 
+#[[
+  python_package(<package_src_dir>)
+  Installs a Python package given the relative path to the package.
+]]
 function(python_package package_src_dir)
     get_filename_component(abs_src_dir ${package_src_dir} ABSOLUTE)
     if(NOT IS_DIRECTORY ${abs_src_dir})
