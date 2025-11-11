@@ -381,7 +381,7 @@ cases in this library.
 
 ## 4) Submitting a PR
 
-You wrote an extension and now you want it to be part of the next
+You wrote an extension, and now you want it to be part of the next
 release. Awesome! There are a few things we ask of you before submitting
 a PR.
 

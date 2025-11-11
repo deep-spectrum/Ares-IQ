@@ -28,7 +28,8 @@ Both options will be discussed below:
 #### 1.2.1 Loading the dependencies first
 
 1. Set up cmake so the shared library dependencies are installed in the same location as the shared library
-2. In the \_\_init\_\_.py file, import cdll from ctypes and use the `LoadLibrary` method to load the shared library before importing the built shared library.
+2. In the \_\_init\_\_.py file, import cdll from ctypes and use the `LoadLibrary` method to load the shared library 
+   before importing the built shared library.
 
 Below is an example of how to load shared library dependencies using the Signal Hound BB60 API.
 
@@ -47,10 +48,10 @@ __all__ = [ ... ]
 
 #### 1.2.2 Modifying the library run path
 
-!!! warning "Check the license"
+???+ warning "Check the license"
 
-    Check the license to see if the shared library can be modified. If not, then you are stuck with loading the
-    dependencies first.
+     Check the license to see if the shared library can be modified. If not, then you are stuck with loading the
+     dependencies first.
 
 If you prefer a cleaner \_\_init\_\_.py, then modifying the search path for the shared library is necessary. This is
 relatively simple to do with [patchelf](https://manpages.ubuntu.com/manpages/jammy/man1/patchelf.1.html). Below is an
@@ -160,4 +161,70 @@ set_property(TARGET _sh_bb60 PROPERTY
 install(TARGETS _sh_bb60 DESTINATION ares_iq_ext/signal_hound/bb_series)
 install(FILES src/ares_iq_ext/signal-hound/bb_series/__init__.py DESTINATION ares_iq_ext/signal_hound/bb_series)
 install(FILES ${SH_BB_LIBS} DESTINATION ares_iq_ext/signal_hound/bb_series/lib)
+```
+
+## 2. Contributing In Tree Libraries
+
+Another way to contribute a library is to put it in the file tree. These libraries are libraries that we have the source
+code to and can either be written ourselves or can be external projects. If they are external project, they can be added
+as submodules or get pulled in through fetch content in cmake. However, if they are written specifically for this
+project, it is advised that they are added in tree. This section will go over the different scenarios for pulling in
+libraries. Additionally, using static libraries is preferred.
+
+### 2.1 Fetch content
+
+If an external library uses a modern cmake system, then fetch content can be a good option to pull in an external
+library. However, the drawback of using this method is the computer must be connected to the internet in order to
+build the library. In order to pull in a dependency via fetch content, then fetch content library should be included in 
+the CMakeLists.txt file if it is not already.
+
+```cmake title="Example usage of FetchContent"
+include(FetchContent)  # Do not include this if it is already present
+FetchContent_Declare(
+        foo
+        GIT_REPOSITORY https://...
+        GIT_TAG master
+)
+FetchContent_MakeAvailable(foo)
+...
+target_link_libraries(target PRIVATE foo ...)
+```
+
+### 2.2 Submodules
+
+Submodules are another way to include an external library. Submodules can be useful for pinning things to a certain 
+commit or branch, and they only require an internet connection on the initialization of the repository. Additionally,
+if an external library has a poorly set up cmake build system or uses an entirely different build system, then this
+option is probably the best choice. If a Library has a poor cmake set up or does not use cmake, then you need to
+make a separate cmake file and export a static library. Please refer to 
+[FindUHD.cmake](https://github.com/deep-spectrum/Ares-IQ/blob/master/ares-iq-extensions/cmake/FindUHD.cmake)
+to see how to deal with a poorly set up cmake system or an entirely different build system.
+
+```cmake title="Library has a nice cmake set up"
+add_subdirectory(extern/foo)
+...
+target_link_libraries(target PRIVATE foo ...)
+```
+
+### 2.3 Native library
+
+If there is a need to common behavior across multiple modules, but there is no open source library available, then
+it is necessary to write a native library. Native libraries should have their own CMakeLists.txt file that exports
+a static library. Below is an example cmake file for a native library.
+
+```cmake  title="Example CMakeLists.txt for in-tree libraries"
+cmake_minimum_required(VERSION 3.15)
+project(foo)
+
+set(CMAKE_CXX_STANDARD 11)
+
+add_library(foo STATIC ...)
+set_target_properties(foo PROPERTIES POSITION_INDEPENDENT_CODE ON)
+target_include_directories(foo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+```
+
+## 3. Sample module target
+
+```cmake title=""
+
 ```
