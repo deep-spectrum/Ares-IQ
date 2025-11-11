@@ -27,10 +27,8 @@ function(python_module name src_dir)
     set(multi_value_args DEPENDENCIES LIBS DEFINITIONS INSTALL_LIBS PYBIND_LIBS)
     cmake_parse_arguments(MOD "${options}" "${one_value_args}" "${multi_value_args}" ${ARGN})
 
-    # Create Python module
     python_add_library(${name} MODULE ${src_dir} WITH_SOABI)
 
-    # Add dependencies if provided
     if(MOD_DEPENDENCIES)
         add_dependencies(${name} ${MOD_DEPENDENCIES})
     endif()
@@ -39,10 +37,8 @@ function(python_module name src_dir)
         set(MOD_PYBIND_LIBS pybind11::headers)
     endif()
 
-    # Link libraries
     target_link_libraries(${name} PRIVATE ${MOD_PYBIND_LIBS} ${MOD_LIBS})
 
-    # Add compile definitions
     if(MOD_DEFINITIONS)
         target_compile_definitions(${name} PRIVATE ${MOD_DEFINITIONS})
     endif()
@@ -51,10 +47,8 @@ function(python_module name src_dir)
         message(FATAL_ERROR "python_module() DESTINATION is required")
     endif ()
 
-    # Install target
     install(TARGETS ${name} DESTINATION ${MOD_DESTINATION})
 
-    # Optional library installs (e.g., shared libs)
     if(MOD_INSTALL_LIBS)
         foreach (lib ${MOD_INSTALL_LIBS})
             if (NOT EXISTS "${lib}")
