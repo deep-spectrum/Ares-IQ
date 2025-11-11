@@ -25,7 +25,7 @@ include_directories(
 
 # ares_iq_ext package
 set(PACKAGE_NAME ares_iq_ext)
-python_package(src/${PACKAGE_NAME})
+python_package(src/${PACKAGE_NAME} DESTINATION ${PACKAGE_NAME})
 python_module(_usrp src/usrp/usrp.cpp
 		DESTINATION ${PACKAGE_NAME}/usrp
 		DEPENDENCIES uhd_static_lib uhd capture_progress
