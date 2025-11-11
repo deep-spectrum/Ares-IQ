@@ -4,8 +4,10 @@ repo_name: deep-spectrum/Ares-IQ
 nav:
   - Home: index.md
   - Extension:
-      - Overview: extension/index.md
+      - Overview: extension/overview.md
+      - Reasons: extension/reasons.md
       - Style / Standards: extension/standards.md
+      - Contribution Tips: extension/contributing-tips.md
   - USRP:
       - Overview: usrp/index.md
       - Network Configuration: usrp/network-config.md
