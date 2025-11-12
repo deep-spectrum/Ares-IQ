@@ -114,34 +114,15 @@ set(SH_BB_LIBS
 )
 ```
 
-You then add the target to the CMakeLists.txt with the following directive like normal:
+You can then add those libraries to your python module target:
 
 ```cmake
-python_add_library(_sh_bb60 MODULE src/signal-hound/bb_device.cpp WITH_SOABI)
-```
-
-Then, once you declare your target, you need to configure it and link the necessary libraries. Notice that
-the shared libraries specified above are being linked to. Additionally, notice that a property is being set
-for the shared library being created. This is necessary because it is more convenient for the user to install
-the package without needing to install the distributed shared libraries globally.
-
-```cmake
-add_dependencies(_sh_bb60 capture_progress)
-target_link_libraries(_sh_bb60 PRIVATE pybind11::headers capture_progress ${SH_BB_LIBS})
-set_property(TARGET _sh_bb60 PROPERTY
-		INSTALL_RPATH "${origin_token}/lib"  # Note that "origin_token" is set earlier in the CMakeLists file.
+python_module(_sh_bb60 src/signal-hound/bb_series/bb_device.cpp
+        DESTINATION ${PACKAGE_NAME}/signal_hound
+        DEPENDENCIES capture_progress
+        LIBS capture_progress ${SH_BB_LIBS}
+        INSTALL_LIBS ${SH_BB_LIBS}
 )
-```
-
-After configuring the target, you then want to tell cmake where to install the package and its dependencies. Since the
-shared libraries are dependencies of the module being built, then it is necessary to tell cmake to install the shared
-libraries along with the module. Since the `INSTALL_RPATH` was set to `"${origin_token}/lib"`, then the libraries
-should be installed in the lib subdirectory in the package.
-
-```cmake
-install(TARGETS _sh_bb60 DESTINATION ares_iq_ext/signal_hound/bb_series)
-install(FILES src/ares_iq_ext/signal-hound/bb_series/__init__.py DESTINATION ares_iq_ext/signal_hound/bb_series)
-install(FILES ${SH_BB_LIBS} DESTINATION ares_iq_ext/signal_hound/bb_series/lib)
 ```
 
 This is what the CMakeLists.txt should look like in this example:
@@ -152,15 +133,12 @@ set(SH_BB_LIBS
         ${CMAKE_SOURCE_DIR}/lib/signal-hound/bb_series/libftd2xx.so
 )
 
-python_add_library(_sh_bb60 MODULE src/signal-hound/bb_device.cpp WITH_SOABI)
-add_dependencies(_sh_bb60 capture_progress)
-target_link_libraries(_sh_bb60 PRIVATE pybind11::headers capture_progress ${SH_BB_LIBS})
-set_property(TARGET _sh_bb60 PROPERTY
-		INSTALL_RPATH "${origin_token}/lib"  # Note that "origin_token" is set earlier in the CMakeLists file.
+python_module(_sh_bb60 src/signal-hound/bb_series/bb_device.cpp
+        DESTINATION ares_iq_ext/signal_hound
+        DEPENDENCIES capture_progress
+        LIBS capture_progress ${SH_BB_LIBS}
+        INSTALL_LIBS ${SH_BB_LIBS}
 )
-install(TARGETS _sh_bb60 DESTINATION ares_iq_ext/signal_hound/bb_series)
-install(FILES src/ares_iq_ext/signal-hound/bb_series/__init__.py DESTINATION ares_iq_ext/signal_hound/bb_series)
-install(FILES ${SH_BB_LIBS} DESTINATION ares_iq_ext/signal_hound/bb_series/lib)
 ```
 
 ## 2. Contributing In Tree Libraries
@@ -223,8 +201,43 @@ set_target_properties(foo PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(foo PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 ```
 
-## 3. Sample module target
+## 3. Code Samples
 
-```cmake title=""
+The following snippets are examples of how the `CMakeLists.txt` and `__init__.py` files should look.
 
+??? tip "Destination"
+
+    The destination should be installed in the same directory as the `__init__.py`. For example, if the `__init__.py`
+    for this module is in `src/ares_iq_ext/bar`, then the destination should be `ares_iq_ext/bar`.
+
+```cmake title="Sample usage of python_module() in CMakeLists.txt"
+set(PACKAGE_NAME "ares_iq_ext")
+python_package(src/${PACKAGE_NAME} DESTINATION ${PACKAGE_NAME})
+...
+set(FOO_LIBS
+    ${CMAKE_SOURCE_DIR}/lib/bar/bar.so
+)
+python_module(_bar src/foo/bar.cpp ...
+    DESTINATION ${PACKAGE_NAME}/bar
+    DEPENDENCIES capture_progress ...
+    LIBS capture_progress ${FOO_LIBS} ...
+    DEFINITIONS FOO_ENABLED=1 ...
+    INSTALL_LIBS ${FOO_LIBS} ...
+    PYBIND_LIBS pybind11::headers pybind11::embed ...
+)
+```
+
+??? note "\_\_init\_\_.py placement"
+
+    The \_\_init\_\_.py file is located in the `src/ares_iq_ext/bar` directory in this example. This is because the
+    `python_package()` cmake function preserves the structure of the python package being installed, including 
+    subpackages.
+
+
+```python title="Sample __init__.py for the _bar module"
+from __future__ import annotations
+
+from ._bar import __doc__, ...
+
+__all__ = [__doc__, ...]
 ```
