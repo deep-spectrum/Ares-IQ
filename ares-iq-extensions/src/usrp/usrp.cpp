@@ -10,6 +10,7 @@
  */
 
 #include <ares-iq/usrp/usrp.hpp>
+#include <ares-iq/util.hpp>
 #include <boost/format.hpp>
 #include <capture-progress/progress.hpp>
 #include <exception>
@@ -248,20 +249,13 @@ double USRP::gain() const {
     return _configs.gain;
 }
 
-#define _USRP_CONFIG_SET(_kwargs, _key)                                        \
-    do {                                                                       \
-        if (_kwargs.contains(#_key)) {                                         \
-            _key = _kwargs[#_key].cast<decltype(_key)>();                      \
-        }                                                                      \
-    } while (false)
-
 USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
-    _USRP_CONFIG_SET(kwargs, dev_args);
-    _USRP_CONFIG_SET(kwargs, spc);
-    _USRP_CONFIG_SET(kwargs, subdev);
-    _USRP_CONFIG_SET(kwargs, ref);
-    _USRP_CONFIG_SET(kwargs, rate);
-    _USRP_CONFIG_SET(kwargs, gain);
+    KWARG_TO_STRUCT_PARAM(kwargs, dev_args);
+    KWARG_TO_STRUCT_PARAM(kwargs, spc);
+    KWARG_TO_STRUCT_PARAM(kwargs, subdev);
+    KWARG_TO_STRUCT_PARAM(kwargs, ref);
+    KWARG_TO_STRUCT_PARAM(kwargs, rate);
+    KWARG_TO_STRUCT_PARAM(kwargs, gain);
 }
 
 void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
@@ -274,5 +268,5 @@ void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
 uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
 
 USRPStreamArgs::USRPStreamArgs(const py::kwargs &kwargs) {
-    _USRP_CONFIG_SET(kwargs, spp);
+    KWARG_TO_STRUCT_PARAM(kwargs, spp);
 }

@@ -5,10 +5,10 @@
 #ifndef VERSION_UTIL_HPP
 #define VERSION_UTIL_HPP
 
-#define KWARG_TO_STRUCT_PARAM(_kwargs, _key)                                   \
+#define KWARG_TO_STRUCT_PARAM(kwargs_, key_)                                   \
     do {                                                                       \
-        if (_kwargs.contains(#_key)) {                                         \
-            _key = _kwargs[#_key].cast<decltype(_key)>();                      \
+        if ((kwargs_).contains(#key_)) {                                       \
+            (key_) = (kwargs_)[#key_].cast<decltype(key_)>();                  \
         }                                                                      \
     } while (false)
 
