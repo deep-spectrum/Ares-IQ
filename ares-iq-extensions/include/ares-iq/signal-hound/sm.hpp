@@ -14,7 +14,7 @@ struct SMConfigs {
     SMConfigs() = default;
     explicit SMConfigs(const py::kwargs &kwargs);
 
-    SmDeviceType type;
+    SmDeviceType type = smDeviceTypeNotSet;
     int serial = -1;
 };
 

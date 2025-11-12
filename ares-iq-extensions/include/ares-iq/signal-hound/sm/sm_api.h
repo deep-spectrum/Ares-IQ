@@ -433,7 +433,9 @@ typedef enum SmDeviceType {
     /** SM435B */
     smDeviceTypeSM435B = 3,
     /** SM435C */
-    smDeviceTypeSM435C = 4
+    smDeviceTypeSM435C = 4,
+    /** Not set */
+    smDeviceTypeNotSet = 5,
 } SmDeviceType;
 
 /**
