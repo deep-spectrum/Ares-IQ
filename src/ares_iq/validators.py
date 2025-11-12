@@ -89,14 +89,14 @@ def validate_bounds(_instance: Any, attribute: Attribute, value: float):
 
     min_exclusive = False
     max_exclusive = False
-    lower_bound = "<="
-    upper_bound = "<="
+    lower_bound = " <= "
+    upper_bound = " <= "
     if "min_exclusive" in attribute.metadata:
         min_exclusive = bool(attribute.metadata["min_exclusive"])
-        lower_bound = "<" if min_exclusive else "<="
+        lower_bound = " < " if min_exclusive else " <= "
     if "max_exclusive" in attribute.metadata:
         max_exclusive = bool(attribute.metadata["max_exclusive"])
-        upper_bound = "<" if max_exclusive else "<="
+        upper_bound = " < " if max_exclusive else " <= "
 
     if "min" in attribute.metadata:
         if value < attribute.metadata["min"] or (min_exclusive and value <= attribute.metadata["min"]):
