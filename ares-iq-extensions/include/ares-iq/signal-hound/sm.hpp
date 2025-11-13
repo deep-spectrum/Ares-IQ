@@ -16,6 +16,10 @@ struct SMConfigs {
 
     SmDeviceType type = smDeviceTypeNotSet;
     int serial = -1;
+
+    std::string host = SM_ADDR_ANY;
+    std::string device_addr = SM_DEFAULT_ADDR;
+    uint16_t port = SM_DEFAULT_PORT;
 };
 
 struct SMDevice {
@@ -40,6 +44,10 @@ class SM {
     int fd = -1;
     SMConfigs _configs;
     bool _open = false;
+
+    SmStatus _open_networked_device();
+    SmStatus _open_serial_device();
+    void _open_device();
 };
 
 py::tuple get_device_list();
