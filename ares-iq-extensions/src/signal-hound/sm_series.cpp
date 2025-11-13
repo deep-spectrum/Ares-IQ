@@ -22,7 +22,18 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .export_values()
         .finalize();
 
-    py::class_<SMConfigs>(m, "_SmCOnfigs", "SM device configs")
+    py::native_enum<SmGPSPlatformModel>(m, "SmGpsPlatformModel", "enum.IntEnum")
+        .value("PORTABLE", SmGPSPlatformModelPortable)
+        .value("STATIONARY", SmGPSPlatformModelStationary)
+        .value("PEDESTRIAN", SmGPSPlatformModelPedestrian)
+        .value("AUTOMOTIVE", SmGPSPlatformModelAutomotive)
+        .value("AT_SEA", SmGPSPlatformModelAtSea)
+        .value("AIRBORNE_1G", SmGPSPlatformModelAirborne_1g)
+        .value("AIRBORNE_2G", SmGPSPlatformModelAirborne_2g)
+        .export_values()
+        .finalize();
+
+    py::class_<SMConfigs>(m, "_SmConfigs", "SM device configs")
         .def(py::init<const py::kwargs &>())
         .def_readwrite("type", &SMConfigs::type, "The device type")
         .def_readwrite("serial", &SMConfigs::serial, "The device serial number")
@@ -34,13 +45,21 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                        "Target device IP provided as a string. If more than "
                        "one device with this IP is connected to the host "
                        "interface, the behavior is undefined.")
-        .def_readwrite("port", &SMConfigs::port, "Target device port");
+        .def_readwrite("port", &SMConfigs::port, "Target device port")
+        .def_readwrite("gps_timestamping", &SMConfigs::gps_timestamping,
+                       "Use GPS timestamping")
+        .def_readwrite("gps_lock_timeout", &SMConfigs::gps_lock_timeout,
+                       "Amount of time in seconds to wait for a GPS lock");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")
         .def(py::init<>())
         .def_property_readonly("serial", &SMDevice::getSerial, "Serial number")
         .def_property_readonly("type", &SMDevice::getType, "Device type");
+
+    py::class_<SM>(m, "_SM", "SM series device instance")
+        .def(py::init<const SMConfigs &>())
+        .def("capture_iq", &SM::capture_iq, "Capture IQ data");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -68,6 +87,9 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     KWARG_TO_STRUCT_PARAM(kwargs, host);
     KWARG_TO_STRUCT_PARAM(kwargs, device_addr);
     KWARG_TO_STRUCT_PARAM(kwargs, port);
+    KWARG_TO_STRUCT_PARAM(kwargs, gps_timestamping);
+    KWARG_TO_STRUCT_PARAM(kwargs, gps_lock_timeout);
+    KWARG_TO_STRUCT_PARAM(kwargs, gps_model);
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -134,6 +156,63 @@ void SM::_open_device() {
         throw std::runtime_error(smGetErrorString(status));
     }
     _open = true;
+}
+
+void SM::_configure_gps() const {
+    if (_configs.gps_timestamping) {
+        smSetGPSTimebaseUpdate(fd, smTrue);
+        smSetGPSPlatformModel(fd, _configs.gps_model);
+    } else {
+        smSetGPSTimebaseUpdate(fd, smFalse);
+    }
+}
+
+bool SM::_acquire_gps_lock(SmGPSState target_state) const {
+    SmGPSState state;
+    bool locked;
+    SmStatus status;
+
+    status = smGetGPSState(fd, &state);
+
+    if (PyErr_CheckSignals() != 0) {
+        throw py::error_already_set();
+    }
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    locked = state == target_state;
+
+    if (!locked) {
+        std::this_thread::sleep_for(std::chrono::seconds(1));
+    }
+
+    return locked;
+}
+
+void SM::_acquire_gps_lock() const {
+    bool locked;
+
+    if (!_configs.gps_timestamping) {
+        return;
+    }
+
+    if (_configs.gps_lock_timeout == 0) {
+        do {
+            locked = _acquire_gps_lock(smGPSStateDisciplined);
+        } while (!locked);
+    } else {
+        int32_t timeout = _configs.gps_lock_timeout;
+        do {
+            locked = _acquire_gps_lock(smGPSStateDisciplined);
+            timeout--;
+        } while (!locked && timeout >= 0);
+
+        if (!locked) {
+            throw std::runtime_error("Unable to acquire a GPS lock");
+        }
+    }
 }
 
 py::tuple get_device_list() {

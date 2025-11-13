@@ -20,6 +20,10 @@ struct SMConfigs {
     std::string host = SM_ADDR_ANY;
     std::string device_addr = SM_DEFAULT_ADDR;
     uint16_t port = SM_DEFAULT_PORT;
+
+    bool gps_timestamping = false;
+    int32_t gps_lock_timeout = 0u;
+    SmGPSPlatformModel gps_model = SmGPSPlatformModelStationary;
 };
 
 struct SMDevice {
@@ -48,6 +52,10 @@ class SM {
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();
     void _open_device();
+
+    void _configure_gps() const;
+    void _acquire_gps_lock() const;
+    bool _acquire_gps_lock(SmGPSState target_state) const;
 };
 
 py::tuple get_device_list();
