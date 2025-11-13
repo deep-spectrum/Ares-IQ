@@ -3,7 +3,7 @@
 // software_licenses folder
 
 /**
- * \file sm_api_vrt.h
+ * \file sm_api_vrt.hpp
  * \brief VITA 49 interface.
  *
  * These functions are used to stream I/Q data in the VRT data format.
@@ -13,7 +13,7 @@
 #ifndef SM_API_VRT_H
 #define SM_API_VRT_H
 
-#include <ares-iq/signal-hound/sm/sm_api.h>
+#include <ares-iq/signal-hound/sm/sm_api.hpp>
 
 /**
  * Set the stream identifier, which is used to identify each VRT packet with

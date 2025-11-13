@@ -3,7 +3,7 @@
 //
 
 #include <ares-iq/signal-hound/sm.hpp>
-#include <ares-iq/signal-hound/sm/sm_api.h>
+#include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares-iq/util.hpp>
 #include <pybind11/native_enum.h>
 #include <pybind11/pybind11.h>
@@ -35,6 +35,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
           "Retrieve a list of connected SM series devices");
+    m.def("get_device_list2", get_device_list2,
+          "Retrieve a list of connected SM series devices with device types");
 }
 
 template <typename T>

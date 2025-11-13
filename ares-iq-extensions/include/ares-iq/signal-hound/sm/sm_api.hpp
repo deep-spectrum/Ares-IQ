@@ -3,7 +3,7 @@
 // software_licenses folder
 
 /*!
- * \file sm_api.h
+ * \file sm_api.hpp
  * \brief API functions for the SM435/SM200 spectrum analyzers.
  *
  * This is the main file for user accessible functions for controlling the

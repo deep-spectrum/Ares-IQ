@@ -1,4 +1,6 @@
-#include <ares-iq/signal-hound/sm/sh_vrt.h>
+// NOLINTBEGIN(cert-err34-c)
+
+#include <ares-iq/signal-hound/sm/sh_vrt.hpp>
 
 #ifdef _WIN32
 #define _WINSOCKAPI_ // stops windows.h including winsock.
@@ -16,8 +18,9 @@ int vrtSwapBytes(uint32_t *srcDst, uint32_t wordCount) {
 }
 
 int vrtSwapBytes(const uint32_t *src, uint32_t *dst, uint32_t wordCount) {
-    if (!src || !dst)
+    if (!src || !dst) {
         return -1;
+    }
 
     for (uint32_t i = 0; i < wordCount; i++) {
         dst[i] = swapWord(src[i]);
@@ -55,7 +58,7 @@ int32_t vrtConvertFloatToFixed(double val, int fracBits) {
 }
 
 float vrtConvertFixedToFloat(int32_t val, int fracBits) {
-    return float(val) / (0x1 << fracBits);
+    return float(val) / static_cast<float>(0x1 << fracBits);
 }
 
 uint64_t vrtGetTime() {
@@ -166,7 +169,7 @@ uint32_t vrtPackContextIndicatorWord(bool isChange, bool isGPS) {
 
 typedef std::vector<std::string> string_list;
 
-void commaSeparate(char *text, string_list &stringList) {
+void commaSeparate(const char *text, string_list &stringList) {
     stringList.clear();
 
     std::stringstream ss(text);
@@ -205,7 +208,7 @@ double longitudeStringToDecimal(std::string &pos, std::string &dir) {
 }
 
 int32_t dateTimeToEpochSeconds(std::string &dateStr, std::string &timeStr) {
-    tm ti;
+    tm ti{};
 
     char day[2] = {dateStr[0], dateStr[1]};
     char month[2] = {dateStr[2], dateStr[3]};
@@ -266,3 +269,5 @@ void vrtRmcStringToStruct(char *text, VRTFormattedGPS *cntx) {
     }
     cntx->magneticVariation = vrtConvertFloatToFixed(magVar, 22);
 }
+
+// NOLINTEND(cert-err34-c)

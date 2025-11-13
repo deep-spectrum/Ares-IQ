@@ -5,7 +5,7 @@
 #ifndef VERSION_SM_HPP
 #define VERSION_SM_HPP
 
-#include <ares-iq/signal-hound/sm/sm_api.h>
+#include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
