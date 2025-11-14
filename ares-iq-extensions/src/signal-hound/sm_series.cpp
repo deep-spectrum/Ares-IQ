@@ -96,6 +96,12 @@ int SMDevice::getSerial() const { return serial; }
 
 SmDeviceType SMDevice::getType() const { return type; }
 
+static void check_sm_status(SmStatus status) {
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+}
+
 SM::SM(const SMConfigs &configs) { _configs = configs; }
 
 SM::~SM() {
@@ -104,11 +110,14 @@ SM::~SM() {
     }
 }
 
-py::tuple SM::capture_iq(double center, double bw, double file_size_gb,
-                         bool verbose, bool extra) {
+py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
+                         bool silent, bool verbose) {
     if (!_open) {
         _open_device();
     }
+
+    _configure(center, bw);
+    _acquire_gps_lock();
 
     return py::make_tuple();
 }
@@ -158,12 +167,24 @@ void SM::_open_device() {
     _open = true;
 }
 
+void SM::_configure(double center, double bw) const {
+    SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
+
+    check_sm_status(smSetIQCenterFreq(fd, center));
+    check_sm_status(smSetIQSampleRate(fd, _configs.decimation));
+    check_sm_status(smSetIQBandwidth(fd, enable_sw_filter, bw));
+    check_sm_status(smSetIQDataType(fd, smDataType32fc));
+    _configure_gps();
+
+    check_sm_status(smConfigure(fd, smModeIQ));
+}
+
 void SM::_configure_gps() const {
     if (_configs.gps_timestamping) {
-        smSetGPSTimebaseUpdate(fd, smTrue);
-        smSetGPSPlatformModel(fd, _configs.gps_model);
+        check_sm_status(smSetGPSTimebaseUpdate(fd, smTrue));
+        check_sm_status(smSetGPSPlatformModel(fd, _configs.gps_model));
     } else {
-        smSetGPSTimebaseUpdate(fd, smFalse);
+        check_sm_status(smSetGPSTimebaseUpdate(fd, smFalse));
     }
 }
 

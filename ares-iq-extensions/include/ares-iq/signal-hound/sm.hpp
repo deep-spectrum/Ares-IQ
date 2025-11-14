@@ -24,6 +24,10 @@ struct SMConfigs {
     bool gps_timestamping = false;
     int32_t gps_lock_timeout = 0u;
     SmGPSPlatformModel gps_model = SmGPSPlatformModelStationary;
+
+    uint16_t decimation = 1;
+    bool software_filter = false;
+    uint32_t samples_per_capture = 500000;
 };
 
 struct SMDevice {
@@ -41,8 +45,8 @@ class SM {
     explicit SM(const SMConfigs &configs);
     ~SM();
 
-    py::tuple capture_iq(double center, double bw, double file_size_gb,
-                         bool verbose, bool extra);
+    py::tuple capture_iq(double center, double bw, uint64_t capture_size,
+                         bool silent, bool verbose);
 
   private:
     int fd = -1;
@@ -52,6 +56,8 @@ class SM {
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();
     void _open_device();
+
+    void _configure(double center, double bw) const;
 
     void _configure_gps() const;
     void _acquire_gps_lock() const;
