@@ -6,9 +6,12 @@
 #define VERSION_SM_HPP
 
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <complex>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
+
+#define SH_COMPLEX_TEMPLATE_TYPE float
 
 struct SMConfigs {
     SMConfigs() = default;
@@ -49,6 +52,13 @@ class SM {
                          bool silent, bool verbose);
 
   private:
+    typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
+
+    struct Capture {
+        complex_t *buf;
+        int64_t *timestamp;
+    };
+
     int fd = -1;
     SMConfigs _configs;
     bool _open = false;

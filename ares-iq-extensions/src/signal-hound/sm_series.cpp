@@ -5,9 +5,13 @@
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares-iq/util.hpp>
+#include <capture-progress/progress.hpp>
+#include <complex>
 #include <pybind11/native_enum.h>
+#include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
+#include <vector>
 
 namespace py = pybind11;
 
@@ -117,9 +121,39 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
     }
 
     _configure(center, bw);
+
+    uint64_t samples_per_capture = _configs.samples_per_capture;
+    uint64_t bytes_per_capture =
+        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+        sizeof(Capture::timestamp);
+    uint64_t captures = capture_size / bytes_per_capture;
+
+    std::vector<Capture> data(captures);
+
+    py::array_t<complex_t> data_array({captures, samples_per_capture});
+    py::buffer_info data_buf_info = data_array.request(true);
+
+    py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
+    py::buffer_info time_buf_info = capture_times.request(true);
+
+    for (size_t i = 0; i < captures; i++) {
+        data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
+                      (i * samples_per_capture);
+        data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
+    }
+
     _acquire_gps_lock();
 
-    return py::make_tuple();
+    CaptureProgress::Progress progress(captures, samples_per_capture, silent);
+
+    progress.start();
+    for (auto &capture : data) {
+        smGetIQ(fd, capture.buf, static_cast<int>(samples_per_capture), nullptr,
+                0, capture.timestamp, smFalse, nullptr, nullptr);
+        progress.update();
+    }
+
+    return py::make_tuple(data_array, capture_times);
 }
 
 SmStatus SM::_open_networked_device() {
