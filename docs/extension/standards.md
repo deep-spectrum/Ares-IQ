@@ -13,8 +13,9 @@ instead. However, there are 2 situations where writing a Python
 extension is appropriate:
 
 1.  If there is no Python library or API available from the SDR
-    manufacturer and they only provide a C/C++ API.
+    manufacturer, and they only provide a C/C++ API.
 2.  The existing Python library/API has major performance issues.
+3.  Pure Python is too slow.
 
 The reasoning of adding the extension must be documented with benchmarks
 if applicable.
@@ -307,7 +308,7 @@ Ideally you should simulate errors to test all exit paths.
 ### 3.4) Use of auto
 
 The `auto` keyword can be helpful in a few situation, however, if used
-excessively, the code becomes very difficult to understand and it
+excessively, the code becomes very difficult to understand, and it
 becomes a pissing game of figuring out what variable is what type. For
 example, this is perfectly valid C++ code:
 
@@ -380,7 +381,7 @@ cases in this library.
 
 ## 4) Submitting a PR
 
-You wrote an extension and now you want it to be part of the next
+You wrote an extension, and now you want it to be part of the next
 release. Awesome! There are a few things we ask of you before submitting
 a PR.
 
