@@ -8,9 +8,37 @@
 #include <logging/logger.hpp>
 #include <logging/logging_utils.h>
 
-#define LOG_MODULE_REGISTER(name_, level_)                                     \
+#define Z_LOG_LEVEL_DBG  0
+#define Z_LOG_LEVEL_INF  1
+#define Z_LOG_LEVEL_WRN  2
+#define Z_LOG_LEVEL_ERR  3
+#define Z_LOG_LEVEL_CRIT 4
+#define Z_LOG_LEVEL_OFF  5
+
+#if LOG_LEVEL == Z_LOG_LEVEL_DBG
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_DBG
+#elif LOG_LEVEL == Z_LOG_LEVEL_INF
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_INFO
+#elif LOG_LEVEL == Z_LOG_LEVEL_WRN
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_WARN
+#elif LOG_LEVEL == Z_LOG_LEVEL_ERR
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_ERROR
+#elif LOG_LEVEL == Z_LOG_LEVEL_CRIT
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_CRITICAL
+#else
+#define DEFAULT_LOG_LEVEL Logger::LogLevel::LOG_LEVEL_OFF
+#endif
+
+#define Z_REGISTER_LOGGER_DEFAULT(name_)                                       \
+    static Logger __logger__(#name_, DEFAULT_LOG_LEVEL);                       \
+    static Logger::LogLevel __saved_level__ = DEFAULT_LOG_LEVEL;
+#define Z_REGISTER_LOGGER(name_, level_)                                       \
     static Logger __logger__(#name_, Logger::LogLevel::level_);                \
     static Logger::LogLevel __saved_level__ = Logger::LogLevel::level_;
+
+#define LOG_MODULE_REGISTER(name_, level_...)                                  \
+    COND_CODE_0(IS_EMPTY(level_), (Z_REGISTER_LOGGER(name_, level_)),          \
+                (Z_REGISTER_LOGGER_DEFAULT(name_)))
 
 #define LOG_DBG(msg_, ...)                                                     \
     COND_CODE_0(                                                               \

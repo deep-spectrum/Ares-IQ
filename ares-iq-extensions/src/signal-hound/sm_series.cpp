@@ -16,7 +16,7 @@
 
 namespace py = pybind11;
 
-LOG_MODULE_REGISTER(sm_logger, LOG_LEVEL_DBG);
+LOG_MODULE_REGISTER(sm_logger);
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     py::native_enum<SmDeviceType>(m, "SmDeviceType", "enum.IntEnum")

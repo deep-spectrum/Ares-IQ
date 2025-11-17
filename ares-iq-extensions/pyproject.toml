@@ -27,7 +27,7 @@ dev = [{ include-group = "test" }]
 [tool.scikit-build]
 minimum-version = "build-system.requires"
 # For release builds, LOG_LEVEL should be set to "off"
-cmake.args = ["-DUSE_PYTHON_LIB=OFF", "-DLOG_LEVEL=off"]
+cmake.args = ["-DUSE_PYTHON_LIB=OFF", "-DDEFAULT_LOG_LEVEL=off", "-DUSE_PYTHON_LOGGERS=ON"]
 
 [tool.pytest.ini_options]
 minversion = "8.0"
