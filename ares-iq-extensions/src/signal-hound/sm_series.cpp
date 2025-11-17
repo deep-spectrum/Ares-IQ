@@ -7,6 +7,7 @@
 #include <ares-iq/util.hpp>
 #include <capture-progress/progress.hpp>
 #include <complex>
+#include <logging/log.hpp>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
@@ -14,6 +15,8 @@
 #include <vector>
 
 namespace py = pybind11;
+
+LOG_MODULE_REGISTER(sm_logger, LOG_LEVEL_DBG);
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     py::native_enum<SmDeviceType>(m, "SmDeviceType", "enum.IntEnum")
@@ -116,6 +119,29 @@ SM::~SM() {
 
 py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
                          bool silent, bool verbose) {
+    py::tuple ret;
+    if (verbose) {
+        SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
+    }
+
+    try {
+        ret = _capture_iq(center, bw, capture_size, silent);
+    } catch (...) {
+        if (verbose) {
+            RESTORE_LOG_LEVEL();
+        }
+        throw;
+    }
+
+    if (verbose) {
+        RESTORE_LOG_LEVEL();
+    }
+
+    return ret;
+}
+
+py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
+                          bool silent) {
     if (!_open) {
         _open_device();
     }
@@ -146,17 +172,20 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
 
     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
+    LOG_INF("Starting data capture");
     progress.start();
     for (auto &capture : data) {
         smGetIQ(fd, capture.buf, static_cast<int>(samples_per_capture), nullptr,
                 0, capture.timestamp, smFalse, nullptr, nullptr);
         progress.update();
     }
+    progress.update();
 
     return py::make_tuple(data_array, capture_times);
 }
 
 SmStatus SM::_open_networked_device() {
+    LOG_INF("Attempting to open networked device");
     SmStatus status =
         smOpenNetworkedDevice(&fd, _configs.host.c_str(),
                               _configs.device_addr.c_str(), _configs.port);
@@ -167,6 +196,9 @@ SmStatus SM::_open_serial_device() {
     SmStatus status;
 
     if (_configs.serial >= 0) {
+        LOG_INF("Attempting to open serial device with the given serial "
+                "number: 0x%X",
+                _configs.serial);
         status = smOpenDeviceBySerial(&fd, _configs.serial);
     } else {
         status = smOpenDevice(&fd);
@@ -177,6 +209,8 @@ SmStatus SM::_open_serial_device() {
 
 void SM::_open_device() {
     SmStatus status;
+
+    LOG_DBG("Attempting to open device");
 
     switch (_configs.type) {
     case smDeviceTypeSM200A:
@@ -191,6 +225,7 @@ void SM::_open_device() {
         break;
     }
     default: {
+        LOG_ERR("Invalid SM device type");
         throw std::invalid_argument("Invalid SM device");
     }
     }
@@ -203,6 +238,8 @@ void SM::_open_device() {
 
 void SM::_configure(double center, double bw) const {
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
+
+    LOG_INF("Configuring the SM device");
 
     check_sm_status(smSetIQCenterFreq(fd, center));
     check_sm_status(smSetIQSampleRate(fd, _configs.decimation));
@@ -230,6 +267,7 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
     status = smGetGPSState(fd, &state);
 
     if (PyErr_CheckSignals() != 0) {
+        LOG_INF("Python exception raised");
         throw py::error_already_set();
     }
 
@@ -253,6 +291,9 @@ void SM::_acquire_gps_lock() const {
         return;
     }
 
+    LOG_INF("Acquiring a GPS lock");
+
+    auto start_time = std::chrono::steady_clock::now();
     if (_configs.gps_lock_timeout == 0) {
         do {
             locked = _acquire_gps_lock(smGPSStateDisciplined);
@@ -265,9 +306,15 @@ void SM::_acquire_gps_lock() const {
         } while (!locked && timeout >= 0);
 
         if (!locked) {
+            LOG_ERR("GPS lock timed out");
             throw std::runtime_error("Unable to acquire a GPS lock");
         }
     }
+    auto end_time = std::chrono::steady_clock::now();
+
+    LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
+            std::chrono::duration_cast<std::chrono::seconds>(end_time -
+                                                             start_time));
 }
 
 py::tuple get_device_list() {

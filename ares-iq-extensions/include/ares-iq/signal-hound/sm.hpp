@@ -63,6 +63,9 @@ class SM {
     SMConfigs _configs;
     bool _open = false;
 
+    py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
+                          bool silent);
+
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();
     void _open_device();

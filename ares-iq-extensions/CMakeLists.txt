@@ -19,6 +19,7 @@ endif()
 
 add_subdirectory(extern/pybind11)
 add_subdirectory(capture_progress)
+add_subdirectory(logging)
 
 include(FindUHD)
 include(CheckLinuxDistro)
@@ -53,7 +54,7 @@ python_module(_core src/core.cpp
 )
 python_module(_sh_sm_series src/signal-hound/sm_series.cpp
 		DESTINATION ${PACKAGE_NAME}/signal_hound
-		DEPENDENCIES capture_progress
-		LIBS capture_progress ${SM_API_LIBS}
+		DEPENDENCIES capture_progress logging
+		LIBS capture_progress ${SM_API_LIBS} logging
 		INSTALL_LIBS ${SM_API_LIBS}
 )
