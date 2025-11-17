@@ -2,9 +2,9 @@
 // Created by tschmitz on 11/14/25.
 //
 
-#include <logging/logger.hpp>
-#include <cstdio>
 #include <cstdarg>
+#include <cstdio>
+#include <logging/logger.hpp>
 
 constexpr const char *reset_color = "\033[0m";
 constexpr const char *dbg_color = reset_color;
@@ -18,9 +18,9 @@ Logger::Logger(const char *name, LogLevel level) {
     _level = level;
 }
 
-void Logger::set_log_level(LogLevel level) {
-    _level = level;
-}
+void Logger::set_log_level(LogLevel level) { _level = level; }
+
+Logger::LogLevel Logger::get_log_level() const { return _level; }
 
 void Logger::log(LogLevel level, const char *fmt, ...) const {
     va_list args, args_copy;
@@ -39,49 +39,59 @@ void Logger::log(LogLevel level, const char *fmt, ...) const {
     va_end(args);
 
     switch (level) {
-        case LOG_LEVEL_DBG: {
-            _log_dbg(msg);
-            break;
-        }
-        case LOG_LEVEL_INFO: {
-            _log_inf(msg);
-            break;
-        }
-        case LOG_LEVEL_WARN: {
-            _log_wrn(msg);
-            break;
-        }
-        case LOG_LEVEL_ERROR: {
-            _log_err(msg);
-            break;
-        }
-        case LOG_LEVEL_CRITICAL: {
-            _log_crit(msg);
-            break;
-        }
-        default:
-            break;
+    case LOG_LEVEL_DBG: {
+        _log_dbg(msg);
+        break;
+    }
+    case LOG_LEVEL_INFO: {
+        _log_inf(msg);
+        break;
+    }
+    case LOG_LEVEL_WARN: {
+        _log_wrn(msg);
+        break;
+    }
+    case LOG_LEVEL_ERROR: {
+        _log_err(msg);
+        break;
+    }
+    case LOG_LEVEL_CRITICAL: {
+        _log_crit(msg);
+        break;
+    }
+    default:
+        break;
     }
 
     delete[] msg;
 }
 
 void Logger::_log_dbg(const char *msg) const {
-    printf("%s[DBG]%s %s: %s\n", dbg_color, reset_color, _name, msg);
+    if (_level == LOG_LEVEL_DBG) {
+        printf("%s[DBG]%s %s: %s\n", dbg_color, reset_color, _name, msg);
+    }
 }
 
 void Logger::_log_inf(const char *msg) const {
-    printf("%s[INFO]%s %s: %s\n", inf_color, reset_color, _name, msg);
+    if (_level <= LOG_LEVEL_INFO) {
+        printf("%s[INFO]%s %s: %s\n", inf_color, reset_color, _name, msg);
+    }
 }
 
 void Logger::_log_wrn(const char *msg) const {
-    printf("%s[WARN]%s %s: %s\n", wrn_color, reset_color, _name, msg);
+    if (_level <= LOG_LEVEL_WARN) {
+        printf("%s[WARN]%s %s: %s\n", wrn_color, reset_color, _name, msg);
+    }
 }
 
 void Logger::_log_err(const char *msg) const {
-    printf("%s[ERR]%s %s: %s\n", err_color, reset_color, _name, msg);
+    if (_level <= LOG_LEVEL_ERROR) {
+        printf("%s[ERR]%s %s: %s\n", err_color, reset_color, _name, msg);
+    }
 }
 
 void Logger::_log_crit(const char *msg) const {
-    printf("%s[CRIT]%s %s: %s\n", crit_color, reset_color, _name, msg);
+    if (_level <= LOG_LEVEL_CRITICAL) {
+        printf("%s[CRIT]%s %s: %s\n", crit_color, reset_color, _name, msg);
+    }
 }
