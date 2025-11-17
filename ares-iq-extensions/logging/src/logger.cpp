@@ -11,7 +11,7 @@ constexpr const char *dbg_color = reset_color;
 constexpr const char *inf_color = "\033[38;2;39;163;105m";
 constexpr const char *wrn_color = "\033[38;2;163;115;76m";
 constexpr const char *err_color = "\033[38;2;193;29;40m";
-constexpr const char *crit_color = "";
+constexpr const char *crit_color = "\033[38;2;117;80;123m";
 
 Logger::Logger(const char *name, LogLevel level) {
     _name = name;
