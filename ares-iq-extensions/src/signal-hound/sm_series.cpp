@@ -1,6 +1,13 @@
-//
-// Created by tschmitz on 11/5/25.
-//
+/**
+ * @file sm_series.cpp
+ *
+ * @brief Implementation of the SM class, SMConfigs struct, and SMDevice struct
+ * and their Python bindings.
+ *
+ * @date 11/5/2025
+ *
+ * @auther Tom Schmitz \<tschmitz@andrew.cmu.edu\>
+ */
 
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
