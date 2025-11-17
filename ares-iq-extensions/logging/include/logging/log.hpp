@@ -69,7 +69,9 @@
 #define SAVE_LOG_LEVEL_AND_OVERRIDE(new_level)                                 \
     do {                                                                       \
         __saved_level__ = __logger__.get_log_level();                          \
-        __logger__.set_log_level(Logger::LogLevel::new_level);                 \
+        if (Logger::LogLevel::new_level < __saved_level__) {                   \
+            __logger__.set_log_level(Logger::LogLevel::new_level);             \
+        }                                                                      \
     } while (false)
 #define RESTORE_LOG_LEVEL()                                                    \
     do {                                                                       \
