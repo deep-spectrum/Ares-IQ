@@ -5,6 +5,11 @@
 #ifndef VERSION_LOGGER_HPP
 #define VERSION_LOGGER_HPP
 
+#if defined(USE_PYTHON_LOGGERS)
+#include <memory>
+class PieceOfShitIdiom;
+#endif // defined(USE_PYTHON_LOGGERS)
+
 class Logger {
   public:
     enum LogLevel : unsigned int {
@@ -24,6 +29,9 @@ class Logger {
     void log(LogLevel level, const char *fmt, ...) const;
 
   private:
+#if defined(USE_PYTHON_LOGGERS)
+    std::unique_ptr<PieceOfShitIdiom> _impl;
+#else
     const char *_name;
     LogLevel _level;
 
@@ -32,6 +40,7 @@ class Logger {
     void _log_wrn(const char *msg) const;
     void _log_err(const char *msg) const;
     void _log_crit(const char *msg) const;
+#endif
 };
 
 #endif // VERSION_LOGGER_HPP
