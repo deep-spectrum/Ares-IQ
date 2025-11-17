@@ -84,6 +84,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("HOST_ADDR_ANY") = SM_ADDR_ANY;
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
+    m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
 }
 
 template <typename T>

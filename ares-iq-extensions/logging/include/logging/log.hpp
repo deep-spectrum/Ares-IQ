@@ -30,15 +30,19 @@
 #endif
 
 #define Z_REGISTER_LOGGER_DEFAULT(name_)                                       \
-    static Logger __logger__(#name_, DEFAULT_LOG_LEVEL);                       \
+    static const char *__name__ = #name_;                                      \
+    static Logger __logger__(__name__, DEFAULT_LOG_LEVEL);                     \
     static Logger::LogLevel __saved_level__ = DEFAULT_LOG_LEVEL;
 #define Z_REGISTER_LOGGER(name_, level_)                                       \
-    static Logger __logger__(#name_, Logger::LogLevel::level_);                \
+    static const char *__name__ = #name_;                                      \
+    static Logger __logger__(__name__, Logger::LogLevel::level_);              \
     static Logger::LogLevel __saved_level__ = Logger::LogLevel::level_;
 
 #define LOG_MODULE_REGISTER(name_, level_...)                                  \
     COND_CODE_0(IS_EMPTY(level_), (Z_REGISTER_LOGGER(name_, level_)),          \
                 (Z_REGISTER_LOGGER_DEFAULT(name_)))
+
+#define LOG_MODULE_NAME __name__
 
 #define LOG_DBG(msg_, ...)                                                     \
     COND_CODE_0(                                                               \
