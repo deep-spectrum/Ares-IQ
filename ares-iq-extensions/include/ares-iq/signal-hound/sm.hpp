@@ -230,7 +230,7 @@ class SM {
 
     /**
      * Retrieve diagnostic information from the Sm device. This requires the
-     * device to be open first (
+     * device to be open first (@ref capture_iq() opens a device and leaves it open).
      * @return Device diagnostic information.
      */
     SmDiagnostics diagnostic_info() const;
