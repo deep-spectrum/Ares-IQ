@@ -63,7 +63,15 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_readwrite("gps_timestamping", &SMConfigs::gps_timestamping,
                        "Use GPS timestamping")
         .def_readwrite("gps_lock_timeout", &SMConfigs::gps_lock_timeout,
-                       "Amount of time in seconds to wait for a GPS lock");
+                       "Amount of time in seconds to wait for a GPS lock")
+        .def_readwrite("gps_model", &SMConfigs::gps_model,
+                       "The GPS model to use")
+        .def_readwrite("decimation", &SMConfigs::decimation,
+                       "The downsampling factor")
+        .def_readwrite("software_filter", &SMConfigs::software_filter,
+                       "Use software filtering")
+        .def_readwrite("samples_per_capture", &SMConfigs::samples_per_capture,
+                       "The number of samples to collect per a capture");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")
@@ -105,6 +113,9 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     KWARG_TO_STRUCT_PARAM(kwargs, gps_timestamping);
     KWARG_TO_STRUCT_PARAM(kwargs, gps_lock_timeout);
     KWARG_TO_STRUCT_PARAM(kwargs, gps_model);
+    KWARG_TO_STRUCT_PARAM(kwargs, decimation);
+    KWARG_TO_STRUCT_PARAM(kwargs, software_filter);
+    KWARG_TO_STRUCT_PARAM(kwargs, samples_per_capture);
 }
 
 int SMDevice::getSerial() const { return serial; }
