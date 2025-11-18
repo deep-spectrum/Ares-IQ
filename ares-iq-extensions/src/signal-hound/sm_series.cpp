@@ -79,9 +79,38 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_property_readonly("serial", &SMDevice::getSerial, "Serial number")
         .def_property_readonly("type", &SMDevice::getType, "Device type");
 
+    py::class_<SmDiagnostics>(m, "SmDiagnostics",
+                              "Diagnostic information from the SM device")
+        .def(py::init<>())
+        .def_property_readonly("voltage", &SmDiagnostics::voltage,
+                               "Device voltage")
+        .def_property_readonly("current_input", &SmDiagnostics::current_input,
+                               "Input current")
+        .def_property_readonly("current_ocxo", &SmDiagnostics::current_ocxo,
+                               "OCXO current")
+        .def_property_readonly("temp_fpga_internal",
+                               &SmDiagnostics::temp_fpga_internal,
+                               "FPGA core/internal temp")
+        .def_property_readonly("temp_fpga_near", &SmDiagnostics::temp_fpga_near,
+                               "Temp near FPGA")
+        .def_property_readonly("temp_ocxo", &SmDiagnostics::temp_ocxo,
+                               "OCXO temperature")
+        .def_property_readonly("temp_vco", &SmDiagnostics::temp_vco,
+                               "VCO temperature")
+        .def_property_readonly("temp_rf_board_lo",
+                               &SmDiagnostics::temp_rf_board_lo,
+                               "Temperature on RF board LO")
+        .def_property_readonly("temp_power_supply",
+                               &SmDiagnostics::temp_power_supply,
+                               "Power supply temperature");
+
     py::class_<SM>(m, "_SM", "SM series device instance")
         .def(py::init<const SMConfigs &>())
-        .def("capture_iq", &SM::capture_iq, "Capture IQ data");
+        .def("capture_iq", &SM::capture_iq, "Capture IQ data")
+        .def("firmware_version", &SM::firmware_version,
+             "Retrieve the device firmware info")
+        .def("diagnostic_info", &SM::diagnostic_info,
+             "Retrieve device diagnostic information");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -93,6 +122,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
+    m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
 }
 
 template <typename T>
@@ -122,6 +152,30 @@ int SMDevice::getSerial() const { return serial; }
 
 SmDeviceType SMDevice::getType() const { return type; }
 
+float SmDiagnostics::voltage() const { return diagnostics.voltage; }
+
+float SmDiagnostics::current_input() const { return diagnostics.currentInput; }
+
+float SmDiagnostics::current_ocxo() const { return diagnostics.currentOCXO; }
+
+float SmDiagnostics::temp_fpga_internal() const {
+    return diagnostics.tempFPGAInternal;
+}
+
+float SmDiagnostics::temp_fpga_near() const { return diagnostics.tempFPGANear; }
+
+float SmDiagnostics::temp_ocxo() const { return diagnostics.tempOCXO; }
+
+float SmDiagnostics::temp_vco() const { return diagnostics.tempVCO; }
+
+float SmDiagnostics::temp_rf_board_lo() const {
+    return diagnostics.tempRFBoardLO;
+}
+
+float SmDiagnostics::temp_power_supply() const {
+    return diagnostics.tempPowerSupply;
+}
+
 static void check_sm_status(SmStatus status) {
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -130,11 +184,7 @@ static void check_sm_status(SmStatus status) {
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
 
-SM::~SM() {
-    if (_open) {
-        smCloseDevice(fd);
-    }
-}
+SM::~SM() { _close_device(); }
 
 py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
                          bool silent, bool verbose) {
@@ -157,6 +207,36 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
     }
 
     return ret;
+}
+
+py::tuple SM::firmware_version() {
+    int major, minor, revision;
+    bool not_open = false;
+
+    if (!_open) {
+        _open_device();
+        not_open = true;
+    }
+
+    check_sm_status(smGetFirmwareVersion(fd, &major, &minor, &revision));
+
+    if (not_open) {
+        _close_device();
+    }
+
+    return py::make_tuple(major, minor, revision);
+}
+
+SmDiagnostics SM::diagnostic_info() const {
+    SmDiagnostics diagnostics;
+
+    if (!_open) {
+        throw std::runtime_error("Device not open");
+    }
+
+    check_sm_status(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics));
+
+    return diagnostics;
 }
 
 py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
@@ -253,6 +333,13 @@ void SM::_open_device() {
         throw std::runtime_error(smGetErrorString(status));
     }
     _open = true;
+}
+
+void SM::_close_device() {
+    if (_open) {
+        smCloseDevice(fd);
+        _open = false;
+    }
 }
 
 void SM::_configure(double center, double bw) const {

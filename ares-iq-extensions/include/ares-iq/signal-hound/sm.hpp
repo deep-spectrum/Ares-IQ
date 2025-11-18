@@ -117,6 +117,22 @@ struct SMDevice {
     [[nodiscard]] SmDeviceType getType() const;
 };
 
+struct SmDiagnostics {
+    SmDiagnostics() = default;
+
+    SmDeviceDiagnostics diagnostics = {};
+
+    [[nodiscard]] float voltage() const;
+    [[nodiscard]] float current_input() const;
+    [[nodiscard]] float current_ocxo() const;
+    [[nodiscard]] float temp_fpga_internal() const;
+    [[nodiscard]] float temp_fpga_near() const;
+    [[nodiscard]] float temp_ocxo() const;
+    [[nodiscard]] float temp_vco() const;
+    [[nodiscard]] float temp_rf_board_lo() const;
+    [[nodiscard]] float temp_power_supply() const;
+};
+
 /**
  * @class SM
  * The base class for SM devices. This should be wrapped with Python.
@@ -147,6 +163,20 @@ class SM {
     py::tuple capture_iq(double center, double bw, uint64_t capture_size,
                          bool silent, bool verbose);
 
+    /**
+     * Retrieve the firmware version.
+     * @return A tuple representing the major, minor, and revision number of the
+     * firmware version.
+     */
+    py::tuple firmware_version();
+
+    /**
+     * Retrieve diagnostic information from the Sm device. This requires the
+     * device to be open first (
+     * @return Device diagnostic information.
+     */
+    SmDiagnostics diagnostic_info() const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -165,6 +195,8 @@ class SM {
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();
     void _open_device();
+
+    void _close_device();
 
     void _configure(double center, double bw) const;
 
