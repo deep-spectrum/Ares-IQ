@@ -117,19 +117,77 @@ struct SMDevice {
     [[nodiscard]] SmDeviceType getType() const;
 };
 
+/**
+ * @class SmDiagnostics
+ * Wrapper struct for SmDeviceDiagnostics struct.
+ *
+ * @note The reason why this exists is because pybind11 `def_property_readonly`
+ * requires getters. If using C++ API, the values can be fetched directly from
+ * the diagnostics member, thus not needing the getters.
+ */
 struct SmDiagnostics {
+    /**
+     * .
+     */
     SmDiagnostics() = default;
 
+    /**
+     * Sm device diagnostic information.
+     */
     SmDeviceDiagnostics diagnostics = {};
 
+    /**
+     * .
+     * @return Device voltage
+     */
     [[nodiscard]] float voltage() const;
+
+    /**
+     * .
+     * @return Input current
+     */
     [[nodiscard]] float current_input() const;
+
+    /**
+     * .
+     * @return OCXO current
+     */
     [[nodiscard]] float current_ocxo() const;
+
+    /**
+     * .
+     * @return FPGA core/internal temp
+     */
     [[nodiscard]] float temp_fpga_internal() const;
+
+    /**
+     * .
+     * @return Temp near FPGA
+     */
     [[nodiscard]] float temp_fpga_near() const;
+
+    /**
+     * .
+     * @return OCXO temperature
+     */
     [[nodiscard]] float temp_ocxo() const;
+
+    /**
+     * .
+     * @return VCO temperature
+     */
     [[nodiscard]] float temp_vco() const;
+
+    /**
+     * .
+     * @return Temperature on RF board LO
+     */
     [[nodiscard]] float temp_rf_board_lo() const;
+
+    /**
+     * .
+     * @return Power supply temperature
+     */
     [[nodiscard]] float temp_power_supply() const;
 };
 
