@@ -31,8 +31,9 @@ class Progress {
   public:
     /**
      * .
-     * @param[in] captures The number of captures needed for completion
-     * @param[in] samples_per_capture The number of samples per a capture
+     * @param[in] captures The number of captures needed for completion.
+     * @param[in] samples_per_capture The number of samples per a capture.
+     * @param[in] hide Hide the progress bar.
      */
     explicit Progress(uint64_t captures, uint64_t samples_per_capture,
                       bool hide = false);

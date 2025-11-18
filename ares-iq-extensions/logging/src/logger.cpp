@@ -2,9 +2,9 @@
 // Created by tschmitz on 11/14/25.
 //
 
+#include <../include/logging/logger.hpp>
 #include <cstdarg>
 #include <cstdio>
-#include <logging/logger.hpp>
 
 #if defined(USE_PYTHON_LOGGERS)
 #include <memory>
@@ -102,6 +102,7 @@ class __attribute__((visibility("hidden"))) PieceOfShitIdiom {
         }
         }
     }
+
     [[nodiscard]] Logger::LogLevel get_level() const {
         int level = logger.attr("level").cast<int>();
         Logger::LogLevel ret;
