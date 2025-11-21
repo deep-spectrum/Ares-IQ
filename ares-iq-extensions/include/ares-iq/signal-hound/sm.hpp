@@ -191,17 +191,64 @@ struct SmDiagnostics {
     [[nodiscard]] float temp_power_supply() const;
 };
 
+/**
+ * @struct SmGpsInfo
+ * GPS information from the SM device.
+ */
 struct SmGpsInfo {
+    /**
+     * .
+     */
     SmGpsInfo() = default;
 
+    /**
+     * Number of seconds since epoch as reported by the GPS NMEA sentences. Last
+     * reported value by the GPS. If the GPS is not locked, this value will be
+     * set to zero.
+     */
     int64_t sec_since_epoch = 0;
+
+    /**
+     * Latitude in decimal degrees. If the GPS is not locked, this value will be
+     * set to zero.
+     */
     double latitude = 0.0;
+
+    /**
+     * Longitude in decimal degrees. If the GPS is not locked, this value will
+     * be set to zero.
+     */
     double longitude = 0.0;
+
+    /**
+     * Altitude in meters. If the GPS is not locked, this value will be set to
+     * zero.
+     */
     double altitude = 0.0;
 
+    /**
+     * Number of seconds since epoch as reported by the GPS NMEA sentences. Last
+     * reported value by the GPS. If the GPS is not locked, this value will be
+     * set to zero.
+     */
     [[nodiscard]] int64_t sec_since_epoch_() const;
+
+    /**
+     * Latitude in decimal degrees. If the GPS is not locked, this value will be
+     * set to zero.
+     */
     [[nodiscard]] double latitude_() const;
+
+    /**
+     * Longitude in decimal degrees. If the GPS is not locked, this value will
+     * be set to zero.
+     */
     [[nodiscard]] double longitude_() const;
+
+    /**
+     * Altitude in meters. If the GPS is not locked, this value will be set to
+     * zero.
+     */
     [[nodiscard]] double altitude_() const;
 };
 
