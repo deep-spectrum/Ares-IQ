@@ -94,7 +94,7 @@ class SM:
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData]]:
-        iq_data, timestamps = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
+        iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
 
         iq_data_ = [IQData() for _ in timestamps]
         for data, ts, iq in zip(iq_data, timestamps, iq_data_):

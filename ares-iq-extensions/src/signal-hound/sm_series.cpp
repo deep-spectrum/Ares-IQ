@@ -286,10 +286,14 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
     py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
     py::buffer_info time_buf_info = capture_times.request(true);
 
+    py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
+    py::buffer_info gps_buf_info = gps_array.request(true);
+
     for (size_t i = 0; i < captures; i++) {
         data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
                       (i * samples_per_capture);
         data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
+        data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
     }
 
     _acquire_gps_lock();
@@ -301,11 +305,14 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
     for (auto &capture : data) {
         smGetIQ(fd, capture.buf, static_cast<int>(samples_per_capture), nullptr,
                 0, capture.timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &capture.gps_info->sec_since_epoch,
+                     &capture.gps_info->latitude, &capture.gps_info->longitude,
+                     &capture.gps_info->altitude, nullptr, nullptr);
         progress.update();
     }
     progress.update();
 
-    return py::make_tuple(data_array, capture_times);
+    return py::make_tuple(data_array, capture_times, gps_array);
 }
 
 SmStatus SM::_open_networked_device() {

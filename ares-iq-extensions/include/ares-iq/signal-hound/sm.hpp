@@ -256,6 +256,7 @@ class SM {
     struct Capture {
         complex_t *buf;
         int64_t *timestamp;
+        SmGpsInfo *gps_info;
     };
 
     int fd = -1;
