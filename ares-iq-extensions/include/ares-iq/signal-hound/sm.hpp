@@ -191,6 +191,20 @@ struct SmDiagnostics {
     [[nodiscard]] float temp_power_supply() const;
 };
 
+struct SmGpsInfo {
+    SmGpsInfo() = default;
+
+    int64_t sec_since_epoch = 0;
+    double latitude = 0.0;
+    double longitude = 0.0;
+    double altitude = 0.0;
+
+    [[nodiscard]] int64_t sec_since_epoch_() const;
+    [[nodiscard]] double latitude_() const;
+    [[nodiscard]] double longitude_() const;
+    [[nodiscard]] double altitude_() const;
+};
+
 /**
  * @class SM
  * The base class for SM devices. This should be wrapped with Python.
@@ -230,7 +244,8 @@ class SM {
 
     /**
      * Retrieve diagnostic information from the Sm device. This requires the
-     * device to be open first (@ref capture_iq() opens a device and leaves it open).
+     * device to be open first (@ref capture_iq() opens a device and leaves it
+     * open).
      * @return Device diagnostic information.
      */
     SmDiagnostics diagnostic_info() const;

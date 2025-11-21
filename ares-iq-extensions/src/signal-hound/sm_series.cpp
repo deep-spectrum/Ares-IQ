@@ -104,6 +104,23 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                                &SmDiagnostics::temp_power_supply,
                                "Power supply temperature");
 
+    py::class_<SmGpsInfo>(m, "_SmGpsInfo", "GPS information from SM device")
+        .def(py::init<>())
+        .def_property_readonly(
+            "sec_since_epoch", &SmGpsInfo::sec_since_epoch_,
+            "Number of seconds since epoch as reported by the GPS NMEA "
+            "sentences. Last reported value by the GPS. If the GPS is not "
+            "locked, this value will be set to zero.")
+        .def_property_readonly("latitude", &SmGpsInfo::latitude_,
+                               "Latitude in decimal degrees. If the GPS is not "
+                               "locked, this value will be set to zero.")
+        .def_property_readonly("longitude", &SmGpsInfo::longitude_,
+                               "Longitude in decimal degrees. If the GPS is "
+                               "not locked, this value will be set to zero.")
+        .def_property_readonly("altitude", &SmGpsInfo::altitude_,
+                               "Altitude in meters. If the GPS is not locked, "
+                               "this value will be set to zero.");
+
     py::class_<SM>(m, "_SM", "SM series device instance")
         .def(py::init<const SMConfigs &>())
         .def("capture_iq", &SM::capture_iq, "Capture IQ data")
@@ -181,6 +198,14 @@ static void check_sm_status(SmStatus status) {
         throw std::runtime_error(smGetErrorString(status));
     }
 }
+
+int64_t SmGpsInfo::sec_since_epoch_() const { return sec_since_epoch; }
+
+double SmGpsInfo::latitude_() const { return latitude; }
+
+double SmGpsInfo::longitude_() const { return longitude; }
+
+double SmGpsInfo::altitude_() const { return altitude; }
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
 
