@@ -1,0 +1,108 @@
+from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list2, \
+    HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
+from ares_iq.iq_data import IQData
+from attrs import define, field, validators
+from ares_iq.validators import power_of_two, validate_bounds
+from ares_iq.typing import QuantizedData
+from ares_iq.configs import ConfigBase
+from enum import Enum
+import logging
+from ctypes import c_uint16
+
+logger = logging.getLogger(SM_LOGGER_NAME)
+
+GPS_MODELS = {
+    'portable': SmGpsPlatformModel.PORTABLE,
+    'stationary': SmGpsPlatformModel.STATIONARY,
+    'pedestrian': SmGpsPlatformModel.PEDESTRIAN,
+    'automotive': SmGpsPlatformModel.AUTOMOTIVE,
+    'at-sea': SmGpsPlatformModel.AT_SEA,
+    'at_sea': SmGpsPlatformModel.AT_SEA,
+    'atsea': SmGpsPlatformModel.AT_SEA,
+    'sea': SmGpsPlatformModel.AT_SEA,
+    'airborne-1g': SmGpsPlatformModel.AIRBORNE_1G,
+    'airborne_1g': SmGpsPlatformModel.AIRBORNE_1G,
+    'airborne1g': SmGpsPlatformModel.AIRBORNE_1G,
+    'airborne-2g': SmGpsPlatformModel.AIRBORNE_2G,
+    'airborne_2g': SmGpsPlatformModel.AIRBORNE_2G,
+    'airborne2g': SmGpsPlatformModel.AIRBORNE_2G,
+}
+
+
+class GpsModel(Enum):
+    PORTABLE = SmGpsPlatformModel.PORTABLE
+    STATIONARY = SmGpsPlatformModel.STATIONARY
+    PEDESTRIAN = SmGpsPlatformModel.PEDESTRIAN
+    AUTOMOTIVE = SmGpsPlatformModel.AUTOMOTIVE
+    SEA = SmGpsPlatformModel.AT_SEA
+    AIRBORNE_1G = SmGpsPlatformModel.AIRBORNE_1G
+    AIRBORNE_2G = SmGpsPlatformModel.AIRBORNE_2G
+
+
+def _convert_str_sm_gps(x: str) -> SmGpsPlatformModel:
+    x = x.lower()
+    try:
+        return GPS_MODELS[x]
+    except KeyError:
+        raise ValueError(f"Invalid GPS model: {x}")
+
+
+def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
+    if isinstance(x, GpsModel):
+        return x.value
+    if isinstance(x, str):
+        return _convert_str_sm_gps(x)
+    if isinstance(x, SmGpsPlatformModel):
+        return x
+    raise TypeError(f"Unable to cast from {type(x)} to SmGpsPlatformModel")
+
+
+@define
+class SM200Configs(ConfigBase):
+    gps_timestamping: bool = False
+    gps_lock_timeout: int = 0
+    gps_model: SmGpsPlatformModel = field(default=SmGpsPlatformModel.STATIONARY, converter=_convert_sm_gps)
+    decimation: int = field(default=1,
+                            metadata={"min": 1, "max": SM_MAX_IQ_DECIMATION},
+                            validator=[validators.instance_of(int), validate_bounds, power_of_two])
+    software_filter: bool = False
+    samples_per_capture: int = field(default=500000, metadata={"min": 1},
+                                     validator=[validators.instance_of(int), validate_bounds])
+    host: str = HOST_ADDR_ANY
+    device_addr: str = DEFAULT_DEV_ADDR
+    port: int = field(default=DEFAULT_PORT, metadata={"min": 0, "max": c_uint16(-1).value},
+                      validator=[validators.instance_of(int), validate_bounds])
+
+
+class SM200:
+    def __init__(self, model: SmDeviceType, configs: SM200Configs | None = None, serial: int = -1):
+        if configs is None:
+            configs_ = _SmConfigs()
+        else:
+            configs_ = _SmConfigs(type=model,
+                                  serial=serial,
+                                  gps_timestamping=configs.gps_timestamping,
+                                  gps_lock_timeout=configs.gps_lock_timeout,
+                                  gps_model=configs.gps_model,
+                                  decimation=configs.decimation,
+                                  software_filter=configs.software_filter,
+                                  samples_per_capture=configs.samples_per_capture,
+                                  host=configs.host,
+                                  device_addr=configs.device_addr,
+                                  port=configs.port)
+        self._dev = _SM(configs_)
+
+    def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
+    tuple[list[IQData], list[QuantizedData]]:
+        iq_data, timestamps = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
+
+        iq_data_ = [IQData() for _ in timestamps]
+        for data, ts, iq in zip(iq_data, timestamps, iq_data_):
+            iq.iq = data
+            # TODO: Convert ts
+
+        quant_data = self._quantize(iq_data_)
+        return iq_data_, quant_data
+
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
