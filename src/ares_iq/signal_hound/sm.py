@@ -58,7 +58,7 @@ def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
 
 
 @define
-class SM200Configs(ConfigBase):
+class SMConfigs(ConfigBase):
     gps_timestamping: bool = False
     gps_lock_timeout: int = 0
     gps_model: SmGpsPlatformModel = field(default=SmGpsPlatformModel.STATIONARY, converter=_convert_sm_gps)
@@ -74,8 +74,8 @@ class SM200Configs(ConfigBase):
                       validator=[validators.instance_of(int), validate_bounds])
 
 
-class SM200:
-    def __init__(self, model: SmDeviceType, configs: SM200Configs | None = None, serial: int = -1):
+class SM:
+    def __init__(self, model: SmDeviceType, configs: SMConfigs | None = None, serial: int = -1):
         if configs is None:
             configs_ = _SmConfigs()
         else:
@@ -93,7 +93,7 @@ class SM200:
         self._dev = _SM(configs_)
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
-    tuple[list[IQData], list[QuantizedData]]:
+            tuple[list[IQData], list[QuantizedData]]:
         iq_data, timestamps = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
 
         iq_data_ = [IQData() for _ in timestamps]
@@ -106,3 +106,28 @@ class SM200:
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
         return [QuantizedData() for _ in iq_data]
+
+
+class SM200A(SM):
+    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+        super().__init__(SmDeviceType.smDeviceTypeSM200A, configs, serial)
+
+
+class SM200B(SM):
+    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+        super().__init__(SmDeviceType.smDeviceTypeSM200B, configs, serial)
+
+
+class SM200C(SM):
+    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+        super().__init__(SmDeviceType.smDeviceTypeSM200C, configs, serial)
+
+
+class SM435B(SM):
+    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+        super().__init__(SmDeviceType.smDeviceTypeSM435B, configs, serial)
+
+
+class SM435C(SM):
+    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+        super().__init__(SmDeviceType.smDeviceTypeSM435C, configs, serial)
