@@ -5,7 +5,7 @@ from typing_extensions import Annotated
 import os
 import pkgutil
 from ares_iq.typing import SoftwareDefinedRadio
-from ares_iq.save_iq_data import save_iq_data
+from typing import Type
 import yaml
 from ares_iq.print_utils import print_error
 from ares_iq.print_utils.logging import AresIqHandler
@@ -14,7 +14,7 @@ import logging
 logger = logging.getLogger()
 logger.addHandler(AresIqHandler(warning_panel=True, error_panel=True, critical_error_panel=True))
 
-PLATFORMS: dict[str, SoftwareDefinedRadio] = {}
+PLATFORMS: dict[str, Type[SoftwareDefinedRadio]] = {}
 
 
 def import_platforms():
@@ -55,7 +55,8 @@ def capture(
     if PLATFORMS[platform] is None:
         print_error(f"{platform} is not supported yet.")
         raise typer.Exit()
-    PLATFORMS[platform].capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
+    app_api = PLATFORMS[platform]()
+    app_api.capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
 
