@@ -1,9 +1,10 @@
 # from .x410 import X410Device
 from .x310 import X310Device
 from ares_iq.typing import SoftwareDefinedRadio
+from typing import Type
 
 
-PLATFORMS: dict[str, SoftwareDefinedRadio] = {
+PLATFORMS: dict[str, Type[SoftwareDefinedRadio]] = {
 #     "x410": X410Device(),
-    "x310": X310Device(),
+    "x310": X310Device,
 }
