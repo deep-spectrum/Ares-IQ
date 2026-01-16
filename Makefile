@@ -1,4 +1,4 @@
-PACKAGE_DIR=src/iq_capture
+PACKAGE_DIR=src/ares_iq
 
 .phony: typecheck
 typecheck:

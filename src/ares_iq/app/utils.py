@@ -27,6 +27,6 @@ def print_config_errors(errors: list[str | None]) -> None:
     Args:
         errors: The error messages to print.
     """
-    errors = [error for error in errors if error is not None]
-    if errors:
-        print_error("\n\n".join(errors))
+    errors_ = [error for error in errors if error is not None]
+    if errors_:
+        print_error("\n\n".join(errors_))
