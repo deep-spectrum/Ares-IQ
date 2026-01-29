@@ -463,12 +463,14 @@ py::tuple get_device_list() {
     int all_serials[SM_MAX_DEVICES * 2] = { 0 }, all_count = 0;
 
     SmStatus status = smGetDeviceList(serial_numbers, &count);
+    LOG_DBG("Fetched %d serial numbers from `smGetDeviceList`", count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
     }
 
     status = smNetworkConfigGetDeviceList(net_serials, &net_count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", net_count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -493,6 +495,7 @@ static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, in
     assert(count != nullptr);
 
     SmStatus status = smNetworkConfigGetDeviceList(serials, count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", *count);
 
     if (status != smNoError) {
         return status;
@@ -523,6 +526,7 @@ py::tuple get_device_list2() {
     SMDevice devices[SM_MAX_DEVICES * 2];
 
     SmStatus status = smGetDeviceList2(serial_numbers, types, &count);
+    LOG_DBG("Fetched %d serial numbers from `smGetDeviceList2`", count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
