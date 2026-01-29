@@ -134,6 +134,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
           "Retrieve a list of connected SM series devices");
     m.def("get_device_list2", get_device_list2,
           "Retrieve a list of connected SM series devices with device types");
+    m.def("get_networked_device_list", get_networked_device_list, "Retrieve a list of connected networked SM series devices");
 
     m.attr("HOST_ADDR_ANY") = SM_ADDR_ANY;
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
@@ -484,4 +485,16 @@ py::tuple get_device_list2() {
     }
 
     return array_to_tuple(devices, count);
+}
+
+py::tuple get_networked_device_list() {
+    int serial_numbers[SM_MAX_DEVICES], count;
+
+    SmStatus status = smNetworkConfigGetDeviceList(serial_numbers, &count);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    return array_to_tuple(serial_numbers, count);
 }

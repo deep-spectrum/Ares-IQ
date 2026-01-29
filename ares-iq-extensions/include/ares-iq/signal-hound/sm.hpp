@@ -338,4 +338,6 @@ py::tuple get_device_list();
  */
 py::tuple get_device_list2();
 
+py::tuple get_networked_device_list();
+
 #endif // VERSION_SM_HPP
