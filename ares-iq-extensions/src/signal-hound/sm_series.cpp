@@ -458,6 +458,8 @@ void SM::_acquire_gps_lock() const {
 
 py::tuple get_device_list() {
     int serial_numbers[SM_MAX_DEVICES], count;
+    int net_serials[SM_MAX_DEVICES], net_count;
+    int all_serials[SM_MAX_DEVICES * 2] = { 0 }, all_count = 0;
 
     SmStatus status = smGetDeviceList(serial_numbers, &count);
 
@@ -465,7 +467,23 @@ py::tuple get_device_list() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    return array_to_tuple(serial_numbers, count);
+    status = smNetworkConfigGetDeviceList(net_serials, &net_count);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    for (size_t i = 0; i < count; i++) {
+        all_serials[all_count] = serial_numbers[i];
+        all_count++;
+    }
+
+    for (size_t i = 0; i < net_count; i++) {
+        all_serials[all_count] = net_serials[i];
+        all_count++;
+    }
+
+    return array_to_tuple(all_serials, all_count);
 }
 
 py::tuple get_device_list2() {
