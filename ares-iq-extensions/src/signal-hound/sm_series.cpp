@@ -519,7 +519,7 @@ static SmStatus fetch_networked_attributes(const char *host, const char *ip, int
     return status;
 }
 
-static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, int *count, const char *host) {
+static SmStatus _get_networked_device_list2(int *serials, SmDeviceType *types, int *count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
     assert(count != nullptr);
@@ -573,7 +573,7 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    status = get_networked_device_list2(net_serials, net_types, &net_count, SM_ADDR_ANY);
+    status = _get_networked_device_list2(net_serials, net_types, &net_count, SM_ADDR_ANY);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -611,7 +611,8 @@ py::tuple get_networked_device_list2(const std::string &host) {
     SmDeviceType types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES];
 
-    SmStatus status = get_networked_device_list2(serials, types, &count, host.c_str());
+    LOG_DBG("Host address: %s", host.c_str());
+    SmStatus status = _get_networked_device_list2(serials, types, &count, host.c_str());
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
