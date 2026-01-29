@@ -20,6 +20,7 @@
 #include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <vector>
+#include <cassert>
 
 namespace py = pybind11;
 
@@ -486,10 +487,40 @@ py::tuple get_device_list() {
     return array_to_tuple(all_serials, all_count);
 }
 
+static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, int *count) {
+    assert(serials != nullptr);
+    assert(types != nullptr);
+    assert(count != nullptr);
+
+    SmStatus status = smNetworkConfigGetDeviceList(serials, count);
+
+    if (status != smNoError) {
+        return status;
+    }
+
+    for (size_t i = 0; i < *count; i++) {
+        int handle = -1;
+        status = smNetworkConfigOpenDevice(&handle, serials[i]);
+
+        if (status != smNoError) {
+            return status;
+        }
+
+        status = smGetDeviceInfo(handle, &types[i], nullptr);
+        (void)smNetworkConfigCloseDevice(handle);
+
+        if (status != smNoError) {
+            return status;
+        }
+    }
+
+    return smNoError;
+}
+
 py::tuple get_device_list2() {
-    int serial_numbers[SM_MAX_DEVICES], count;
-    SmDeviceType types[SM_MAX_DEVICES];
-    SMDevice devices[SM_MAX_DEVICES];
+    int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES], net_count;
+    SmDeviceType types[SM_MAX_DEVICES], net_types[SM_MAX_DEVICES];
+    SMDevice devices[SM_MAX_DEVICES * 2];
 
     SmStatus status = smGetDeviceList2(serial_numbers, types, &count);
 
@@ -497,12 +528,24 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    for (size_t i = 0; i < count; i++) {
-        devices[i].serial = serial_numbers[i];
-        devices[i].type = types[i];
+    status = get_networked_device_list2(net_serials, net_types, &net_count);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
     }
 
-    return array_to_tuple(devices, count);
+    size_t dev_cnt = 0;
+    for (; dev_cnt < count; dev_cnt++) {
+        devices[dev_cnt].serial = serial_numbers[dev_cnt];
+        devices[dev_cnt].type = types[dev_cnt];
+    }
+
+    for (size_t i = 0; i < net_count; i++, dev_cnt++) {
+        devices[dev_cnt].serial = net_serials[i];
+        devices[dev_cnt].type = net_types[i];
+    }
+
+    return array_to_tuple(devices, dev_cnt);
 }
 
 py::tuple get_networked_device_list() {
