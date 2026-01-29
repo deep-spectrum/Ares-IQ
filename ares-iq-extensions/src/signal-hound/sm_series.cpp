@@ -136,7 +136,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.def("get_device_list2", get_device_list2,
           "Retrieve a list of connected SM series devices with device types");
     m.def("get_networked_device_list", get_networked_device_list, "Retrieve a list of connected networked SM series devices");
-    m.def("get_networked_device_list2", get_networked_device_list2, "Retrieve a list of connected networked SM series devices with device types");
+    m.def("get_networked_device_list2", get_networked_device_list2, py::arg("hostaddr") = std::string(SM_ADDR_ANY), "Retrieve a list of connected networked SM series devices with device types");
 
     m.attr("HOST_ADDR_ANY") = SM_ADDR_ANY;
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
@@ -492,7 +492,34 @@ py::tuple get_device_list() {
     return array_to_tuple(all_serials, all_count);
 }
 
-static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, int *count) {
+static SmStatus fetch_networked_attributes(const char *host, const char *ip, int port, int serial, SmDeviceType *type) {
+    int handle = -1, serial_;
+    SmDeviceType type_;
+    SmStatus status = smOpenNetworkedDevice(&handle, host, ip, port);
+
+    if (status != smNoError) {
+        return status;
+    }
+
+    status = smGetDeviceInfo(handle, &type_, &serial_);
+
+    if (status != smNoError) {
+        goto close_device;
+    }
+
+    if (serial_ == serial) {
+        *type = type_;
+    } else {
+        *type = smDeviceTypeNotSet;
+    }
+
+    close_device:
+    smCloseDevice(handle);
+
+    return status;
+}
+
+static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, int *count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
     assert(count != nullptr);
@@ -504,23 +531,34 @@ static SmStatus get_networked_device_list2(int *serials, SmDeviceType *types, in
         return status;
     }
 
-    for (size_t i = 0; i < *count; i++) {
+    for (size_t i = 0; i < *count && status == smNoError; i++) {
         int handle = -1;
+        char ip[32];
+        int port;
+
         status = smNetworkConfigOpenDevice(&handle, serials[i]);
 
         if (status != smNoError) {
             return status;
         }
 
-        status = smGetDeviceInfo(handle, &types[i], nullptr);
-        (void)smNetworkConfigCloseDevice(handle);
-
+        status = smNetworkConfigGetIP(handle, ip);
         if (status != smNoError) {
-            return status;
+            goto close_config_device;
         }
+
+        status = smNetworkConfigGetPort(handle, &port);
+
+        close_config_device:
+        (void)smNetworkConfigCloseDevice(handle);
+        if (status != smNoError) {
+            continue;
+        }
+
+        status = fetch_networked_attributes(host, ip, port, serials[i], &types[i]);
     }
 
-    return smNoError;
+    return status;
 }
 
 py::tuple get_device_list2() {
@@ -535,7 +573,7 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    status = get_networked_device_list2(net_serials, net_types, &net_count);
+    status = get_networked_device_list2(net_serials, net_types, &net_count, SM_ADDR_ANY);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -568,32 +606,15 @@ py::tuple get_networked_device_list() {
     return array_to_tuple(serial_numbers, count);
 }
 
-py::tuple get_networked_device_list2() {
+py::tuple get_networked_device_list2(const std::string &host) {
     int serials[SM_MAX_DEVICES], count;
     SmDeviceType types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES];
 
-    SmStatus status = smNetworkConfigGetDeviceList(serials, &count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", count);
+    SmStatus status = get_networked_device_list2(serials, types, &count, host.c_str());
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
-    }
-
-    for (size_t i = 0; i < count; i++) {
-        int handle = -1;
-        status = smNetworkConfigOpenDevice(&handle, serials[i]);
-
-        if (status != smNoError) {
-            throw std::runtime_error(smGetErrorString(status));
-        }
-
-        status = smGetDeviceInfo(handle, &types[i], nullptr);
-        (void)smNetworkConfigCloseDevice(handle);
-
-        if (status != smNoError) {
-            throw std::runtime_error(smGetErrorString(status));
-        }
     }
 
     for (size_t i = 0; i < count; i++) {

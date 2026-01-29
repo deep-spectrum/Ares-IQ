@@ -340,6 +340,6 @@ py::tuple get_device_list2();
 
 py::tuple get_networked_device_list();
 
-py::tuple get_networked_device_list2();
+py::tuple get_networked_device_list2(const std::string &host = SM_ADDR_ANY);
 
 #endif // VERSION_SM_HPP
