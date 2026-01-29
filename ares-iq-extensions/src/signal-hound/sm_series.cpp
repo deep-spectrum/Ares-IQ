@@ -469,6 +469,8 @@ py::tuple get_device_list() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
+    std::this_thread::sleep_for(std::chrono::milliseconds(500));
+
     status = smNetworkConfigGetDeviceList(net_serials, &net_count);
     LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", net_count);
 
