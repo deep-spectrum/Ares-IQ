@@ -556,6 +556,7 @@ py::tuple get_networked_device_list() {
     int serial_numbers[SM_MAX_DEVICES], count;
 
     SmStatus status = smNetworkConfigGetDeviceList(serial_numbers, &count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
