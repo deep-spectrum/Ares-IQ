@@ -527,25 +527,20 @@ close_device:
     return status;
 }
 
-static SmStatus
+SmStatus
 sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
                                               int *count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
     assert(count != nullptr);
 
-    int serials_[SM_MAX_DEVICES], count_;
-
-    SmStatus status = smNetworkConfigGetDeviceList(serials_, &count_);
+    SmStatus status = smNetworkConfigGetDeviceList(serials, count);
     LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
-            count_);
+            *count);
 
     if (status != smNoError) {
         return status;
     }
-
-    *count = count_;
-    memcpy(serials, serials_, sizeof(int) * count_);
 
     for (size_t i = 0; i < *count && status == smNoError; i++) {
         int handle = -1;
