@@ -253,6 +253,39 @@ struct SmGpsInfo {
 };
 
 /**
+ * @struct SmNetworkConfig
+ * Network configurations for SM devices.
+ */
+struct SmNetworkConfig {
+    /**
+     * .
+     */
+    SmNetworkConfig() = default;
+
+    /**
+     * .
+     * @param[in] kwargs Key-word parameters from Python. Maps to the internal
+     * attribute names.
+     */
+    explicit SmNetworkConfig(const py::kwargs &kwargs);
+
+    /**
+     * The MAC address of the device.
+     */
+    std::string mac = "";
+
+    /**
+     * The IP address of the networked device.
+     */
+    std::string ip = "";
+
+    /**
+     * The port of the networked device.
+     */
+    int port = 0;
+};
+
+/**
  * @class SM
  * The base class for SM devices. This should be wrapped with Python.
  */
@@ -341,5 +374,14 @@ py::tuple get_device_list2();
 py::tuple get_networked_device_list();
 
 py::tuple get_networked_device_list2(const std::string &host = SM_ADDR_ANY);
+
+SmNetworkConfig retrieve_networked_configurations(int serial);
+
+void configure_networked_device(int serial, const SmNetworkConfig &config,
+                                bool non_volatile = false);
+
+void broadcast_network_config(const SmNetworkConfig &config,
+                              const std::string &host = SM_ADDR_ANY,
+                              bool non_volatile = false);
 
 #endif // VERSION_SM_HPP

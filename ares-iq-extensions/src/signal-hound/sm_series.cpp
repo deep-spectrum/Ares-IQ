@@ -105,6 +105,16 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                                &SmDiagnostics::temp_power_supply,
                                "Power supply temperature");
 
+    py::class_<SmNetworkConfig>(m, "_SmNetworkConfig",
+                                "Network configuration for/from the SM device")
+        .def(py::init<const py::kwargs &>())
+        .def_readonly("mac", &SmNetworkConfig::mac,
+                      "The MAC address of the device")
+        .def_readwrite("ipaddr", &SmNetworkConfig::ip,
+                       "The IP address of the SM device")
+        .def_readwrite("port", &SmNetworkConfig::port,
+                       "The port of the SM device");
+
     py::class_<SmGpsInfo>(m, "_SmGpsInfo", "GPS information from SM device")
         .def(py::init<>())
         .def_property_readonly(
@@ -141,6 +151,17 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
           py::arg("hostaddr") = std::string(SM_ADDR_ANY),
           "Retrieve a list of connected networked SM series devices with "
           "device types");
+    m.def("retrieve_networked_configurations",
+          &retrieve_networked_configurations,
+          "Retrieve network configurations from a certain SM device");
+    m.def("configure_networked_device", &configure_networked_device,
+          py::arg("serial"), py::arg("config"), py::arg("non_volatile") = false,
+          "Configure the network settings for a certain SM device");
+    m.def("broadcast_network_config", &broadcast_network_config,
+          py::arg("config"), py::arg("hostaddr") = SM_ADDR_ANY,
+          py::arg("non_volatile") = false,
+          "Broadcast the network settings for SM devices on a certain host "
+          "address");
 
     m.attr("HOST_ADDR_ANY") = SM_ADDR_ANY;
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
@@ -213,6 +234,11 @@ double SmGpsInfo::latitude_() const { return latitude; }
 double SmGpsInfo::longitude_() const { return longitude; }
 
 double SmGpsInfo::altitude_() const { return altitude; }
+
+SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
+    KWARG_TO_STRUCT_PARAM(kwargs, ip);
+    KWARG_TO_STRUCT_PARAM(kwargs, port);
+}
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
 
@@ -577,9 +603,8 @@ SmStatus sm_series_internal_get_networked_device_list2(int *serials,
 }
 
 py::tuple get_device_list2() {
-    int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES],
-        net_count;
-    SmDeviceType types[SM_MAX_DEVICES], net_types[SM_MAX_DEVICES];
+    int serial_numbers[SM_MAX_DEVICES], count;
+    SmDeviceType types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES * 2];
 
     SmStatus status = smGetDeviceList2(serial_numbers, types, &count);
@@ -589,22 +614,10 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    status = sm_series_internal_get_networked_device_list2(
-        net_serials, net_types, &net_count, SM_ADDR_ANY);
-
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
-    }
-
     size_t dev_cnt = 0;
     for (; dev_cnt < count; dev_cnt++) {
         devices[dev_cnt].serial = serial_numbers[dev_cnt];
         devices[dev_cnt].type = types[dev_cnt];
-    }
-
-    for (size_t i = 0; i < net_count; i++, dev_cnt++) {
-        devices[dev_cnt].serial = net_serials[i];
-        devices[dev_cnt].type = net_types[i];
     }
 
     return array_to_tuple(devices, dev_cnt);
@@ -643,4 +656,108 @@ py::tuple get_networked_device_list2(const std::string &host) {
     }
 
     return array_to_tuple(devices, count);
+}
+
+static SmStatus
+sm_series_internal_retrieve_network_configs(int handle,
+                                            SmNetworkConfig &config) {
+    char mac[32], ip[32];
+    int port;
+
+    SmStatus status = smNetworkConfigGetMAC(handle, mac);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigGetMAC() failed");
+        return status;
+    }
+
+    status = smNetworkConfigGetIP(handle, ip);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigGetIP() failed");
+        return status;
+    }
+
+    status = smNetworkConfigGetPort(handle, &port);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigGetPort() failed");
+        return status;
+    }
+
+    config.mac = mac;
+    config.ip = ip;
+    config.port = port;
+
+    return status;
+}
+
+SmNetworkConfig retrieve_networked_configurations(int serial) {
+    int handle;
+    SmNetworkConfig config;
+
+    SmStatus status = smNetworkConfigOpenDevice(&handle, serial);
+
+    if (status != smNoError) {
+        LOG_ERR("Failed to open device");
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    status = sm_series_internal_retrieve_network_configs(handle, config);
+    (void)smNetworkConfigCloseDevice(handle);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    return config;
+}
+
+static SmStatus sm_series_internal_network_device_config(
+    int handle, const SmNetworkConfig &config, bool nvm) {
+    SmBool _nvm = nvm ? smTrue : smFalse;
+    SmStatus status = smNetworkConfigSetIP(handle, config.ip.c_str(), _nvm);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigSetIP() failed");
+        return status;
+    }
+
+    status = smNetworkConfigSetPort(handle, config.port, _nvm);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigSetPort failed");
+    }
+
+    return status;
+}
+
+void configure_networked_device(int serial, const SmNetworkConfig &config,
+                                bool non_volatile) {
+    int handle;
+
+    SmStatus status = smNetworkConfigOpenDevice(&handle, serial);
+    if (status != smNoError) {
+        LOG_ERR("smNetworkConfigOpenDevice");
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    status =
+        sm_series_internal_network_device_config(handle, config, non_volatile);
+    (void)smNetworkConfigCloseDevice(handle);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+}
+
+void broadcast_network_config(const SmNetworkConfig &config,
+                              const std::string &host, bool non_volatile) {
+    SmBool nvm = (non_volatile) ? smTrue : smFalse;
+
+    LOG_DBG("Broadcasting the following settings on host address %s: <ip "
+            "address: %s> <port: %d>",
+            host.c_str(), config.ip.c_str(), config.port);
+    SmStatus status =
+        smBroadcastNetworkConfig(host.c_str(), config.ip.c_str(),
+                                 static_cast<uint16_t>(config.port), nvm);
+    if (status != smNoError) {
+        LOG_ERR("smBroadcastNetworkConfig() failed");
+        throw std::runtime_error(smGetErrorString(status));
+    }
 }
