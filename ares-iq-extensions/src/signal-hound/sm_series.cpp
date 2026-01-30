@@ -527,22 +527,15 @@ close_device:
     return status;
 }
 
-SmStatus
+static SmStatus
 sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
-                                              int *count, const char *host) {
+                                              int count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
-    assert(count != nullptr);
 
-    SmStatus status = smNetworkConfigGetDeviceList(serials, count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
-            *count);
+    SmStatus status = smNoError;
 
-    if (status != smNoError) {
-        return status;
-    }
-
-    for (size_t i = 0; i < *count && status == smNoError; i++) {
+    for (size_t i = 0; i < count && status == smNoError; i++) {
         int handle = -1;
         char ip[32];
         int port;
@@ -575,7 +568,7 @@ sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
 
 py::tuple get_device_list2() {
     int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES],
-        net_count;
+        net_count = 0;
     SmDeviceType types[SM_MAX_DEVICES], net_types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES * 2];
 
@@ -586,8 +579,8 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    status = sm_series_internal_get_networked_device_list2(
-        net_serials, net_types, &net_count, SM_ADDR_ANY);
+    // status = sm_series_internal_get_networked_device_list2(
+    //     net_serials, net_types, &net_count, SM_ADDR_ANY);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -627,8 +620,17 @@ py::tuple get_networked_device_list2(const std::string &host) {
     SMDevice devices[SM_MAX_DEVICES];
 
     LOG_DBG("Host address: %s", host.c_str());
-    SmStatus status = sm_series_internal_get_networked_device_list2(
-        serials, types, &count, host.c_str());
+
+    SmStatus status = smNetworkConfigGetDeviceList(serials, &count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
+            count);
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+
+    status = sm_series_internal_get_networked_device_list2(
+        serials, types, count, host.c_str());
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
