@@ -492,6 +492,7 @@ py::tuple get_device_list() {
     return array_to_tuple(all_serials, all_count);
 }
 
+extern "C" {
 static SmStatus fetch_networked_attributes(const char *host, const char *ip, int port, int serial, SmDeviceType *type) {
     int handle = -1, serial_;
     SmDeviceType type_;
@@ -560,6 +561,7 @@ static SmStatus _get_networked_device_list2(int *serials, SmDeviceType *types, i
 
     return status;
 }
+    };
 
 py::tuple get_device_list2() {
     int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES], net_count;
