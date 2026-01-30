@@ -13,6 +13,7 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares-iq/util.hpp>
 #include <capture-progress/progress.hpp>
+#include <cassert>
 #include <complex>
 #include <logging/log.hpp>
 #include <pybind11/native_enum.h>
@@ -20,7 +21,6 @@
 #include <pybind11/pybind11.h>
 #include <stdexcept>
 #include <vector>
-#include <cassert>
 
 namespace py = pybind11;
 
@@ -135,8 +135,12 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
           "Retrieve a list of connected SM series devices");
     m.def("get_device_list2", get_device_list2,
           "Retrieve a list of connected SM series devices with device types");
-    m.def("get_networked_device_list", get_networked_device_list, "Retrieve a list of connected networked SM series devices");
-    m.def("get_networked_device_list2", get_networked_device_list2, py::arg("hostaddr") = std::string(SM_ADDR_ANY), "Retrieve a list of connected networked SM series devices with device types");
+    m.def("get_networked_device_list", get_networked_device_list,
+          "Retrieve a list of connected networked SM series devices");
+    m.def("get_networked_device_list2", get_networked_device_list2,
+          py::arg("hostaddr") = std::string(SM_ADDR_ANY),
+          "Retrieve a list of connected networked SM series devices with "
+          "device types");
 
     m.attr("HOST_ADDR_ANY") = SM_ADDR_ANY;
     m.attr("DEFAULT_DEV_ADDR") = SM_DEFAULT_ADDR;
@@ -461,7 +465,7 @@ void SM::_acquire_gps_lock() const {
 py::tuple get_device_list() {
     int serial_numbers[SM_MAX_DEVICES], count;
     int net_serials[SM_MAX_DEVICES], net_count;
-    int all_serials[SM_MAX_DEVICES * 2] = { 0 }, all_count = 0;
+    int all_serials[SM_MAX_DEVICES * 2] = {0}, all_count = 0;
 
     SmStatus status = smGetDeviceList(serial_numbers, &count);
     LOG_DBG("Fetched %d serial numbers from `smGetDeviceList`", count);
@@ -473,7 +477,8 @@ py::tuple get_device_list() {
     std::this_thread::sleep_for(std::chrono::milliseconds(500));
 
     status = smNetworkConfigGetDeviceList(net_serials, &net_count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", net_count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
+            net_count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -492,8 +497,10 @@ py::tuple get_device_list() {
     return array_to_tuple(all_serials, all_count);
 }
 
-extern "C" {
-static SmStatus fetch_networked_attributes(const char *host, const char *ip, int port, int serial, SmDeviceType *type) {
+static SmStatus
+sm_series_internal_fetch_networked_attributes(const char *host, const char *ip,
+                                              int port, int serial,
+                                              SmDeviceType *type) {
     int handle = -1, serial_;
     SmDeviceType type_;
     SmStatus status = smOpenNetworkedDevice(&handle, host, ip, port);
@@ -514,19 +521,22 @@ static SmStatus fetch_networked_attributes(const char *host, const char *ip, int
         *type = smDeviceTypeNotSet;
     }
 
-    close_device:
+close_device:
     smCloseDevice(handle);
 
     return status;
 }
 
-static SmStatus _get_networked_device_list2(int *serials, SmDeviceType *types, int *count, const char *host) {
+static SmStatus
+sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
+                                              int *count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
     assert(count != nullptr);
 
     SmStatus status = smNetworkConfigGetDeviceList(serials, count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", *count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
+            *count);
 
     if (status != smNoError) {
         return status;
@@ -550,21 +560,22 @@ static SmStatus _get_networked_device_list2(int *serials, SmDeviceType *types, i
 
         status = smNetworkConfigGetPort(handle, &port);
 
-        close_config_device:
+    close_config_device:
         (void)smNetworkConfigCloseDevice(handle);
         if (status != smNoError) {
             continue;
         }
 
-        status = fetch_networked_attributes(host, ip, port, serials[i], &types[i]);
+        status = sm_series_internal_fetch_networked_attributes(
+            host, ip, port, serials[i], &types[i]);
     }
 
     return status;
 }
-    };
 
 py::tuple get_device_list2() {
-    int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES], net_count;
+    int serial_numbers[SM_MAX_DEVICES], count, net_serials[SM_MAX_DEVICES],
+        net_count;
     SmDeviceType types[SM_MAX_DEVICES], net_types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES * 2];
 
@@ -575,7 +586,8 @@ py::tuple get_device_list2() {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    status = _get_networked_device_list2(net_serials, net_types, &net_count, SM_ADDR_ANY);
+    status = sm_series_internal_get_networked_device_list2(
+        net_serials, net_types, &net_count, SM_ADDR_ANY);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -599,7 +611,8 @@ py::tuple get_networked_device_list() {
     int serial_numbers[SM_MAX_DEVICES], count;
 
     SmStatus status = smNetworkConfigGetDeviceList(serial_numbers, &count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`", count);
+    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
+            count);
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
@@ -614,7 +627,8 @@ py::tuple get_networked_device_list2(const std::string &host) {
     SMDevice devices[SM_MAX_DEVICES];
 
     LOG_DBG("Host address: %s", host.c_str());
-    SmStatus status = _get_networked_device_list2(serials, types, &count, host.c_str());
+    SmStatus status = sm_series_internal_get_networked_device_list2(
+        serials, types, &count, host.c_str());
 
     if (status != smNoError) {
         throw std::runtime_error(smGetErrorString(status));
