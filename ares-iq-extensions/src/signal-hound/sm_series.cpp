@@ -527,7 +527,7 @@ close_device:
     return status;
 }
 
-SmStatus
+__attribute__((visibility("hidden"))) SmStatus
 sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
                                               int *count, const char *host) {
     assert(serials != nullptr);
