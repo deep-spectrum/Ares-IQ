@@ -94,7 +94,7 @@ class SM:
                                   device_addr=configs.device_addr,
                                   port=configs.port)
         self._dev = _SM(configs_)
-        self._gps_stamping = configs.gps_timestamping
+        self._gps_stamping = configs_.gps_timestamping
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData]]:
