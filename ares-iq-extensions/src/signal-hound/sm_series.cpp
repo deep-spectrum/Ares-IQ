@@ -27,6 +27,8 @@ namespace py = pybind11;
 LOG_MODULE_REGISTER(sm_logger);
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
+    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude, altitude);
+
     py::native_enum<SmDeviceType>(m, "SmDeviceType", "enum.IntEnum")
         .value("SM200A", smDeviceTypeSM200A)
         .value("SM200B", smDeviceTypeSM200B)
@@ -168,8 +170,6 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
-
-    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude, altitude);
 }
 
 template <typename T>
@@ -223,8 +223,11 @@ float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
 
-static void check_sm_status(SmStatus status) {
+#define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
+
+static void check_sm_status(SmStatus status, std::string caller) {
     if (status != smNoError) {
+        LOG_ERR("%s failed", caller.c_str());
         throw std::runtime_error(smGetErrorString(status));
     }
 }
@@ -278,7 +281,7 @@ py::tuple SM::firmware_version() {
         not_open = true;
     }
 
-    check_sm_status(smGetFirmwareVersion(fd, &major, &minor, &revision));
+    check_sm_status(_SM_API_CALL_TRACE(smGetFirmwareVersion(fd, &major, &minor, &revision)));
 
     if (not_open) {
         _close_device();
@@ -294,7 +297,7 @@ SmDiagnostics SM::diagnostic_info() const {
         throw std::runtime_error("Device not open");
     }
 
-    check_sm_status(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics));
+    check_sm_status(_SM_API_CALL_TRACE(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics)));
 
     return diagnostics;
 }
@@ -414,21 +417,21 @@ void SM::_configure(double center, double bw) const {
 
     LOG_INF("Configuring the SM device");
 
-    check_sm_status(smSetIQCenterFreq(fd, center));
-    check_sm_status(smSetIQSampleRate(fd, _configs.decimation));
-    check_sm_status(smSetIQBandwidth(fd, enable_sw_filter, bw));
-    check_sm_status(smSetIQDataType(fd, smDataType32fc));
+    check_sm_status(_SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
+    check_sm_status(_SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
+    check_sm_status(_SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
+    check_sm_status(_SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
     _configure_gps();
 
-    check_sm_status(smConfigure(fd, smModeIQ));
+    check_sm_status(_SM_API_CALL_TRACE(smConfigure(fd, smModeIQ)));
 }
 
 void SM::_configure_gps() const {
     if (_configs.gps_timestamping) {
-        check_sm_status(smSetGPSTimebaseUpdate(fd, smTrue));
-        check_sm_status(smSetGPSPlatformModel(fd, _configs.gps_model));
+        check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
+        check_sm_status(_SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
     } else {
-        check_sm_status(smSetGPSTimebaseUpdate(fd, smFalse));
+        check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
     }
 }
 
