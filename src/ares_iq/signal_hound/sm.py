@@ -113,27 +113,27 @@ class SM:
 
 class SM200A(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
-        super().__init__(SmDeviceType.smDeviceTypeSM200A, configs, serial)
+        super().__init__(SmDeviceType.SM200A, configs, serial)
 
 
 class SM200B(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
-        super().__init__(SmDeviceType.smDeviceTypeSM200B, configs, serial)
+        super().__init__(SmDeviceType.SM200B, configs, serial)
 
 
 class SM200C(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
-        super().__init__(SmDeviceType.smDeviceTypeSM200C, configs, serial)
+        super().__init__(SmDeviceType.SM200C, configs, serial)
 
 
 class SM435B(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
-        super().__init__(SmDeviceType.smDeviceTypeSM435B, configs, serial)
+        super().__init__(SmDeviceType.SM435B, configs, serial)
 
 
 class SM435C(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
-        super().__init__(SmDeviceType.smDeviceTypeSM435C, configs, serial)
+        super().__init__(SmDeviceType.SM435C, configs, serial)
 
 
 @dataclass(frozen=True)
