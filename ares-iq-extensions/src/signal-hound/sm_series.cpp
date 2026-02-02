@@ -349,6 +349,7 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
         progress.update();
     }
     progress.update();
+    LOG_DBG("Data collection time: %ld ms", progress.duration_ms());
 
     return py::make_tuple(data_array, capture_times, gps_array);
 }

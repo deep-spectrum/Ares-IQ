@@ -58,6 +58,12 @@ class Progress {
      */
     void stop(const void *exception = nullptr);
 
+    /**
+     * Duration between start of progress and latest update.
+     * @return The duration in milliseconds.
+     */
+    long duration_ms() const;
+
   private:
 #if !defined(USE_PYTHON_LIB)
     bool _hide;
@@ -69,6 +75,7 @@ class Progress {
     double _percent_complete = 0;
     std::atomic_bool _terminate{false};
     std::chrono::system_clock::time_point _start;
+    std::chrono::system_clock::time_point _last_update;
     std::string _rate = "0.0 MS/sec ";
 
     void _refresh_task();

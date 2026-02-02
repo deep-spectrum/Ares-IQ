@@ -85,10 +85,10 @@ void Progress::start() {
 #if defined(USE_PYTHON_LIB)
     _impl->start();
 #else
+    _start = std::chrono::system_clock::now();
     if (_hide) {
         return;
     }
-    _start = std::chrono::system_clock::now();
     _refresh_thread = std::thread(&Progress::_refresh_task, this);
 #endif // defined(USE_PYTHON_LIB)
 }
@@ -97,6 +97,7 @@ void Progress::update() {
 #if defined(USE_PYTHON_LIB)
     _impl->update();
 #else
+    _last_update = std::chrono::system_clock::now();
     if (_hide) {
         return;
     }
@@ -117,6 +118,14 @@ void Progress::stop(const void *exception) {
     if (_refresh_thread.joinable()) {
         _refresh_thread.join();
     }
+#endif // defined(USE_PYTHON_LIB)
+}
+
+long Progress::duration_ms() const {
+#if defined(USE_PYTHON_LIB)
+    return 0;
+#else
+    return std::chrono::duration_cast<std::chrono::milliseconds>(_last_update - _start).count();
 #endif // defined(USE_PYTHON_LIB)
 }
 
