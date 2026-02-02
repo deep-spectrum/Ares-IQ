@@ -1,4 +1,4 @@
-from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list2, \
+from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, get_networked_device_list, \
     HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
@@ -131,3 +131,27 @@ class SM435B(SM):
 class SM435C(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.smDeviceTypeSM435C, configs, serial)
+
+
+def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int, ...]:
+    """Retrieve a list of connected SM devices
+
+    Args:
+        usb: Flag to indicate whether USB SM devices should be retrieved or not.
+        networked: Flag to indicate whether networked SM devices should be retrieved or not.
+
+    Returns:
+        A tuple of serial numbers
+    """
+
+    if not usb and not networked:
+        return tuple()
+
+    usb_devs: tuple[int] = tuple()
+    network_devs: tuple[int] = tuple()
+
+    if usb:
+        usb_devs = get_device_list()
+    if networked:
+        network_devs = get_networked_device_list()
+    return usb_devs + network_devs
