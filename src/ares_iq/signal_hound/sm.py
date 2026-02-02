@@ -94,14 +94,17 @@ class SM:
                                   device_addr=configs.device_addr,
                                   port=configs.port)
         self._dev = _SM(configs_)
+        self._gps_stamping = configs.gps_timestamping
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData]]:
         iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
 
         iq_data_ = [IQData() for _ in timestamps]
-        for data, ts, iq in zip(iq_data, timestamps, iq_data_):
+        for data, ts, gps, iq in zip(iq_data, timestamps, gps_info, iq_data_):
             iq.iq = data
+            print(ts)
+            print(f"{gps.sec_since_epoch} {gps.latitude} {gps.longitude} {gps.altitude}")
             # TODO: Convert ts
 
         quant_data = self._quantize(iq_data_)

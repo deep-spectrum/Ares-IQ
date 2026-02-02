@@ -327,6 +327,11 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
     py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
     py::buffer_info gps_buf_info = gps_array.request(true);
 
+    LOG_DBG("Collecting %lu captures", captures);
+    LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
+    LOG_DBG("Timestamp data size: %ld bytes", capture_times.size() * capture_times.itemsize());
+    LOG_DBG("Total size: %ld bytes", (data_array.size() * data_array.itemsize()) + (capture_times.size() * capture_times.itemsize()));
+
     for (size_t i = 0; i < captures; i++) {
         data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
                       (i * samples_per_capture);
@@ -349,7 +354,7 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
         progress.update();
     }
     progress.update();
-    LOG_DBG("Data collection time: %ld ms", progress.duration_ms());
+    LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
 
     return py::make_tuple(data_array, capture_times, gps_array);
 }
