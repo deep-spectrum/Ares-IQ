@@ -1,6 +1,7 @@
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
-    get_networked_device_list, get_device_list2, get_networked_device_list2, \
-    HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
+    get_networked_device_list, get_device_list2, get_networked_device_list2, broadcast_network_config, \
+    retrieve_networked_configurations, configure_networked_device, _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, \
+    DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -201,3 +202,29 @@ def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | Non
 
     return tuple(
         [SmDevice(dev.serial, dev.type) for dev in network_devs] + [SmDevice(dev.serial, dev.type) for dev in usb_devs])
+
+
+@dataclass()
+class SmNetworkConfig:
+    mac: str = ""
+    ip: str = ""
+    port: int = 0
+    serial: int = -1
+
+
+def sm_get_network_config(serial: int) -> SmNetworkConfig:
+    config_ = retrieve_networked_configurations(serial)
+    return SmNetworkConfig(mac=config_.mac, ip=config_.ipaddr, port=config_.port, serial=serial)
+
+
+def sm_configure_network_device(serial: int, config: SmNetworkConfig, non_volatile: bool = False):
+    config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
+    configure_networked_device(serial, config_, non_volatile)
+
+
+def sm_broadcast_network_config(config: SmNetworkConfig, host: str | None = None, non_volatile: bool = False):
+    config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
+    if host is None:
+        broadcast_network_config(config_, non_volatile=non_volatile)
+    else:
+        broadcast_network_config(config_, host, non_volatile)
