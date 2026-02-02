@@ -1,4 +1,4 @@
-from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, get_networked_device_list, \
+from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, get_networked_device_list, get_device_list2, get_networked_device_list2, \
     HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
@@ -8,6 +8,7 @@ from ares_iq.configs import ConfigBase
 from enum import Enum
 import logging
 from ctypes import c_uint16
+from dataclasses import dataclass
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -133,8 +134,14 @@ class SM435C(SM):
         super().__init__(SmDeviceType.smDeviceTypeSM435C, configs, serial)
 
 
+@dataclass(frozen=True)
+class SmDevice:
+    serial: int
+    type: SmDeviceType
+
+
 def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int, ...]:
-    """Retrieve a list of connected SM devices
+    """Retrieve a list of connected SM devices.
 
     Args:
         usb: Flag to indicate whether USB SM devices should be retrieved or not.
@@ -142,16 +149,53 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int
 
     Returns:
         A tuple of serial numbers
+
+    Notes:
+        The networked device serial numbers are retrieved through the configuration USB. Thus,
+        in order to retrieve networked devices, they need to be connected to USB as well.
     """
 
     if not usb and not networked:
         return tuple()
 
-    usb_devs: tuple[int] = tuple()
-    network_devs: tuple[int] = tuple()
+    usb_devs: tuple[int, ...] = tuple()
+    network_devs: tuple[int, ...] = tuple()
 
     if networked:
         network_devs = get_networked_device_list()
     if usb:
         usb_devs = get_device_list()
     return usb_devs + network_devs
+
+
+def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | None = None) -> tuple[SmDevice, ...]:
+    """Retrieve a list of connected SM devices.
+
+    Args:
+        usb: Flag to indicate whether USB SM devices should be retrieved or not.
+        networked: Flag to indicate whether networked SM devices should be retrieved or not.
+        host: The host address to search for networked devices on.
+
+    Returns:
+        A tuple of the SM device serial numbers and their types.
+
+    Notes:
+        The networked device serial numbers are retrieved through the configuration USB. Thus,
+        in order to retrieve networked devices, they need to be connected to USB as well.
+    """
+
+    if not usb and not networked:
+        return tuple()
+
+    usb_devs: tuple[_SmDevice, ...] = tuple()
+    network_devs: tuple[_SmDevice, ...] = tuple()
+
+    if networked:
+        if host is None:
+            network_devs = get_networked_device_list2()
+        else:
+            network_devs = get_networked_device_list2(host)
+    if usb:
+        usb = get_device_list2()
+
+    return tuple([SmDevice(dev.serial, dev.type) for dev in network_devs] + [SmDevice(dev.serial, dev.type) for dev in usb])
