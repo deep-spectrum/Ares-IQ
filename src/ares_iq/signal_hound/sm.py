@@ -213,16 +213,46 @@ class SmNetworkConfig:
 
 
 def sm_get_network_config(serial: int) -> SmNetworkConfig:
+    """Get the specified networked SM device configurations over USB 2.0.
+
+    Args:
+        serial: The serial number of the networked device.
+
+    Returns:
+        The SM device network configuration.
+    """
     config_ = retrieve_networked_configurations(serial)
     return SmNetworkConfig(mac=config_.mac, ip=config_.ipaddr, port=config_.port, serial=serial)
 
 
 def sm_configure_network_device(serial: int, config: SmNetworkConfig, non_volatile: bool = False):
+    """Configure the specified networked SM device.
+
+    Args:
+        serial: The serial number of the networked device.
+        config: The new configuration for the specified networked device.
+        non_volatile: Flag to indicate whether the config should persist through power cycles.
+
+    Notes:
+        The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
+        The mac and the serial fields are immutable.
+    """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     configure_networked_device(serial, config_, non_volatile)
 
 
 def sm_broadcast_network_config(config: SmNetworkConfig, host: str | None = None, non_volatile: bool = False):
+    """Broadcast a network configuration to all network devices.
+
+    Args:
+        config: The new configuration for the networked devices.
+        host: The host address to send the network configuration on.
+        non_volatile: Flag to indicate whether the config should persist through power cycles.
+
+    Notes:
+        The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
+        The mac and the serial fields are immutable.
+    """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     if host is None:
         broadcast_network_config(config_, non_volatile=non_volatile)
