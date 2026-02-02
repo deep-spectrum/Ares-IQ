@@ -27,8 +27,6 @@ namespace py = pybind11;
 LOG_MODULE_REGISTER(sm_logger);
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
-    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude, altitude);
-
     py::native_enum<SmDeviceType>(m, "SmDeviceType", "enum.IntEnum")
         .value("SM200A", smDeviceTypeSM200A)
         .value("SM200B", smDeviceTypeSM200B)
@@ -119,20 +117,22 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
     py::class_<SmGpsInfo>(m, "_SmGpsInfo", "GPS information from SM device")
         .def(py::init<>())
-        .def_property_readonly(
-            "sec_since_epoch", &SmGpsInfo::sec_since_epoch_,
+        .def_readonly(
+            "sec_since_epoch", &SmGpsInfo::sec_since_epoch,
             "Number of seconds since epoch as reported by the GPS NMEA "
             "sentences. Last reported value by the GPS. If the GPS is not "
             "locked, this value will be set to zero.")
-        .def_property_readonly("latitude", &SmGpsInfo::latitude_,
+        .def_readonly("latitude", &SmGpsInfo::latitude,
                                "Latitude in decimal degrees. If the GPS is not "
                                "locked, this value will be set to zero.")
-        .def_property_readonly("longitude", &SmGpsInfo::longitude_,
+        .def_readonly("longitude", &SmGpsInfo::longitude,
                                "Longitude in decimal degrees. If the GPS is "
                                "not locked, this value will be set to zero.")
-        .def_property_readonly("altitude", &SmGpsInfo::altitude_,
+        .def_readonly("altitude", &SmGpsInfo::altitude,
                                "Altitude in meters. If the GPS is not locked, "
                                "this value will be set to zero.");
+
+    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude, altitude);
 
     py::class_<SM>(m, "_SM", "SM series device instance")
         .def(py::init<const SMConfigs &>())
@@ -231,14 +231,6 @@ static void check_sm_status(SmStatus status, std::string caller) {
         throw std::runtime_error(smGetErrorString(status));
     }
 }
-
-int64_t SmGpsInfo::sec_since_epoch_() const { return sec_since_epoch; }
-
-double SmGpsInfo::latitude_() const { return latitude; }
-
-double SmGpsInfo::longitude_() const { return longitude; }
-
-double SmGpsInfo::altitude_() const { return altitude; }
 
 SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
     KWARG_TO_STRUCT_PARAM(kwargs, ip);

@@ -225,31 +225,6 @@ struct SmGpsInfo {
      * zero.
      */
     double altitude = 0.0;
-
-    /**
-     * Number of seconds since epoch as reported by the GPS NMEA sentences. Last
-     * reported value by the GPS. If the GPS is not locked, this value will be
-     * set to zero.
-     */
-    [[nodiscard]] int64_t sec_since_epoch_() const;
-
-    /**
-     * Latitude in decimal degrees. If the GPS is not locked, this value will be
-     * set to zero.
-     */
-    [[nodiscard]] double latitude_() const;
-
-    /**
-     * Longitude in decimal degrees. If the GPS is not locked, this value will
-     * be set to zero.
-     */
-    [[nodiscard]] double longitude_() const;
-
-    /**
-     * Altitude in meters. If the GPS is not locked, this value will be set to
-     * zero.
-     */
-    [[nodiscard]] double altitude_() const;
 };
 
 /**
