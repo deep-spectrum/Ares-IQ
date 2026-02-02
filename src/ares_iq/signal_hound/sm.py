@@ -150,8 +150,8 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int
     usb_devs: tuple[int] = tuple()
     network_devs: tuple[int] = tuple()
 
-    if usb:
-        usb_devs = get_device_list()
     if networked:
         network_devs = get_networked_device_list()
+    if usb:
+        usb_devs = get_device_list()
     return usb_devs + network_devs
