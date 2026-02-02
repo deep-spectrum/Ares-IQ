@@ -80,7 +80,7 @@ class SMConfigs(ConfigBase):
 class SM:
     def __init__(self, model: SmDeviceType, configs: SMConfigs | None = None, serial: int = -1):
         if configs is None:
-            configs_ = _SmConfigs()
+            configs_ = _SmConfigs(type=model)
         else:
             configs_ = _SmConfigs(type=model,
                                   serial=serial,
