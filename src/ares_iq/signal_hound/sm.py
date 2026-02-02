@@ -207,8 +207,8 @@ def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | Non
 @dataclass()
 class SmNetworkConfig:
     mac: str = ""
-    ip: str = ""
-    port: int = 0
+    ip: str = DEFAULT_DEV_ADDR
+    port: int = DEFAULT_PORT
     serial: int = -1
 
 
