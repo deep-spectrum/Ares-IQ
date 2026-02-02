@@ -342,6 +342,7 @@ class SM {
     int fd = -1;
     SMConfigs _configs;
     bool _open = false;
+    bool _gps_configured = false;
 
     py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent);
@@ -352,9 +353,9 @@ class SM {
 
     void _close_device();
 
-    void _configure(double center, double bw) const;
+    void _configure(double center, double bw);
 
-    void _configure_gps() const;
+    void _configure_gps();
     void _acquire_gps_lock() const;
     bool _acquire_gps_lock(SmGPSState target_state) const;
 };

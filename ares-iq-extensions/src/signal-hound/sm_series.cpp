@@ -412,7 +412,7 @@ void SM::_close_device() {
     }
 }
 
-void SM::_configure(double center, double bw) const {
+void SM::_configure(double center, double bw) {
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
 
     LOG_INF("Configuring the SM device");
@@ -426,13 +426,19 @@ void SM::_configure(double center, double bw) const {
     check_sm_status(_SM_API_CALL_TRACE(smConfigure(fd, smModeIQ)));
 }
 
-void SM::_configure_gps() const {
+void SM::_configure_gps() {
+    if (_gps_configured) {
+        return;
+    }
+
     if (_configs.gps_timestamping) {
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
     } else {
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
     }
+
+    _gps_configured = true;
 }
 
 bool SM::_acquire_gps_lock(SmGPSState target_state) const {
