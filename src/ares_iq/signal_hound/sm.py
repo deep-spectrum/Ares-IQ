@@ -1,4 +1,5 @@
-from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, get_networked_device_list, get_device_list2, get_networked_device_list2, \
+from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
+    get_networked_device_list, get_device_list2, get_networked_device_list2, \
     HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
@@ -196,6 +197,7 @@ def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | Non
         else:
             network_devs = get_networked_device_list2(host)
     if usb:
-        usb = get_device_list2()
+        usb_devs = get_device_list2()
 
-    return tuple([SmDevice(dev.serial, dev.type) for dev in network_devs] + [SmDevice(dev.serial, dev.type) for dev in usb])
+    return tuple(
+        [SmDevice(dev.serial, dev.type) for dev in network_devs] + [SmDevice(dev.serial, dev.type) for dev in usb_devs])
