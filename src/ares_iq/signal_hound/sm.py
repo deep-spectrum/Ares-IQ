@@ -104,7 +104,7 @@ class SM:
         for data, ts, gps, iq in zip(iq_data, timestamps, gps_info, iq_data_):
             iq.iq = data
             print(ts)
-            print(f"{gps.sec_since_epoch} {gps.latitude} {gps.longitude} {gps.altitude}")
+            print(f"{gps['sec_since_epoch']} {gps['latitude']} {gps['longitude']} {gps['altitude']}")
             # TODO: Convert ts
 
         quant_data = self._quantize(iq_data_)
