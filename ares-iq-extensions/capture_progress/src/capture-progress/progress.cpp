@@ -125,7 +125,9 @@ long Progress::duration_ms() const {
 #if defined(USE_PYTHON_LIB)
     return 0;
 #else
-    return std::chrono::duration_cast<std::chrono::milliseconds>(_last_update - _start).count();
+    return std::chrono::duration_cast<std::chrono::milliseconds>(_last_update -
+                                                                 _start)
+        .count();
 #endif // defined(USE_PYTHON_LIB)
 }
 

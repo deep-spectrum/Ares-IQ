@@ -123,16 +123,17 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
             "sentences. Last reported value by the GPS. If the GPS is not "
             "locked, this value will be set to zero.")
         .def_readonly("latitude", &SmGpsInfo::latitude,
-                               "Latitude in decimal degrees. If the GPS is not "
-                               "locked, this value will be set to zero.")
+                      "Latitude in decimal degrees. If the GPS is not "
+                      "locked, this value will be set to zero.")
         .def_readonly("longitude", &SmGpsInfo::longitude,
-                               "Longitude in decimal degrees. If the GPS is "
-                               "not locked, this value will be set to zero.")
+                      "Longitude in decimal degrees. If the GPS is "
+                      "not locked, this value will be set to zero.")
         .def_readonly("altitude", &SmGpsInfo::altitude,
-                               "Altitude in meters. If the GPS is not locked, "
-                               "this value will be set to zero.");
+                      "Altitude in meters. If the GPS is not locked, "
+                      "this value will be set to zero.");
 
-    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude, altitude);
+    PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude,
+                         altitude);
 
     py::class_<SM>(m, "_SM", "SM series device instance")
         .def(py::init<const SMConfigs &>())
@@ -273,7 +274,8 @@ py::tuple SM::firmware_version() {
         not_open = true;
     }
 
-    check_sm_status(_SM_API_CALL_TRACE(smGetFirmwareVersion(fd, &major, &minor, &revision)));
+    check_sm_status(_SM_API_CALL_TRACE(
+        smGetFirmwareVersion(fd, &major, &minor, &revision)));
 
     if (not_open) {
         _close_device();
@@ -289,7 +291,8 @@ SmDiagnostics SM::diagnostic_info() const {
         throw std::runtime_error("Device not open");
     }
 
-    check_sm_status(_SM_API_CALL_TRACE(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics)));
+    check_sm_status(_SM_API_CALL_TRACE(
+        smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics)));
 
     return diagnostics;
 }
@@ -321,8 +324,11 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
 
     LOG_DBG("Collecting %lu captures", captures);
     LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
-    LOG_DBG("Timestamp data size: %ld bytes", capture_times.size() * capture_times.itemsize());
-    LOG_DBG("Total size: %ld bytes", (data_array.size() * data_array.itemsize()) + (capture_times.size() * capture_times.itemsize()));
+    LOG_DBG("Timestamp data size: %ld bytes",
+            capture_times.size() * capture_times.itemsize());
+    LOG_DBG("Total size: %ld bytes",
+            (data_array.size() * data_array.itemsize()) +
+                (capture_times.size() * capture_times.itemsize()));
 
     for (size_t i = 0; i < captures; i++) {
         data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
@@ -416,8 +422,10 @@ void SM::_configure(double center, double bw) {
     LOG_INF("Configuring the SM device");
 
     check_sm_status(_SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
-    check_sm_status(_SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
-    check_sm_status(_SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
+    check_sm_status(
+        _SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
+    check_sm_status(
+        _SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
     check_sm_status(_SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
     _configure_gps();
 
@@ -431,12 +439,39 @@ void SM::_configure_gps() {
 
     if (_configs.gps_timestamping) {
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
-        check_sm_status(_SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
+        check_sm_status(
+            _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
     } else {
-        check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
+        check_sm_status(
+            _SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
     }
 
     _gps_configured = true;
+}
+
+static void log_gps_state(SmGPSState state) {
+    static SmGPSState prev_state = smGPSStateDisciplined;
+
+    if (state == prev_state) {
+        return;
+    }
+
+    switch (state) {
+    case smGPSStateNotPresent:
+        LOG_DBG("Current GPS state: Not Present");
+        break;
+    case smGPSStateLocked:
+        LOG_DBG("Current GPS state: Locked");
+        break;
+    case smGPSStateDisciplined:
+        LOG_DBG("Current GPS state: Disciplined");
+        break;
+    default:
+        LOG_ERR("Invalid GPS state");
+        break;
+    }
+
+    prev_state = state;
 }
 
 bool SM::_acquire_gps_lock(SmGPSState target_state) const {
@@ -445,6 +480,7 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
     SmStatus status;
 
     status = smGetGPSState(fd, &state);
+    log_gps_state(state);
 
     if (PyErr_CheckSignals() != 0) {
         LOG_INF("Python exception raised");
