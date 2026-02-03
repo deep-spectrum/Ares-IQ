@@ -514,6 +514,11 @@ void SM::_acquire_gps_lock() const {
         timeout_s--;
     } while (!locked && (!timeout || timeout_s >= 0));
 
+    if (!locked) {
+        LOG_ERR("GPS lock timed out");
+        throw std::runtime_error("Unable to acquire a GPS lock");
+    }
+
     LOG_INF("GPS lock acquired. Setting platform model.");
     check_sm_status(
         _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
@@ -522,6 +527,11 @@ void SM::_acquire_gps_lock() const {
         locked = _acquire_gps_lock(smGPSStateDisciplined);
         timeout_s--;
     } while (!locked && (!timeout || timeout_s >= 0));
+
+    if (!locked) {
+        LOG_ERR("GPS lock timed out");
+        throw std::runtime_error("Unable to acquire a GPS lock");
+    }
 
     auto end_time = std::chrono::steady_clock::now();
 
