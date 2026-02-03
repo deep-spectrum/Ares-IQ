@@ -103,15 +103,21 @@ class SM:
         iq_data_ = [IQData() for _ in timestamps]
         for data, ts, gps, iq in zip(iq_data, timestamps, gps_info, iq_data_):
             iq.iq = data
-            print(ts)
-            print(f"{gps['sec_since_epoch']} {gps['latitude']} {gps['longitude']} {gps['altitude']}")
-            # TODO: Convert ts
+            ts_sec, ts_nsec = self._generate_ts(ts, gps['sec_since_epoch'])
+            iq.ts_sec = ts_sec
+            iq.ts_nsec = ts_nsec
 
         quant_data = self._quantize(iq_data_)
         return iq_data_, quant_data
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
         return [QuantizedData() for _ in iq_data]
+
+    def _generate_ts(self, ts: int, sec_since_epoch: int) -> tuple[int, int]:
+        # TODO
+        if self._gps_stamping:
+            return 0, ts
+        return 0, ts
 
 
 class SM200A(SM):
