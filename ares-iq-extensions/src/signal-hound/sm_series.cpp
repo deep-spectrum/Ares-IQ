@@ -503,7 +503,8 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
 
 void SM::_acquire_gps_lock() const {
     bool locked, timeout = _configs.gps_lock_timeout != 0;
-    int32_t timeout_s = _configs.gps_lock_timeout;
+    long time_elapsed;
+    long timeout_s = _configs.gps_lock_timeout;
 
     if (!_configs.gps_timestamping) {
         return;
@@ -514,8 +515,10 @@ void SM::_acquire_gps_lock() const {
     auto start_time = std::chrono::steady_clock::now();
     do {
         locked = _acquire_gps_lock(smGPSStateLocked);
-        timeout_s--;
-    } while (!locked && (!timeout || timeout_s >= 0));
+        time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                           std::chrono::steady_clock::now() - start_time)
+                           .count();
+    } while (!locked && (!timeout || time_elapsed > timeout_s));
 
     if (!locked) {
         LOG_ERR("GPS lock timed out");
@@ -528,8 +531,10 @@ void SM::_acquire_gps_lock() const {
 
     do {
         locked = _acquire_gps_lock(smGPSStateDisciplined);
-        timeout_s--;
-    } while (!locked && (!timeout || timeout_s >= 0));
+        time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                           std::chrono::steady_clock::now() - start_time)
+                           .count();
+    } while (!locked && (!timeout || time_elapsed > timeout_s));
 
     if (!locked) {
         LOG_ERR("GPS lock timed out");
