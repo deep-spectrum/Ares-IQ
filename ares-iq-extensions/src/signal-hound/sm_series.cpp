@@ -518,7 +518,7 @@ void SM::_acquire_gps_lock() const {
         time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::steady_clock::now() - start_time)
                            .count();
-    } while (!locked && (!timeout || time_elapsed > timeout_s));
+    } while (!locked && (!timeout || time_elapsed < timeout_s));
     LOG_DBG("Time elapsed to acquire a lock: %ld s",
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::steady_clock::now() - start_time)
@@ -538,7 +538,7 @@ void SM::_acquire_gps_lock() const {
         time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::steady_clock::now() - start_time)
                            .count();
-    } while (!locked && (!timeout || time_elapsed > timeout_s));
+    } while (!locked && (!timeout || time_elapsed < timeout_s));
     LOG_DBG("Time elapsed to discipline the oscillator: %ld s",
             std::chrono::duration_cast<std::chrono::seconds>(
                 std::chrono::steady_clock::now() - start_time)
