@@ -448,9 +448,11 @@ void SM::_configure_gps() {
 }
 
 static void log_gps_state(SmGPSState state) {
-    static SmGPSState prev_state = smGPSStateDisciplined;
+    static SmGPSState prev_state = smGPSStateNotPresent;
+    static int count = 0;
 
-    if (state == prev_state) {
+    if (state == prev_state && count != 0) {
+        count = (count + 1) % 10;
         return;
     }
 
@@ -470,6 +472,7 @@ static void log_gps_state(SmGPSState state) {
     }
 
     prev_state = state;
+    count++;
 }
 
 bool SM::_acquire_gps_lock(SmGPSState target_state) const {
