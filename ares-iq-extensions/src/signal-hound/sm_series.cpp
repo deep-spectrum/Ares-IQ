@@ -439,8 +439,6 @@ void SM::_configure_gps() {
 
     if (_configs.gps_timestamping) {
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
-        check_sm_status(
-            _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
     } else {
         check_sm_status(
             _SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
@@ -501,7 +499,8 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
 }
 
 void SM::_acquire_gps_lock() const {
-    bool locked;
+    bool locked, timeout = _configs.gps_lock_timeout != 0;
+    int32_t timeout_s = _configs.gps_lock_timeout;
 
     if (!_configs.gps_timestamping) {
         return;
@@ -510,27 +509,28 @@ void SM::_acquire_gps_lock() const {
     LOG_INF("Acquiring a GPS lock");
 
     auto start_time = std::chrono::steady_clock::now();
-    if (_configs.gps_lock_timeout == 0) {
-        do {
-            locked = _acquire_gps_lock(smGPSStateDisciplined);
-        } while (!locked);
-    } else {
-        int32_t timeout = _configs.gps_lock_timeout;
-        do {
-            locked = _acquire_gps_lock(smGPSStateDisciplined);
-            timeout--;
-        } while (!locked && timeout >= 0);
+    do {
+        locked = _acquire_gps_lock(smGPSStateLocked);
+        timeout_s--;
+    } while (!locked && (!timeout || timeout_s >= 0));
 
-        if (!locked) {
-            LOG_ERR("GPS lock timed out");
-            throw std::runtime_error("Unable to acquire a GPS lock");
-        }
-    }
+    LOG_INF("GPS lock acquired. Setting platform model.");
+    check_sm_status(
+        _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
+
+    do {
+        locked = _acquire_gps_lock(smGPSStateDisciplined);
+        timeout_s--;
+    } while (!locked && (!timeout || timeout_s >= 0));
+
     auto end_time = std::chrono::steady_clock::now();
 
     LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
             std::chrono::duration_cast<std::chrono::seconds>(end_time -
                                                              start_time));
+
+    check_sm_status(
+        _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
 }
 
 py::tuple get_device_list() {
