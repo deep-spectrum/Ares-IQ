@@ -510,7 +510,7 @@ void SM::_acquire_gps_lock() const {
         return;
     }
 
-    LOG_INF("Acquiring a GPS lock");
+    LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
 
     auto start_time = std::chrono::steady_clock::now();
     do {
@@ -519,6 +519,10 @@ void SM::_acquire_gps_lock() const {
                            std::chrono::steady_clock::now() - start_time)
                            .count();
     } while (!locked && (!timeout || time_elapsed > timeout_s));
+    LOG_DBG("Time elapsed to acquire a lock: %ld s",
+            std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - start_time)
+                .count());
 
     if (!locked) {
         LOG_ERR("GPS lock timed out");
@@ -535,6 +539,10 @@ void SM::_acquire_gps_lock() const {
                            std::chrono::steady_clock::now() - start_time)
                            .count();
     } while (!locked && (!timeout || time_elapsed > timeout_s));
+    LOG_DBG("Time elapsed to discipline the oscillator: %ld s",
+            std::chrono::duration_cast<std::chrono::seconds>(
+                std::chrono::steady_clock::now() - start_time)
+                .count());
 
     if (!locked) {
         LOG_ERR("GPS lock timed out");
