@@ -63,7 +63,8 @@ def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
 @define
 class SMConfigs(ConfigBase):
     gps_timestamping: bool = False
-    gps_lock_timeout: int = 0
+    gps_lock_timeout: int = field(default=0, metadata={"min": 0},
+                                  validator=[validators.instance_of(int), validate_bounds])
     gps_model: SmGpsPlatformModel = field(default=SmGpsPlatformModel.STATIONARY, converter=_convert_sm_gps)
     decimation: int = field(default=1,
                             metadata={"min": 1, "max": SM_MAX_IQ_DECIMATION},
