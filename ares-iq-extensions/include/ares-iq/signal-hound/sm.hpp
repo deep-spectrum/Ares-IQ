@@ -305,6 +305,16 @@ class SM {
      */
     SmDiagnostics diagnostic_info() const;
 
+    /**
+     * Acquire a GPS lock before collecting any data.
+     *
+     * @param target_state The target state for acquiring a GPS lock.
+     * @param timeout_s The timeout for acquiring a GPS lock in seconds.
+     * @return `true` if a GPS lock was acquired. `false` otherwise.
+     *
+     * @note If a connection to the device is not already open, then
+     * this will open the device.
+     */
     bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
 
   private:
