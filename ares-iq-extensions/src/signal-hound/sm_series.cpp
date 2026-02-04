@@ -319,6 +319,10 @@ bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
             "NOT_PRESENT is an invalid state to sync to.");
     }
 
+    if (timeout_s < INT64_C(0)) {
+        throw std::invalid_argument("Timeout must be positive or `0`");
+    }
+
     if (!_open) {
         _open_device();
     }
