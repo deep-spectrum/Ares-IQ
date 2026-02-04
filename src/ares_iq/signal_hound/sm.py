@@ -1,7 +1,7 @@
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_networked_device_list, get_device_list2, get_networked_device_list2, broadcast_network_config, \
     retrieve_networked_configurations, configure_networked_device, _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, \
-    DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION
+    DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -118,6 +118,11 @@ class SM:
         if self._gps_stamping:
             return 0, ts
         return 0, ts
+
+    def acquire_gps_lock(self, target_lock_state: SmGPSState, timeout: int = 0):
+        locked = self._dev.gps_sync(target_lock_state, timeout)
+        if not locked:
+            raise TimeoutError("Unable to acquire GPS lock")
 
 
 class SM200A(SM):
