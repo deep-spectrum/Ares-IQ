@@ -305,6 +305,8 @@ class SM {
      */
     SmDiagnostics diagnostic_info() const;
 
+    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -331,7 +333,7 @@ class SM {
     void _configure(double center, double bw);
 
     void _configure_gps();
-    void _acquire_gps_lock() const;
+    void _acquire_gps_lock();
     bool _acquire_gps_lock(SmGPSState target_state) const;
 };
 
