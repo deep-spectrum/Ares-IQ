@@ -317,6 +317,17 @@ class SM {
      */
     bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
 
+    /**
+     * Run a network speed test.
+     *
+     * @param duration The amount of time in seconds to run the test for.
+     * @return The bytes per a second.
+     *
+     * @note If a connection to the device is not already open, then
+     * this will open the device.
+     */
+    double network_speed_test(double duration);
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -345,6 +356,8 @@ class SM {
     void _configure_gps();
     void _acquire_gps_lock();
     bool _acquire_gps_lock(SmGPSState target_state) const;
+
+    bool _is_networked() const;
 };
 
 /**

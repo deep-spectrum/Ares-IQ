@@ -149,7 +149,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              "Retrieve the device firmware info")
         .def("diagnostic_info", &SM::diagnostic_info,
              "Retrieve device diagnostic information")
-        .def("gps_sync", &SM::gps_sync, "Open and acquire a GPS lock");
+        .def("gps_sync", &SM::gps_sync, "Open and acquire a GPS lock")
+        .def("network_speed_test", &SM::network_speed_test,
+             "Test the speed of the network");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -338,6 +340,23 @@ bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
     } while (!locked && (!timeout || time_elapsed < timeout_s));
 
     return locked;
+}
+
+double SM::network_speed_test(double duration) {
+    double bytes_per_second;
+
+    if (!_is_networked()) {
+        throw py::attribute_error("This is not a networked device");
+    }
+
+    if (!_open) {
+        _open_device();
+    }
+
+    check_sm_status(_SM_API_CALL_TRACE(
+        smNetworkedSpeedTest(fd, duration, &bytes_per_second)));
+
+    return bytes_per_second;
 }
 
 py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
@@ -593,6 +612,26 @@ void SM::_acquire_gps_lock() {
     LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
             std::chrono::duration_cast<std::chrono::seconds>(end_time -
                                                              start_time));
+}
+
+bool SM::_is_networked() const {
+    bool ret;
+
+    switch (_configs.type) {
+    case smDeviceTypeSM200A:
+    case smDeviceTypeSM200B:
+    case smDeviceTypeSM435B:
+        ret = false;
+        break;
+    case smDeviceTypeSM200C:
+    case smDeviceTypeSM435C:
+        ret = true;
+        break;
+    default:
+        throw py::value_error("Invalid device type");
+    }
+
+    return ret;
 }
 
 py::tuple get_device_list() {

@@ -126,6 +126,11 @@ class SM:
             raise TimeoutError("Unable to acquire GPS lock")
 
 
+class NetworkedSM(SM):
+    def network_speed_test(self, duration: float):
+        return self._dev.network_speed_test(duration)
+
+
 class SM200A(SM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200A, configs, serial)
@@ -136,7 +141,7 @@ class SM200B(SM):
         super().__init__(SmDeviceType.SM200B, configs, serial)
 
 
-class SM200C(SM):
+class SM200C(NetworkedSM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200C, configs, serial)
 
@@ -146,7 +151,7 @@ class SM435B(SM):
         super().__init__(SmDeviceType.SM435B, configs, serial)
 
 
-class SM435C(SM):
+class SM435C(NetworkedSM):
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435C, configs, serial)
 
