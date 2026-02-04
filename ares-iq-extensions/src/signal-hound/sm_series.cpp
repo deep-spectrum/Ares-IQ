@@ -226,7 +226,7 @@ float SmDiagnostics::temp_power_supply() const {
 
 #define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
 
-static void check_sm_status(SmStatus status, std::string caller) {
+static void check_sm_status(SmStatus status, const std::string &caller) {
     if (status != smNoError) {
         LOG_ERR("%s failed", caller.c_str());
         throw std::runtime_error(smGetErrorString(status));
@@ -492,7 +492,7 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
         throw std::runtime_error(smGetErrorString(status));
     }
 
-    locked = state == target_state;
+    locked = state >= target_state;
 
     if (!locked) {
         std::this_thread::sleep_for(std::chrono::seconds(1));
