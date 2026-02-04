@@ -353,8 +353,12 @@ double SM::network_speed_test(double duration) {
         _open_device();
     }
 
+    LOG_INF("Conducting speed test for a duration of %lf seconds", duration);
+
     check_sm_status(_SM_API_CALL_TRACE(
         smNetworkedSpeedTest(fd, duration, &bytes_per_second)));
+
+    LOG_INF("Speed test result: %lf bytes per second", bytes_per_second);
 
     return bytes_per_second;
 }
