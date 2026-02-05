@@ -162,7 +162,7 @@ class SmDevice:
     type: SmDeviceType
 
 
-def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int, ...]:
+def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_devs: int = 9) -> tuple[int, ...]:
     """Retrieve a list of connected SM devices.
 
     Args:
@@ -180,14 +180,10 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True) -> tuple[int
     if not usb and not networked:
         return tuple()
 
-    usb_devs: tuple[int, ...] = tuple()
-    network_devs: tuple[int, ...] = tuple()
+    if max_network_devs <= 0:
+        raise ValueError("`max_network_devs` must be a positive integer")
 
-    if networked:
-        network_devs = get_networked_device_list()
-    if usb:
-        usb_devs = get_device_list()
-    return usb_devs + network_devs
+    return get_device_list(max_network_devs, usb, networked)
 
 
 def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | None = None) -> tuple[SmDevice, ...]:

@@ -638,17 +638,38 @@ bool SM::_is_networked() const {
     return ret;
 }
 
-py::tuple get_device_list() {
-    int serials[SM_MAX_DEVICES], count;
+py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
+    std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);
+    int count = 0, net_count = 0;
 
-    SmStatus status = smGetDeviceList(serials, &count);
-    LOG_DBG("Fetched %d serial numbers from `smGetDeviceList`", count);
+    SmStatus status;
 
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
+    if (usb) {
+        status = smGetDeviceList(serials.data(), &count);
+        LOG_DBG("Fetched %d serial numbers from `smGetDeviceList`", count);
+
+        if (status != smNoError) {
+            throw std::runtime_error(smGetErrorString(status));
+        }
     }
 
-    return array_to_tuple(serials, count);
+    if (network) {
+        net_count = max_network_devs;
+        status = smNetworkConfigGetDeviceList(net_serials.data(), &net_count);
+        LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
+                net_count);
+
+        if (status != smNoError) {
+            throw std::runtime_error(smGetErrorString(status));
+        }
+    }
+
+    serials.resize(count);
+    net_serials.resize(net_count);
+
+    serials.insert(std::end(serials), std::begin(net_serials), std::end(net_serials));
+
+    return array_to_tuple(serials.data(), serials.size());
 }
 
 static SmStatus
@@ -681,9 +702,7 @@ close_device:
     return status;
 }
 
-// for some fucking reason, making this static breaks the
-// `smNetworkConfigGetDeviceList` API call. C++ fucking sucks...
-SmStatus sm_series_internal_get_networked_device_list2(int *serials,
+static SmStatus sm_series_internal_get_networked_device_list2(int *serials,
                                                        SmDeviceType *types,
                                                        int *count,
                                                        const char *host) {

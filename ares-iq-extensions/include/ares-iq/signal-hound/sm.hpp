@@ -364,7 +364,7 @@ class SM {
  * Retrieve a list of SM device serial numbers.
  * @return SM device serial numbers.
  */
-py::tuple get_device_list();
+py::tuple get_device_list(int max_network_devs, bool usb, bool network);
 
 /**
  * Retrieves a list of SM device serial numbers and types.
