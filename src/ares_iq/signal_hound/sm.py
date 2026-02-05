@@ -1,7 +1,6 @@
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
-    get_networked_device_list, get_device_list2, get_networked_device_list2, broadcast_network_config, \
-    retrieve_networked_configurations, configure_networked_device, _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, \
-    DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
+    get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
+    _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -187,7 +186,8 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_
     return get_device_list(max_network_devs, usb, networked)
 
 
-def get_sm_device_list(usb: bool = True, networked: bool = True, max_network_devices: int = 9, host: str | None = None) -> tuple[SmDevice, ...]:
+def get_sm_device_list(usb: bool = True, networked: bool = True, max_network_devices: int = 9,
+                       host: str | None = None) -> tuple[SmDevice, ...]:
     """Retrieve a list of connected SM devices.
 
     Args:
