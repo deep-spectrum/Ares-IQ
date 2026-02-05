@@ -156,7 +156,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
           "Retrieve a list of connected SM series devices");
-    m.def("get_device_list2", get_device_list2,
+    m.def("get_device_list2", get_device_list2, py::arg("max_network_devices"),
+          py::arg("usb"), py::arg("network"), py::arg("host") = SM200_ADDR_ANY,
           "Retrieve a list of connected SM series devices with device types");
     m.def("retrieve_networked_configurations",
           &retrieve_networked_configurations,
@@ -661,7 +662,8 @@ py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     serials.resize(count);
     net_serials.resize(net_count);
 
-    serials.insert(std::end(serials), std::begin(net_serials), std::end(net_serials));
+    serials.insert(std::end(serials), std::begin(net_serials),
+                   std::end(net_serials));
 
     return array_to_tuple(serials.data(), serials.size());
 }
@@ -696,10 +698,9 @@ close_device:
     return status;
 }
 
-static SmStatus sm_series_internal_get_networked_device_list2(int *serials,
-                                                       SmDeviceType *types,
-                                                       int *count,
-                                                       const char *host) {
+static SmStatus
+sm_series_internal_get_networked_device_list2(int *serials, SmDeviceType *types,
+                                              int *count, const char *host) {
     assert(serials != nullptr);
     assert(types != nullptr);
     assert(count != nullptr);
@@ -743,9 +744,11 @@ static SmStatus sm_series_internal_get_networked_device_list2(int *serials,
     return status;
 }
 
-py::tuple get_device_list2(int max_network_devs, bool usb, bool network, const std::string &host) {
+py::tuple get_device_list2(int max_network_devs, bool usb, bool network,
+                           const std::string &host) {
     std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);
-    std::vector<SmDeviceType> types(SM_MAX_DEVICES), net_types(max_network_devs);
+    std::vector<SmDeviceType> types(SM_MAX_DEVICES),
+        net_types(max_network_devs);
     std::vector<SMDevice> devs;
     int count = 0, net_count = 0;
     SmStatus status;
@@ -761,7 +764,8 @@ py::tuple get_device_list2(int max_network_devs, bool usb, bool network, const s
 
     if (network) {
         net_count = max_network_devs;
-        status = sm_series_internal_get_networked_device_list2(net_serials.data(), net_types.data(), &net_count, host.c_str());
+        status = sm_series_internal_get_networked_device_list2(
+            net_serials.data(), net_types.data(), &net_count, host.c_str());
 
         if (status != smNoError) {
             throw std::runtime_error(smGetErrorString(status));

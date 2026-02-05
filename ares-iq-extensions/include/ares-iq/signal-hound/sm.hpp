@@ -370,7 +370,8 @@ py::tuple get_device_list(int max_network_devs, bool usb, bool network);
  * Retrieves a list of SM device serial numbers and types.
  * @return SM device serial numbers and device types.
  */
-py::tuple get_device_list2(int max_network_devs, bool usb, bool network, const std::string &host = SM_ADDR_ANY);
+py::tuple get_device_list2(int max_network_devs, bool usb, bool network,
+                           const std::string &host = SM_ADDR_ANY);
 
 SmNetworkConfig retrieve_networked_configurations(int serial);
 
