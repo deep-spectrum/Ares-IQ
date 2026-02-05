@@ -168,6 +168,7 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_
     Args:
         usb: Flag to indicate whether USB SM devices should be retrieved or not.
         networked: Flag to indicate whether networked SM devices should be retrieved or not.
+        max_network_devs: The maximum number of networked devices to scan for. Must be > 0.
 
     Returns:
         A tuple of serial numbers
@@ -186,7 +187,7 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_
     return get_device_list(max_network_devs, usb, networked)
 
 
-def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | None = None) -> tuple[SmDevice, ...]:
+def get_sm_device_list(usb: bool = True, networked: bool = True, max_network_devices: int = 9, host: str | None = None) -> tuple[SmDevice, ...]:
     """Retrieve a list of connected SM devices.
 
     Args:
@@ -205,19 +206,14 @@ def get_sm_device_list(usb: bool = True, networked: bool = True, host: str | Non
     if not usb and not networked:
         return tuple()
 
-    usb_devs: tuple[_SmDevice, ...] = tuple()
-    network_devs: tuple[_SmDevice, ...] = tuple()
+    if max_network_devices <= 0:
+        raise ValueError("`max_network_devices` must be > 0")
 
-    if networked:
-        if host is None:
-            network_devs = get_networked_device_list2()
-        else:
-            network_devs = get_networked_device_list2(host)
-    if usb:
-        usb_devs = get_device_list2()
-
-    return tuple(
-        [SmDevice(dev.serial, dev.type) for dev in network_devs] + [SmDevice(dev.serial, dev.type) for dev in usb_devs])
+    if host is None:
+        devs: tuple[_SmDevice, ...] = get_device_list2(max_network_devices, usb, networked)
+    else:
+        devs: tuple[_SmDevice, ...] = get_device_list2(max_network_devices, usb, networked, host)
+    return tuple([SmDevice(dev.serial, dev.type) for dev in devs])
 
 
 @dataclass()

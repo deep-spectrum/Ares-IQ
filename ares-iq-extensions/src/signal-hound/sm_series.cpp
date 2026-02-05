@@ -158,12 +158,6 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
           "Retrieve a list of connected SM series devices");
     m.def("get_device_list2", get_device_list2,
           "Retrieve a list of connected SM series devices with device types");
-    m.def("get_networked_device_list", get_networked_device_list,
-          "Retrieve a list of connected networked SM series devices");
-    m.def("get_networked_device_list2", get_networked_device_list2,
-          py::arg("hostaddr") = std::string(SM_ADDR_ANY),
-          "Retrieve a list of connected networked SM series devices with "
-          "device types");
     m.def("retrieve_networked_configurations",
           &retrieve_networked_configurations,
           "Retrieve network configurations from a certain SM device");
@@ -749,60 +743,46 @@ static SmStatus sm_series_internal_get_networked_device_list2(int *serials,
     return status;
 }
 
-py::tuple get_device_list2() {
-    int serial_numbers[SM_MAX_DEVICES], count;
-    SmDeviceType types[SM_MAX_DEVICES];
-    SMDevice devices[SM_MAX_DEVICES * 2];
+py::tuple get_device_list2(int max_network_devs, bool usb, bool network, const std::string &host) {
+    std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);
+    std::vector<SmDeviceType> types(SM_MAX_DEVICES), net_types(max_network_devs);
+    std::vector<SMDevice> devs;
+    int count = 0, net_count = 0;
+    SmStatus status;
 
-    SmStatus status = smGetDeviceList2(serial_numbers, types, &count);
-    LOG_DBG("Fetched %d serial numbers from `smGetDeviceList2`", count);
+    if (usb) {
+        status = smGetDeviceList2(serials.data(), types.data(), &count);
+        LOG_DBG("Fetched %d serial numbers from `smGetDeviceList2`", count);
 
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
+        if (status != smNoError) {
+            throw std::runtime_error(smGetErrorString(status));
+        }
     }
 
-    size_t dev_cnt = 0;
-    for (; dev_cnt < count; dev_cnt++) {
-        devices[dev_cnt].serial = serial_numbers[dev_cnt];
-        devices[dev_cnt].type = types[dev_cnt];
-    }
+    if (network) {
+        net_count = max_network_devs;
+        status = sm_series_internal_get_networked_device_list2(net_serials.data(), net_types.data(), &net_count, host.c_str());
 
-    return array_to_tuple(devices, dev_cnt);
-}
-
-py::tuple get_networked_device_list() {
-    int serial_numbers[SM_MAX_DEVICES], count = SM_MAX_DEVICES;
-
-    SmStatus status = smNetworkConfigGetDeviceList(serial_numbers, &count);
-    LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
-            count);
-
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
-    }
-
-    return array_to_tuple(serial_numbers, count);
-}
-
-py::tuple get_networked_device_list2(const std::string &host) {
-    int serials[SM_MAX_DEVICES], count = SM_MAX_DEVICES;
-    SmDeviceType types[SM_MAX_DEVICES];
-    SMDevice devices[SM_MAX_DEVICES];
-
-    LOG_DBG("Host address: %s", host.c_str());
-    SmStatus status = sm_series_internal_get_networked_device_list2(
-        serials, types, &count, host.c_str());
-
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
+        if (status != smNoError) {
+            throw std::runtime_error(smGetErrorString(status));
+        }
     }
 
     for (size_t i = 0; i < count; i++) {
-        devices[i].serial = serials[i];
-        devices[i].type = types[i];
+        SMDevice dev;
+        dev.serial = serials[i];
+        dev.type = types[i];
+        devs.emplace_back(dev);
     }
 
-    return array_to_tuple(devices, count);
+    for (size_t i = 0; i < net_count; i++) {
+        SMDevice dev;
+        dev.serial = net_serials[i];
+        dev.type = net_types[i];
+        devs.emplace_back(dev);
+    }
+
+    return array_to_tuple(devs.data(), devs.size());
 }
 
 static SmStatus
