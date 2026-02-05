@@ -161,7 +161,7 @@ class SmDevice:
     type: SmDeviceType
 
 
-def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_devs: int = 9) -> tuple[int, ...]:
+def sm_get_device_serials(usb: bool = True, networked: bool = True, max_network_devs: int = 9) -> tuple[int, ...]:
     """Retrieve a list of connected SM devices.
 
     Args:
@@ -186,13 +186,14 @@ def get_sm_device_serials(usb: bool = True, networked: bool = True, max_network_
     return get_device_list(max_network_devs, usb, networked)
 
 
-def get_sm_device_list(usb: bool = True, networked: bool = True, max_network_devices: int = 9,
+def sm_get_device_list(usb: bool = True, networked: bool = True, max_network_devices: int = 9,
                        host: str | None = None) -> tuple[SmDevice, ...]:
     """Retrieve a list of connected SM devices.
 
     Args:
         usb: Flag to indicate whether USB SM devices should be retrieved or not.
         networked: Flag to indicate whether networked SM devices should be retrieved or not.
+        max_network_devices: The maximum number of networked devices to scan for. Must be > 0.
         host: The host address to search for networked devices on.
 
     Returns:
