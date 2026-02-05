@@ -752,7 +752,7 @@ py::tuple get_device_list2() {
 }
 
 py::tuple get_networked_device_list() {
-    int serial_numbers[SM_MAX_DEVICES], count;
+    int serial_numbers[SM_MAX_DEVICES], count = SM_MAX_DEVICES;
 
     SmStatus status = smNetworkConfigGetDeviceList(serial_numbers, &count);
     LOG_DBG("Fetched %d serial numbers from `smNetworkConfigGetDeviceList`",
@@ -766,7 +766,7 @@ py::tuple get_networked_device_list() {
 }
 
 py::tuple get_networked_device_list2(const std::string &host) {
-    int serials[SM_MAX_DEVICES], count;
+    int serials[SM_MAX_DEVICES], count = SM_MAX_DEVICES;
     SmDeviceType types[SM_MAX_DEVICES];
     SMDevice devices[SM_MAX_DEVICES];
 
