@@ -77,6 +77,14 @@ class SMConfigs(ConfigBase):
                       validator=[validators.instance_of(int), validate_bounds])
 
 
+@dataclass(frozen=True)
+class SmGpsInfo:
+    sec_since_epoch: int
+    latitude: float
+    longitude: float
+    altitude: float
+
+
 class SM:
     def __init__(self, model: SmDeviceType, configs: SMConfigs | None = None, serial: int = -1):
         if configs is None:
@@ -97,7 +105,7 @@ class SM:
         self._gps_stamping = configs_.gps_timestamping
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
-            tuple[list[IQData], list[QuantizedData]]:
+            tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
         iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
 
         iq_data_ = [IQData() for _ in timestamps]
@@ -107,8 +115,11 @@ class SM:
             iq.ts_sec = ts_sec
             iq.ts_nsec = ts_nsec
 
+        gps_data = [SmGpsInfo(gps['sec_since_epoch'], gps['latitude'], gps['longitude'], gps['altitude']) for gps in
+                    gps_info]
+
         quant_data = self._quantize(iq_data_)
-        return iq_data_, quant_data
+        return iq_data_, quant_data, gps_data
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
         return [QuantizedData() for _ in iq_data]
