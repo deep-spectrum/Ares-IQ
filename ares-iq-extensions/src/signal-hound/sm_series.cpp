@@ -112,6 +112,19 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                                &SmDiagnostics::temp_power_supply,
                                "Power supply temperature");
 
+    py::class_<SmSFPDiagnostics>(
+        m, "_SmSFPDiagnostics",
+        "Diagnostic information of the SFP+ port from the SM device")
+        .def(py::init<>())
+        .def_property_readonly("temp", &SmSFPDiagnostics::get_temp,
+                               "SFP+ temperature in C")
+        .def_property_readonly("voltage", &SmSFPDiagnostics::get_voltage,
+                               "SFP+ voltage in V")
+        .def_property_readonly("tx_power", &SmSFPDiagnostics::get_tx_power,
+                               "Transmit power in mW")
+        .def_property_readonly("rx_power", &SmSFPDiagnostics::get_rx_power,
+                               "Receive power in mW");
+
     py::class_<SmNetworkConfig>(m, "_SmNetworkConfig",
                                 "Network configuration for/from the SM device")
         .def(py::init<const py::kwargs &>())
@@ -228,6 +241,14 @@ float SmDiagnostics::temp_rf_board_lo() const {
 float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
+
+float SmSFPDiagnostics::get_temp() const { return temp; }
+
+float SmSFPDiagnostics::get_voltage() const { return voltage; }
+
+float SmSFPDiagnostics::get_tx_power() const { return txPower; }
+
+float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
 
 #define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
 
@@ -356,6 +377,23 @@ double SM::network_speed_test(double duration) {
     LOG_INF("Speed test result: %lf bytes per second", bytes_per_second);
 
     return bytes_per_second;
+}
+
+SmSFPDiagnostics SM::network_diagnostic_info() const {
+    SmSFPDiagnostics info;
+
+    if (!_open) {
+        throw std::runtime_error("Device not open");
+    }
+
+    if (!_is_networked()) {
+        throw std::runtime_error("Device must be a networked device");
+    }
+
+    check_sm_status(_SM_API_CALL_TRACE(smGetSFPDiagnostics(
+        fd, &info.temp, &info.voltage, &info.txPower, &info.rxPower)));
+
+    return info;
 }
 
 py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,

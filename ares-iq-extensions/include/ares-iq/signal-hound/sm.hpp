@@ -192,6 +192,61 @@ struct SmDiagnostics {
 };
 
 /**
+ * @struct SmSFPDiagnostics
+ * Struct for SM200C/SM435C SFP+ port diagnostics
+ */
+struct SmSFPDiagnostics {
+    /**
+     * .
+     */
+    SmSFPDiagnostics() = default;
+
+    /**
+     * Reported SFP+ temperature in C.
+     */
+    float temp;
+
+    /**
+     * Reported SFP+ voltage in V.
+     */
+    float voltage;
+
+    /**
+     * Reported transmit power in mW.
+     */
+    float txPower;
+
+    /**
+     * Reported receive power in mW.
+     */
+    float rxPower;
+
+    /**
+     * .
+     * @return SFP+ temperature in C.
+     */
+    [[nodiscard]] float get_temp() const;
+
+    /**
+     * .
+     * @return SFP+ voltage in V.
+     */
+    [[nodiscard]] float get_voltage() const;
+
+    /**
+     * .
+     * @return Transmit power in mW.
+     */
+    [[nodiscard]] float get_tx_power() const;
+
+    /**
+     * .
+     * @return Receive power in mW.
+     */
+    [[nodiscard]] float get_rx_power() const;
+};
+
+/**
  * @struct SmGpsInfo
  * GPS information from the SM device.
  */
@@ -327,6 +382,8 @@ class SM {
      * this will open the device.
      */
     double network_speed_test(double duration);
+
+    SmSFPDiagnostics network_diagnostic_info() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
