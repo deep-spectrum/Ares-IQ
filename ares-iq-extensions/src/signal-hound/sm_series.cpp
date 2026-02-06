@@ -166,7 +166,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("network_speed_test", &SM::network_speed_test,
              "Test the speed of the network")
         .def("network_diagnostic_info", &SM::network_diagnostic_info,
-             "Retrieve the diagnostic information for the SFP+ port");
+             "Retrieve the diagnostic information for the SFP+ port")
+        .def("open", &SM::open, "Open SM device")
+        .def("close", &SM::close, "Close SM device");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -397,6 +399,14 @@ SmSFPDiagnostics SM::network_diagnostic_info() const {
 
     return info;
 }
+
+void SM::open() {
+    if (!_open) {
+        _open_device();
+    }
+}
+
+void SM::close() { _close_device(); }
 
 py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent) {

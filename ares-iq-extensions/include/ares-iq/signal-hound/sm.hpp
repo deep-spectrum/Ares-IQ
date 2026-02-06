@@ -385,6 +385,10 @@ class SM {
 
     SmSFPDiagnostics network_diagnostic_info() const;
 
+    void open();
+
+    void close();
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 

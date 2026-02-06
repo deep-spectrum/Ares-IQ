@@ -134,6 +134,12 @@ class SM:
         locked = self._dev.gps_sync(target_lock_state, timeout)
         if not locked:
             raise TimeoutError("Unable to acquire GPS lock")
+        
+    def __enter__(self):
+        self._dev.open()
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self._dev.close()
 
 
 @dataclass(frozen=True)
@@ -147,7 +153,7 @@ class SmSFPDiagnostics:
 class NetworkedSM(SM):
     def network_speed_test(self, duration: float) -> float:
         return self._dev.network_speed_test(duration)
-    
+
     def sfp_diagnostics(self) -> SmSFPDiagnostics:
         data = self._dev.network_diagnostic_info()
         return SmSFPDiagnostics(data.temp, data.voltage, data.tx_power, data.rx_power)
