@@ -164,7 +164,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              "Retrieve device diagnostic information")
         .def("gps_sync", &SM::gps_sync, "Open and acquire a GPS lock")
         .def("network_speed_test", &SM::network_speed_test,
-             "Test the speed of the network");
+             "Test the speed of the network")
+        .def("network_diagnostic_info", &SM::network_diagnostic_info,
+             "Retrieve the diagnostic information for the SFP+ port");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,

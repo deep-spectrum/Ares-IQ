@@ -127,7 +127,7 @@ class SM:
     def _generate_ts(self, ts: int, sec_since_epoch: int) -> tuple[int, int]:
         # TODO
         if self._gps_stamping:
-            return 0, ts
+            return sec_since_epoch, ts
         return 0, ts
 
     def acquire_gps_lock(self, target_lock_state: SmGPSState, timeout: int = 0):
@@ -136,9 +136,21 @@ class SM:
             raise TimeoutError("Unable to acquire GPS lock")
 
 
+@dataclass(frozen=True)
+class SmSFPDiagnostics:
+    temperature: float
+    voltage: float
+    tx_power: float
+    rx_power: float
+
+
 class NetworkedSM(SM):
-    def network_speed_test(self, duration: float):
+    def network_speed_test(self, duration: float) -> float:
         return self._dev.network_speed_test(duration)
+    
+    def sfp_diagnostics(self) -> SmSFPDiagnostics:
+        data = self._dev.network_diagnostic_info()
+        return SmSFPDiagnostics(data.temp, data.voltage, data.tx_power, data.rx_power)
 
 
 class SM200A(SM):
