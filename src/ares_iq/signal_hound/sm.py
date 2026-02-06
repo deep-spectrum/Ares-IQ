@@ -134,12 +134,19 @@ class SM:
         locked = self._dev.gps_sync(target_lock_state, timeout)
         if not locked:
             raise TimeoutError("Unable to acquire GPS lock")
-        
-    def __enter__(self):
+
+    def open(self):
         self._dev.open()
 
-    def __exit__(self, exc_type, exc_val, exc_tb):
+    def close(self):
         self._dev.close()
+
+    def __enter__(self):
+        self.open()
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        self.close()
 
 
 @dataclass(frozen=True)
