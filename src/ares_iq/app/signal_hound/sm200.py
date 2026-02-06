@@ -1,46 +1,28 @@
-# from .smdevice.sm_api import *
-# import numpy as np
-# import typer
-# from typing_extensions import Annotated
-# from ares_iq.print_utils import print_warning, print_error
-# from ares_iq.configurations import load_config_section, save_config_section
-#
-#
-# SAMPLES_PER_CAPTURE = 262144
-# SM_SERIES_NETWORKED_MAX_RT_SPAN = SM_REAL_TIME_MAX_SPAN
-# SM_SERIES_USB_MAX_RT_SPAN = 20.0e6
-#
-#
-# def _print_sm_error(err: SMDeviceError, config_name: str):
-#     s = f"{config_name}: {str(err)}"
-#     if err.warning:
-#         print_warning(s)
-#     else:
-#         print_error(s)
-#
-#
-# def _get_device_handle() -> tuple[object, float]:
-#     configs = load_config_section("platform")
-#     networked = configs["hw"] == "sm200c"
-#
-#     if networked:
-#         devices = sm_network_config_get_device_list()
-#     else:
-#         devices = sm_get_device_list2()
-#     device_count = devices["device_count"]
-#     print(devices)
-#     print(sm_get_API_version())
-#     return None, None
-#
-#
-# def sm200_stream_iq(center_freq: float, bw: float):
-#     handle, max_bw = _get_device_handle()
-#
-#
-# app = typer.Typer()
-#
-# @app.command(name="sm200-config")
-# def sm200_config(decimation: Annotated[int, typer.Argument(help='Downsample factor')]):
-#     configs = load_config_section("sm200-configs")
-#     configs['decimation'] = str(decimation)
-#     save_config_section("sm200-configs", configs)
+import typer
+from typing_extensions import Annotated
+from ares_iq.iq_data import IQData
+from ares_iq.signal_hound import SM200A, SM200B, SM200C, SMConfigs, SmGpsInfo
+from ares_iq.signal_hound.sm import logger as sm_logger
+from ares_iq.print_utils import print_error
+from ares_iq.util import CONFIG_FILE
+from ares_iq.typing import QuantizedData
+import logging
+from ares_iq.app.utils import config_set, print_config_errors
+
+
+class SM200ADevice(SM200A):
+    app = typer.Typer()
+
+    def __init__(self):
+        configs = SMConfigs.from_yaml(CONFIG_FILE)
+        super().__init__(configs)
+        sm_logger.setLevel(logging.WARNING)
+
+    def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
+            tuple[list[IQData], list[QuantizedData]]:
+        try:
+            iq, quantized, _ = super().capture_iq(center, bw, capture_size, silent, verbose)
+        except Exception as e:
+            print_error(str(e))
+            raise typer.Exit()
+        return iq, quantized
