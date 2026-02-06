@@ -383,10 +383,21 @@ class SM {
      */
     double network_speed_test(double duration);
 
+    /**
+     * Retrieve the diagnostic information for the SFP+ port.
+     * @return SFP+ port diagnostics.
+     * @note This only works for networked devices.
+     */
     SmSFPDiagnostics network_diagnostic_info() const;
 
+    /**
+     * Open a connection to an SM device.
+     */
     void open();
 
+    /**
+     * CLose a connection to  an SM device.
+     */
     void close();
 
   private:
@@ -434,11 +445,28 @@ py::tuple get_device_list(int max_network_devs, bool usb, bool network);
 py::tuple get_device_list2(int max_network_devs, bool usb, bool network,
                            const std::string &host = SM_ADDR_ANY);
 
+/**
+ * Retrieve the network configurations for an sm device.
+ * @param serial The serial number of the sm device.
+ * @return The current network configurations of the SM device.
+ */
 SmNetworkConfig retrieve_networked_configurations(int serial);
 
+/**
+ * Configure the network-capable sm device.
+ * @param serial The serial number of the sm device
+ * @param config The network configuration of the sm device
+ * @param non_volatile Make network configuration persist over power cycles
+ */
 void configure_networked_device(int serial, const SmNetworkConfig &config,
                                 bool non_volatile = false);
 
+/**
+ * Broadcast a network configuration to each SM device on the network.
+ * @param config The configuration to broadcast
+ * @param host The host address to broadcast the configuration on
+ * @param non_volatile Make the configuration persist over power cycles
+ */
 void broadcast_network_config(const SmNetworkConfig &config,
                               const std::string &host = SM_ADDR_ANY,
                               bool non_volatile = false);

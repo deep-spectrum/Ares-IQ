@@ -10,6 +10,7 @@ from enum import Enum
 import logging
 from ctypes import c_uint16
 from dataclasses import dataclass
+from abc import ABC, abstractmethod
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -32,6 +33,29 @@ GPS_MODELS = {
 
 
 class GpsModel(Enum):
+    """
+    Available GPS models for SM series devices.
+
+    Attributes:
+        PORTABLE: Applications with low acceleration, e.g. portable devices. Suitable for most applications.
+
+        STATIONARY: Used in timing applications (antenna must be stationary) or other stationary applications. Velocity
+        restricted to 0 m/s. Zero dynamics assumed. This is the default setting.
+
+        PEDESTRIAN: Applications with low acceleration and speed, how a pedestrian would move. Low acceleration assumed.
+
+        AUTOMOTIVE: Used for applications with equivalent dynamics to those of a passenger car. Low vertical
+        acceleration assumed.
+
+        SEA: Recommended for applications at sea, with zero vertical velocity. Zero vertical velocity assumed, sea
+        level assumed.
+
+        AIRBORNE_1G: Used for applications with a higher dynamic range and greater vertical acceleration than a
+        passenger car. No 2D position fixes supported.
+
+        AIRBORNE_2G: Recommended for typical airborne environment. No 2D position fixes supported.
+    """
+
     PORTABLE = SmGpsPlatformModel.PORTABLE
     STATIONARY = SmGpsPlatformModel.STATIONARY
     PEDESTRIAN = SmGpsPlatformModel.PEDESTRIAN
@@ -39,6 +63,22 @@ class GpsModel(Enum):
     SEA = SmGpsPlatformModel.AT_SEA
     AIRBORNE_1G = SmGpsPlatformModel.AIRBORNE_1G
     AIRBORNE_2G = SmGpsPlatformModel.AIRBORNE_2G
+
+
+class GpsState(Enum):
+    """
+    GPS state of the SM device.
+
+    Attributes:
+        NOT_PRESENT: GPS is not locked.
+
+        LOCKED: GPS is locked, NMEA data is valid, but the timebase is not being disciplined by the GPS.
+
+        DISCIPLINED: GPS is locked, NMEA data is valid, timebase is being disciplined by the GPS.
+    """
+    NOT_PRESENT = SmGPSState.NOT_PRESENT
+    LOCKED = SmGPSState.LOCKED
+    DISCIPLINED = SmGPSState.DISCIPLINED
 
 
 def _convert_str_sm_gps(x: str) -> SmGpsPlatformModel:
@@ -61,6 +101,21 @@ def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
 
 @define
 class SMConfigs(ConfigBase):
+    """SM device configurations.
+
+    Device configuration for SM series devices.
+
+    Attributes:
+        gps_timestamping: Generate GPS disciplined timestamps.
+        gps_lock_timeout: Number number of seconds to wait for a GPS lock.
+        gps_model: The GPS model to use.
+        decimation: The downsampling factor. Must be a power of 2 between 1 and SM_MAX_IQ_DECIMATION.
+        software_filter: Enable software filtering. Ignored on networked SM devices.
+        samples_per_capture: Sample chunk size.
+        host: The host address for the SM device.
+        device_addr: The device address of the SM device.
+        port: The port for the SM device.
+    """
     gps_timestamping: bool = False
     gps_lock_timeout: int = field(default=0, metadata={"min": 0},
                                   validator=[validators.instance_of(int), validate_bounds])
@@ -85,8 +140,17 @@ class SmGpsInfo:
     altitude: float
 
 
-class SM:
+class SM(ABC):
+    """Base class for SM platforms"""
+
     def __init__(self, model: SmDeviceType, configs: SMConfigs | None = None, serial: int = -1):
+        """Initializes the base SM device.
+
+        Args:
+            model: The SM device model
+            configs: The configurations for the SM device.
+            serial: The serial number to connect to. Only relevant for USB SM devices.
+        """
         if configs is None:
             configs_ = _SmConfigs(type=model)
         else:
@@ -106,6 +170,22 @@ class SM:
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
+        """Capture IQ data from the SDR.
+
+        Args:
+            center: The center frequency in Hz.
+            bw: The bandwidth in Hz.
+            capture_size: The maximum amount of IQ data to collect in bytes.
+            silent: Do not show the progress bar.
+            verbose: Show the logging messages.
+
+        Raises:
+            ValueError: Bad configuration arguments.
+            RuntimeError: Any other error.
+
+        Notes:
+            This will automatically open a connection if there is no open connection.
+        """
         iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
 
         iq_data_ = [IQData() for _ in timestamps]
@@ -121,8 +201,9 @@ class SM:
         quant_data = self._quantize(iq_data_)
         return iq_data_, quant_data, gps_data
 
+    @abstractmethod
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
-        return [QuantizedData() for _ in iq_data]
+        """Convert the collected IQ data from complex numbers to ADC readings."""
 
     def _generate_ts(self, ts: int, sec_since_epoch: int) -> tuple[int, int]:
         # TODO
@@ -130,15 +211,39 @@ class SM:
             return sec_since_epoch, ts
         return 0, ts
 
-    def acquire_gps_lock(self, target_lock_state: SmGPSState, timeout: int = 0):
-        locked = self._dev.gps_sync(target_lock_state, timeout)
+    def acquire_gps_lock(self, target_lock_state: GpsState, timeout: int = 0):
+        """Acquire a GPS lock with the given GPS state.
+
+        Acquire a GPS lock. Behavior of the given states:
+
+        GpsState.LOCKED: Acquire the GPS locked or the GPS disciplined states.
+        GpsState.DISCIPLINED: Acquire GPS disciplined time base state.
+
+        Args:
+            target_lock_state: The GPS lock state to acquire.
+            timeout: The number of seconds to wait for a GPS lock to be acquired. If <= `0`, wait indefinitely.
+
+        Raises:
+            ValueError: Bad parameter for target_lock_state.
+            TimeoutError: If timeout expired.
+
+        Notes:
+            This will automatically open a connection if there is no open connection.
+        """
+        locked = self._dev.gps_sync(target_lock_state.value, timeout)
         if not locked:
             raise TimeoutError("Unable to acquire GPS lock")
 
     def open(self):
+        """
+        Open a connection to the SM device, if one is not already open.
+        """
         self._dev.open()
 
     def close(self):
+        """
+        Close a connection to the SM device, if one is open.
+        """
         self._dev.close()
 
     def __enter__(self):
@@ -151,14 +256,31 @@ class SM:
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
+    """Diagnostic information for the SFP+ port
+
+    Attributes:
+        temperature: Reported SFP+ temperature in C.
+        voltage: Reported SFP+ voltage in V.
+        tx_power: Reported transmit power in mW.
+        rx_power: Reported receive power in mW.
+    """
     temperature: float
     voltage: float
     tx_power: float
     rx_power: float
 
 
-class NetworkedSM(SM):
+class NetworkedSM(SM, ABC):
+    """Base class for networked SM devices"""
     def network_speed_test(self, duration: float) -> float:
+        """Perform a network speed test for the connected device.
+
+        Args:
+            duration: The amount of seconds to run the speed test for.
+
+        Returns:
+            The amount of bytes/second recorded by the speed test.
+        """
         return self._dev.network_speed_test(duration)
 
     def sfp_diagnostics(self) -> SmSFPDiagnostics:
@@ -167,32 +289,62 @@ class NetworkedSM(SM):
 
 
 class SM200A(SM):
+    """SM200A device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200A, configs, serial)
 
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
+
 
 class SM200B(SM):
+    """SM200B device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200B, configs, serial)
 
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
+
 
 class SM200C(NetworkedSM):
+    """SM200C device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200C, configs, serial)
 
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
+
 
 class SM435B(SM):
+    """SM435B device."""
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435B, configs, serial)
 
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
+
 
 class SM435C(NetworkedSM):
+    """SM435C device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435C, configs, serial)
+
+    def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
+        return [QuantizedData() for _ in iq_data]
 
 
 @dataclass(frozen=True)
 class SmDevice:
+    """SM device information
+
+    Attributes:
+        serial: The serial number.
+        type: The device type.
+    """
     serial: int
     type: SmDeviceType
 
