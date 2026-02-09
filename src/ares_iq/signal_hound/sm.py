@@ -94,6 +94,8 @@ def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
         return x.value
     if isinstance(x, str):
         return _convert_str_sm_gps(x)
+    if isinstance(x, int):
+        return SmGpsPlatformModel(x)
     if isinstance(x, SmGpsPlatformModel):
         return x
     raise TypeError(f"Unable to cast from {type(x)} to SmGpsPlatformModel")
@@ -130,6 +132,12 @@ class SMConfigs(ConfigBase):
     device_addr: str = DEFAULT_DEV_ADDR
     port: int = field(default=DEFAULT_PORT, metadata={"min": 0, "max": c_uint16(-1).value},
                       validator=[validators.instance_of(int), validate_bounds])
+
+    @staticmethod
+    def serialize(inst, field_, value):
+        if field_.type == SmGpsPlatformModel:
+            return value.value
+        return value
 
 
 @dataclass(frozen=True)
