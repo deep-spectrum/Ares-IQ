@@ -1,20 +1,34 @@
 import typer
 from typing_extensions import Annotated
 from ares_iq.iq_data import IQData
-from ares_iq.signal_hound import SM200A, SM200B, SM200C, SM435B, SM435C, SMConfigs, SmGpsInfo
-from ares_iq.signal_hound.sm import logger as sm_logger
+from ares_iq.signal_hound import SM200A, SM200B, SM200C, SM435B, SM435C, SMConfigs
+from ares_iq.signal_hound.sm import logger as sm_logger, GPS_MODELS
 from ares_iq.print_utils import print_error
 from ares_iq.util import CONFIG_FILE
 from ares_iq.typing import QuantizedData
 import logging
 from ares_iq.app.utils import config_set, print_config_errors
+from enum import Enum
+
+
+def _generate_model_enum_str_repr():
+    models = set()
+    out = {}
+    for k, v in GPS_MODELS.items():
+        if v not in models:
+            out[k] = k
+            models.add(v)
+    return out
+
+
+GpsModels = Enum('GpsModel', _generate_model_enum_str_repr())
 
 
 class SMDevice:
     app = typer.Typer()
 
     def __init__(self):
-        self._dev: SM200A | SM200B | SM200C | SM435B | SM435C | None = None
+        self._dev = None
         sm_logger.setLevel(logging.WARNING)
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
@@ -41,7 +55,7 @@ class SMDevice:
     @app.command(name="sm-config", help="Set default configurations for an sm-series device")
     def config(gps_timestamping: Annotated[bool | None, typer.Option(help='Use GPS timestamping.')] = None,
                gps_lock_timeout: Annotated[int | None, typer.Option(help='The amount of seconds allowed to acquire a GPS disciplined timebase. `0` will disable the timeout.')] = None,
-               gps_model: Annotated[str | None, typer.Option(help='Select the GPS model to use.')] = None,
+               gps_model: Annotated[GpsModels | None, typer.Option(help='Select the GPS model to use.')] = None,
                decimation: Annotated[int | None, typer.Option(help='Downsample factor.')] = None,
                software_filter: Annotated[bool | None, typer.Option(help='Use software filter.')] = None,
                samples_per_capture: Annotated[int | None, typer.Option(help='The amount of samples to collect per a capture.')] = None,
@@ -53,7 +67,7 @@ class SMDevice:
         errors = [
             config_set(lambda v: setattr(configs, "gps_timestamping", v), gps_timestamping),
             config_set(lambda v: setattr(configs, "gps_lock_timeout", v), gps_lock_timeout),
-            config_set(lambda v: setattr(configs, "gps_model", v), gps_model),
+            config_set(lambda v: setattr(configs, "gps_model", v.value), gps_model),
             config_set(lambda v: setattr(configs, "decimation", v), decimation),
             config_set(lambda v: setattr(configs, "software_filter", v), software_filter),
             config_set(lambda v: setattr(configs, "samples_per_capture", v), samples_per_capture),
