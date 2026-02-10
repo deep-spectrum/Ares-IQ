@@ -400,8 +400,6 @@ class SM {
      */
     void close();
 
-    void mode() const;
-
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -422,6 +420,7 @@ class SM {
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();
     void _open_device();
+    void _log_mode() const;
 
     void _close_device();
 

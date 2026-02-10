@@ -349,8 +349,6 @@ bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
         _open_device();
     }
 
-    _configure_gps();
-
     auto start_time = std::chrono::steady_clock::now();
     do {
         locked = _acquire_gps_lock(target_state);
@@ -408,35 +406,31 @@ void SM::open() {
 
 void SM::close() { _close_device(); }
 
-void SM::mode() const {
-    if (!_open) {
-        throw std::runtime_error("Device not open");
-    }
-
+void SM::_log_mode() const {
     SmMode mode;
     check_sm_status(_SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
 
     switch (mode) {
         case smModeIdle:
-            LOG_INF("Idle");
+            LOG_INF("Current Mode: Idle");
             break;
         case smModeSweeping:
-            LOG_INF("Sweeping");
+            LOG_INF("Current Mode: Sweeping");
             break;
         case smModeRealTime:
-            LOG_INF("Realtime");
+            LOG_INF("Current Mode: Realtime");
             break;
         case smModeIQStreaming:
-            LOG_INF("IQ Streaming");
+            LOG_INF("Current Mode: IQ Streaming");
             break;
         case smModeIQSegmentedCapture:
-            LOG_INF("IQ Segment Capture");
+            LOG_INF("Current Mode: IQ Segment Capture");
             break;
         case smModeIQSweepList:
-            LOG_INF("IQ sweep list");
+            LOG_INF("Current Mode: IQ sweep list");
             break;
         case smModeAudio:
-            LOG_INF("Audio");
+            LOG_INF("Current Mode: Audio");
             break;
             default:
             LOG_ERR("Unknown mode");
@@ -483,8 +477,6 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
         data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
         data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
     }
-
-    _acquire_gps_lock();
 
     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
@@ -555,7 +547,7 @@ void SM::_open_device() {
     }
     _open = true;
 
-    mode();
+    _log_mode();
 }
 
 void SM::_close_device() {
@@ -578,13 +570,16 @@ void SM::_configure(double center, double bw) {
     check_sm_status(_SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
     _configure_gps();
 
-    check_sm_status(_SM_API_CALL_TRACE(smConfigure(fd, smModeIQ)));
+    check_sm_status(_SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
+    _acquire_gps_lock();
 }
 
 void SM::_configure_gps() {
     if (_gps_configured) {
         return;
     }
+
+    _acquire_gps_lock();
 
     if (_configs.gps_timestamping) {
         check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
@@ -675,6 +670,8 @@ void SM::_acquire_gps_lock() {
     }
 
     LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
+
+    _log_mode();
 
     LOG_INF("GPS lock acquired. Setting platform model.");
     check_sm_status(
