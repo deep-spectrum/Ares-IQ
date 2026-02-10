@@ -400,6 +400,8 @@ class SM {
      */
     void close();
 
+    void mode() const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 

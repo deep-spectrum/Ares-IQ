@@ -408,6 +408,42 @@ void SM::open() {
 
 void SM::close() { _close_device(); }
 
+void SM::mode() const {
+    if (!_open) {
+        throw std::runtime_error("Device not open");
+    }
+
+    SmMode mode;
+    check_sm_status(_SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
+
+    switch (mode) {
+        case smModeIdle:
+            LOG_INF("Idle");
+            break;
+        case smModeSweeping:
+            LOG_INF("Sweeping");
+            break;
+        case smModeRealTime:
+            LOG_INF("Realtime");
+            break;
+        case smModeIQStreaming:
+            LOG_INF("IQ Streaming");
+            break;
+        case smModeIQSegmentedCapture:
+            LOG_INF("IQ Segment Capture");
+            break;
+        case smModeIQSweepList:
+            LOG_INF("IQ sweep list");
+            break;
+        case smModeAudio:
+            LOG_INF("Audio");
+            break;
+            default:
+            LOG_ERR("Unknown mode");
+            break;
+    }
+}
+
 py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent) {
     if (!_open) {
@@ -518,6 +554,8 @@ void SM::_open_device() {
         throw std::runtime_error(smGetErrorString(status));
     }
     _open = true;
+
+    mode();
 }
 
 void SM::_close_device() {
