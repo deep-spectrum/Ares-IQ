@@ -302,12 +302,12 @@ struct SmNetworkConfig {
     /**
      * The MAC address of the device.
      */
-    std::string mac = "";
+    std::string mac;
 
     /**
      * The IP address of the networked device.
      */
-    std::string ip = "";
+    std::string ip;
 
     /**
      * The port of the networked device.

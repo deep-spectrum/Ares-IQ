@@ -382,7 +382,7 @@ double SM::network_speed_test(double duration) {
 }
 
 SmSFPDiagnostics SM::network_diagnostic_info() const {
-    SmSFPDiagnostics info;
+    SmSFPDiagnostics info{};
 
     if (!_open) {
         throw std::runtime_error("Device not open");
@@ -411,30 +411,30 @@ void SM::_log_mode() const {
     check_sm_status(_SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
 
     switch (mode) {
-        case smModeIdle:
-            LOG_INF("Current Mode: Idle");
-            break;
-        case smModeSweeping:
-            LOG_INF("Current Mode: Sweeping");
-            break;
-        case smModeRealTime:
-            LOG_INF("Current Mode: Realtime");
-            break;
-        case smModeIQStreaming:
-            LOG_INF("Current Mode: IQ Streaming");
-            break;
-        case smModeIQSegmentedCapture:
-            LOG_INF("Current Mode: IQ Segment Capture");
-            break;
-        case smModeIQSweepList:
-            LOG_INF("Current Mode: IQ sweep list");
-            break;
-        case smModeAudio:
-            LOG_INF("Current Mode: Audio");
-            break;
-            default:
-            LOG_ERR("Unknown mode");
-            break;
+    case smModeIdle:
+        LOG_INF("Current Mode: Idle");
+        break;
+    case smModeSweeping:
+        LOG_INF("Current Mode: Sweeping");
+        break;
+    case smModeRealTime:
+        LOG_INF("Current Mode: Realtime");
+        break;
+    case smModeIQStreaming:
+        LOG_INF("Current Mode: IQ Streaming");
+        break;
+    case smModeIQSegmentedCapture:
+        LOG_INF("Current Mode: IQ Segment Capture");
+        break;
+    case smModeIQSweepList:
+        LOG_INF("Current Mode: IQ sweep list");
+        break;
+    case smModeAudio:
+        LOG_INF("Current Mode: Audio");
+        break;
+    default:
+        LOG_ERR("Unknown mode");
+        break;
     }
 }
 
