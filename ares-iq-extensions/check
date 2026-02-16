@@ -30,7 +30,7 @@ format_func() {
 scc_func() {
   printf "SCC Report:\n"
   printf "Status\tSCC\tfilename(definition line number):function\n"
-  pmccabe $CODE_FILES | awk -v r="$r" -v g="$g" -v y="$y" -v n="$n" '
+  pmccabe $CODE_FILES 2>/dev/null | awk -v r="$r" -v g="$g" -v y="$y" -v n="$n" '
   {
     if ($1 <= 10)
       printf "%sOK\t%s\t%s %s%s\n", g, $1, $6, $7, n;

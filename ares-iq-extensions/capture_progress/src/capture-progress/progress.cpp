@@ -20,7 +20,6 @@
 #include <pybind11/embed.h>
 namespace py = pybind11;
 #else
-#include <capture-progress/logging/logging.h>
 #include <cmath>
 #endif // defined(USE_PYTHON_LIB)
 
@@ -77,9 +76,6 @@ Progress::Progress(uint64_t captures, uint64_t samples_per_capture, bool hide) {
     _hide = hide;
     _total_samples = captures * samples_per_capture;
     _spc = samples_per_capture;
-    LOG_DBG("Number of captures: %" PRIu64, captures);
-    LOG_DBG("Samples per capture: %" PRIu64, samples_per_capture);
-    LOG_DBG("Total samples to capture: %" PRIu64, _total_samples);
 #endif // defined(USE_PYTHON_LIB)
 }
 
@@ -89,11 +85,10 @@ void Progress::start() {
 #if defined(USE_PYTHON_LIB)
     _impl->start();
 #else
+    _start = std::chrono::system_clock::now();
     if (_hide) {
         return;
     }
-    LOG_INF("Starting progress bar");
-    _start = std::chrono::system_clock::now();
     _refresh_thread = std::thread(&Progress::_refresh_task, this);
 #endif // defined(USE_PYTHON_LIB)
 }
@@ -102,10 +97,10 @@ void Progress::update() {
 #if defined(USE_PYTHON_LIB)
     _impl->update();
 #else
+    _last_update = std::chrono::system_clock::now();
     if (_hide) {
         return;
     }
-    LOG_DBG("Updating progress bar");
     std::lock_guard<std::mutex> guard(this->_samples_mtx);
     _samples_captured += _spc;
 #endif // defined(USE_PYTHON_LIB)
@@ -115,7 +110,6 @@ void Progress::stop(const void *exception) {
 #if defined(USE_PYTHON_LIB)
     _impl->stop(exception);
 #else
-    LOG_INF("Stopping progress bar");
     if (_hide) {
         return;
     }
@@ -124,6 +118,16 @@ void Progress::stop(const void *exception) {
     if (_refresh_thread.joinable()) {
         _refresh_thread.join();
     }
+#endif // defined(USE_PYTHON_LIB)
+}
+
+long Progress::duration_ms() const {
+#if defined(USE_PYTHON_LIB)
+    return 0;
+#else
+    return std::chrono::duration_cast<std::chrono::milliseconds>(_last_update -
+                                                                 _start)
+        .count();
 #endif // defined(USE_PYTHON_LIB)
 }
 
@@ -141,7 +145,6 @@ void Progress::_refresh_task() {
 }
 
 void Progress::_init_bar() {
-    LOG_INF("Initializing");
     _hide_cursor();
     _draw_opening();
     _draw_bar();
@@ -151,7 +154,6 @@ void Progress::_init_bar() {
 }
 
 void Progress::_draw() {
-    LOG_DBG("Refreshing");
     _update_rate();
     _draw_opening();
     _draw_bar();
@@ -161,7 +163,6 @@ void Progress::_draw() {
 }
 
 void Progress::_finalize() {
-    LOG_INF("Finalizing");
     if (!_completed()) {
         // leave bar as is
         return;

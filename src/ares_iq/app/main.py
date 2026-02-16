@@ -56,6 +56,8 @@ def capture(
         print_error(f"{platform} is not supported yet.")
         raise typer.Exit()
     app_api = PLATFORMS[platform]()
+    if hasattr(app_api, "platform"):
+        app_api.platform(platform)
     app_api.capture_iq(center * 1e6, bw * 1e6, int(file_size * 1e9), silent, verbose)
     # save_iq_data(PLATFORMS[configs["hw"]].iq_data)  # TODO: separate save function into different package
 
