@@ -1,3 +1,5 @@
+import datetime
+
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
@@ -260,6 +262,9 @@ class SM(ABC):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
+
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, filename: str, silent: bool = True, verbose: bool = False):
+        self._dev.stream_iq_data(center, bw, chunk_size, duration, filename, silent, verbose)
 
 
 @dataclass(frozen=True)
