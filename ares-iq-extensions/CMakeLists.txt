@@ -3,7 +3,9 @@ project(${SKBUILD_PROJECT_NAME}
         VERSION ${SKBUILD_PROJECT_VERSION}
         LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version selection")  # or 11, 14, 17, 20
+set(CMAKE_CXX_STANDARD_REQUIRED ON)  # optional, ensure standard is supported
+set(CMAKE_CXX_EXTENSIONS OFF)  # optional, keep compiler extensions off
 
 set(MIN_UBUNTU_VERSION "18")
 set(MAX_UBUNTU_VERSION "24")
