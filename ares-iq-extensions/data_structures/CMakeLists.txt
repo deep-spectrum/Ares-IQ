@@ -3,6 +3,9 @@ project(ares_data_structures)
 
 set(CMAKE_CXX_STANDARD 11)
 
-add_library(ares_data_structures STATIC src/ares/queue.cpp)
-set_target_properties(ares_data_structures PROPERTIES POSITION_INDEPENDENT_CODE ON)
-target_include_directories(ares_data_structures PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
+# If sources are needed in the future, switch to STATIC <source files>
+add_library(ares_data_structures INTERFACE)
+# Uncomment if sources are included in the build
+# set_target_properties(ares_data_structures PROPERTIES POSITION_INDEPENDENT_CODE ON)
+# If sources are added, switch INTERFACE to PUBLIC
+target_include_directories(ares_data_structures INTERFACE ${CMAKE_CURRENT_SOURCE_DIR}/include)
