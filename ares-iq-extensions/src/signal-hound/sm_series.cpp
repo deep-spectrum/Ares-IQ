@@ -802,6 +802,9 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     auto start = now();
     while ((now() - start) < duration) {
         _capture_iq_data(captures_per_chunk, capture_q);
+        if (PyErr_CheckSignals() != 0) {
+            break;
+        }
         // todo: update capture bar
     }
     // todo: update capture bar
@@ -844,18 +847,18 @@ void SM::_stream_iq_data(int out_fd,
 
 void SM::_write_capture(int out_fd, const RawCapture &capture) {
     int err;
-    size_t samples = capture.buf.size() / 2;
+    // size_t samples = capture.buf.size() / 2;
 
-    err = write(out_fd, &samples, sizeof(uint64_t));
-    if (err < 0) {
-        perror("write");
-    }
-
-    double ts = static_cast<double>(capture.timestamp) / 1e9;
-    err = write(out_fd, &ts, sizeof(double));
-    if (err < 0) {
-        perror("write");
-    }
+    // err = write(out_fd, &samples, sizeof(uint64_t));
+    // if (err < 0) {
+    //     perror("write");
+    // }
+    //
+    // double ts = static_cast<double>(capture.timestamp) / 1e9;
+    // err = write(out_fd, &ts, sizeof(double));
+    // if (err < 0) {
+    //     perror("write");
+    // }
 
     err = write(out_fd, capture.buf.data(),
                 capture.buf.size() * sizeof(SH_COMPLEX_TEMPLATE_TYPE));
