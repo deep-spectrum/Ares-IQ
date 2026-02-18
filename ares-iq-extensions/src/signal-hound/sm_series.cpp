@@ -746,7 +746,7 @@ bool SM::_is_networked() const {
 
 extern "C" {
 static int open_fd(const char *file) {
-    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 }
 
