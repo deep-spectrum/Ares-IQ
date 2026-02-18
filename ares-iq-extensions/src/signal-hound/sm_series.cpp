@@ -15,11 +15,14 @@
 #include <capture-progress/progress.hpp>
 #include <cassert>
 #include <complex>
+#include <fcntl.h>
 #include <logging/log.hpp>
+#include <pybind11/chrono.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 namespace py = pybind11;
@@ -168,7 +171,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("network_diagnostic_info", &SM::network_diagnostic_info,
              "Retrieve the diagnostic information for the SFP+ port")
         .def("open", &SM::open, "Open SM device")
-        .def("close", &SM::close, "Close SM device");
+        .def("close", &SM::close, "Close SM device")
+        .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -405,6 +409,28 @@ void SM::open() {
 }
 
 void SM::close() { _close_device(); }
+
+void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
+                        const std::chrono::milliseconds &duration,
+                        const std::string &filename, bool silent,
+                        bool verbose) {
+    if (verbose) {
+        SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
+    }
+
+    try {
+        _stream_iq_data(center, bw, chunk_size, duration, filename, silent);
+    } catch (...) {
+        if (verbose) {
+            RESTORE_LOG_LEVEL();
+        }
+        throw;
+    }
+
+    if (verbose) {
+        RESTORE_LOG_LEVEL();
+    }
+}
 
 void SM::_log_mode() const {
     SmMode mode;
@@ -716,6 +742,126 @@ bool SM::_is_networked() const {
     }
 
     return ret;
+}
+
+extern "C" {
+static int open_fd(const char *file) {
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+}
+
+static int close_fd(int fd) { return close(fd); }
+}
+
+void SM::_capture_iq_data(uint64_t captures,
+                          ares::queue<std::vector<RawCapture> *> &queue) const {
+    uint32_t samples_per_capture = _configs.samples_per_capture;
+    std::vector<RawCapture> *captures_ = new std::vector<RawCapture>(captures);
+
+    for (auto &capture : *captures_) {
+        capture.buf.resize(samples_per_capture * 2);
+    }
+
+    for (auto &capture : *captures_) {
+        smGetIQ(fd, capture.buf.data(), static_cast<int>(samples_per_capture),
+                nullptr, 0, &capture.timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &capture.gps_info.sec_since_epoch,
+                     &capture.gps_info.latitude, &capture.gps_info.longitude,
+                     &capture.gps_info.altitude, nullptr, nullptr);
+    }
+
+    queue.put(captures_);
+}
+
+void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
+                         const std::chrono::milliseconds &duration,
+                         const std::string &filename, bool silent) {
+    if (!_open) {
+        _open_device();
+    }
+
+    _configure(center, bw);
+
+    uint64_t samples_per_capture = _configs.samples_per_capture;
+    uint64_t bytes_per_capture =
+        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+        sizeof(Capture::timestamp);
+    uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
+
+    int out_fd = open_fd(filename.c_str());
+    if (out_fd < 0) {
+        throw std::runtime_error(strerror(errno));
+    }
+
+    ares::queue<std::vector<RawCapture> *> capture_q;
+    std::thread consumer(
+        [out_fd, &capture_q]() { _stream_iq_data(out_fd, capture_q); });
+
+    // todo: timed capture bar
+    auto now = std::chrono::steady_clock::now;
+    auto start = now();
+    while ((now() - start) < duration) {
+        _capture_iq_data(captures_per_chunk, capture_q);
+        // todo: update capture bar
+    }
+    // todo: update capture bar
+
+    std::vector<RawCapture> *terminate_value = nullptr;
+    capture_q.put(terminate_value);
+    consumer.join();
+    if (close_fd(out_fd) < 0) {
+        throw std::runtime_error(strerror(errno));
+    }
+}
+
+void SM::_stream_iq_data(int out_fd,
+                         ares::queue<std::vector<RawCapture> *> &queue) {
+    uint64_t entries_written = 0;
+
+    write(out_fd, &entries_written, sizeof(uint64_t));
+
+    while (true) {
+        std::vector<RawCapture> *write_data = queue.get();
+
+        if (write_data == nullptr) {
+            break;
+        }
+
+        for (auto &capture : *write_data) {
+            _write_capture(out_fd, capture);
+        }
+
+        entries_written += write_data->size();
+        delete write_data;
+    }
+
+    if (lseek(out_fd, 0, SEEK_SET) < 0) {
+        perror("lseek");
+    }
+
+    write(out_fd, &entries_written, sizeof(uint64_t));
+}
+
+void SM::_write_capture(int out_fd, const RawCapture &capture) {
+    int err;
+    size_t samples = capture.buf.size() / 2;
+
+    err = write(out_fd, &samples, sizeof(uint64_t));
+    if (err < 0) {
+        perror("write");
+    }
+
+    double ts = static_cast<double>(capture.timestamp) / 1e9;
+    err = write(out_fd, &ts, sizeof(double));
+    if (err < 0) {
+        perror("write");
+    }
+
+    err = write(out_fd, capture.buf.data(),
+                capture.buf.size() * sizeof(SH_COMPLEX_TEMPLATE_TYPE));
+    if (err < 0) {
+        perror("write");
+    }
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {

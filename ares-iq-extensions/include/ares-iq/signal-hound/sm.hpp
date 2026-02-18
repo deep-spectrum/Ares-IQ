@@ -11,6 +11,7 @@
 #define VERSION_SM_HPP
 
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares/queue.hpp>
 #include <complex>
 #include <pybind11/pybind11.h>
 
@@ -396,9 +397,13 @@ class SM {
     void open();
 
     /**
-     * CLose a connection to  an SM device.
+     * Close a connection to  an SM device.
      */
     void close();
+
+    void stream_iq_data(double center, double bw, uint64_t chunk_size,
+                        const std::chrono::milliseconds &duration,
+                        const std::string &filename, bool silent, bool verbose);
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -431,6 +436,22 @@ class SM {
     bool _acquire_gps_lock(SmGPSState target_state) const;
 
     bool _is_networked() const;
+
+    struct RawCapture {
+        std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
+        int64_t timestamp = 0;
+        SmGpsInfo gps_info = {};
+    };
+
+    void _capture_iq_data(uint64_t captures,
+                          ares::queue<std::vector<RawCapture> *> &queue) const;
+    void _stream_iq_data(double center, double bw, uint64_t chunk_size,
+                         const std::chrono::milliseconds &duration,
+                         const std::string &filename, bool silent);
+    static void _stream_iq_data(int out_fd,
+                                ares::queue<std::vector<RawCapture> *> &queue);
+
+    static void _write_capture(int out_fd, const RawCapture &capture);
 };
 
 /**
