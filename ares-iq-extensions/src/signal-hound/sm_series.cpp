@@ -776,6 +776,7 @@ void SM::_capture_iq_data(uint64_t captures,
 void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &filename, bool silent) {
+    bool interrupted = false;
     if (!_open) {
         _open_device();
     }
@@ -803,6 +804,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     while ((now() - start) < duration) {
         _capture_iq_data(captures_per_chunk, capture_q);
         if (PyErr_CheckSignals() != 0) {
+            interrupted = true;
             break;
         }
         // todo: update capture bar
@@ -814,6 +816,10 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     consumer.join();
     if (close_fd(out_fd) < 0) {
         throw std::runtime_error(strerror(errno));
+    }
+
+    if (interrupted) {
+        throw py::error_already_set();
     }
 }
 
