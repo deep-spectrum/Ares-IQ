@@ -748,7 +748,7 @@ extern "C" {
 #include <sys/stat.h>
 #include <unistd.h>
 static int open_fd(const char *file) {
-    return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 }
 
@@ -758,20 +758,35 @@ static int close_fd(int fd) { return close(fd); }
 const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 void SM::_capture_iq_data(uint64_t captures,
-                          ares::queue<RawCapture *> &queue) const {
+                          ares::queue<std::vector<RawCapture> *> &queue) const {
     uint32_t samples_per_capture = _configs.samples_per_capture;
+    std::vector<RawCapture> * captures_ = new std::vector<RawCapture>(captures);
 
-    for (size_t i = 0; i < captures; i++) {
-        RawCapture *capture = new RawCapture();
-        capture->buf.resize(samples_per_capture * 2);
-
-        smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
-                nullptr, 0, &capture->timestamp, smFalse, nullptr, nullptr);
-        smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
-                     &capture->gps_info.latitude, &capture->gps_info.longitude,
-                     &capture->gps_info.altitude, nullptr, nullptr);
-        queue.put(capture);
+    for (auto &capture : *captures_) {
+        capture.buf.resize(samples_per_capture * 2);
     }
+
+    for (auto &capture : *captures_) {
+        smGetIQ(fd, capture.buf.data(), static_cast<int>(samples_per_capture),
+                nullptr, 0, &capture.timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &capture.gps_info.sec_since_epoch,
+                     &capture.gps_info.latitude, &capture.gps_info.longitude,
+                     &capture.gps_info.altitude, nullptr, nullptr);
+    }
+
+    queue.put(captures_);
+
+    // for (size_t i = 0; i < captures; i++) {
+    //     RawCapture *capture = new RawCapture();
+    //     capture->buf.resize(samples_per_capture * 2);
+    //
+    //     smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
+    //             nullptr, 0, &capture->timestamp, smFalse, nullptr, nullptr);
+    //     smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
+    //                  &capture->gps_info.latitude, &capture->gps_info.longitude,
+    //                  &capture->gps_info.altitude, nullptr, nullptr);
+    //     queue.put(capture);
+    // }
 }
 
 void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
@@ -797,7 +812,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
 
-    ares::queue<RawCapture *> capture_q;
+    ares::queue<std::vector<RawCapture> *> capture_q;
     std::thread consumer(
         [this, out_fd, &capture_q]() { _stream_iq_data(out_fd, capture_q); });
 
@@ -820,7 +835,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     // todo: update capture bar
 
     LOG_DBG("Terminating stream capture");
-    RawCapture *terminate_value = nullptr;
+    std::vector<RawCapture> *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
     if (close_fd(out_fd) < 0) {
@@ -837,36 +852,50 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 }
 
 void SM::_stream_iq_data(int out_fd,
-                         ares::queue<RawCapture *> &queue) const {
+                         ares::queue<std::vector<RawCapture> *> &queue) const {
     uint64_t entries_written = 0;
-    std::vector<SH_COMPLEX_TEMPLATE_TYPE> buffer;
-    buffer.reserve(_configs.samples_per_capture * 2 * 10);
+    // std::vector<SH_COMPLEX_TEMPLATE_TYPE> buffer;
+    // buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
     //write(out_fd, &entries_written, sizeof(uint64_t));
 
     while (true) {
-        RawCapture *write_data = queue.get();
+        std::vector<RawCapture> *write_data = queue.get();
 
         if (write_data == nullptr) {
             break;
         }
 
-        buffer.insert(buffer.begin(), write_data->buf.begin(), write_data->buf.end());
+        for (auto &capture : *write_data) {
+            ssize_t writen = capture.buf.size();
+            for (ssize_t i = 0; writen > 0;) {
+                ssize_t bytes_written = write(out_fd, capture.buf.data() + i, writen);
+                if (bytes_written < 0) {
+                    perror("write");
+                }
+                writen -= bytes_written;
+                i += bytes_written;
+            }
+            capture.buf.clear();
+        }
+        entries_written += write_data->size();
         delete write_data;
 
-        if (buffer.size() >= PAGE_SIZE) {
-            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(out_fd, buffer.data(), size);
-            if (bytes_written < 0) {
-                perror("write");
-            }
-            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
-        }
-
-        entries_written += 1;
+        // buffer.insert(buffer.begin(), write_data->buf.begin(), write_data->buf.end());
+        // delete write_data;
+        //
+        // if (buffer.size() >= PAGE_SIZE) {
+        //     size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
+        //     ssize_t bytes_written = write(out_fd, buffer.data(), size);
+        //     if (bytes_written < 0) {
+        //         perror("write");
+        //     }
+        //     buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+        // }
     }
+    LOG_INF("Captures written to storage: %lu", entries_written);
 
-    LOG_DBG("%u bytes not written", buffer.size());
+    // LOG_DBG("%u bytes not written", buffer.size());
 
     // if (lseek(out_fd, 0, SEEK_SET) < 0) {
     //     perror("lseek");
