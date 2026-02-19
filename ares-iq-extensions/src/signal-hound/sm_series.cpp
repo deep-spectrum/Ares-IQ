@@ -867,14 +867,16 @@ void SM::_stream_iq_data(int out_fd,
         }
 
         for (auto &capture : *write_data) {
-            while (!capture.buf.empty()) {
-                ssize_t bytes_written = write(out_fd, capture.buf.data(), capture.buf.size());
+            ssize_t writen = capture.buf.size();
+            for (ssize_t i = 0; writen > 0;) {
+                ssize_t bytes_written = write(out_fd, capture.buf.data() + i, writen);
                 if (bytes_written < 0) {
                     perror("write");
-                    continue;
                 }
-                capture.buf.erase(capture.buf.begin(), capture.buf.begin() + bytes_written);
+                writen -= bytes_written;
+                i += bytes_written;
             }
+            capture.buf.clear();
         }
         entries_written += write_data->size();
         delete write_data;
