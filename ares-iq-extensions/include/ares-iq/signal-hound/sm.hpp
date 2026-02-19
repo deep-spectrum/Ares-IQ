@@ -455,8 +455,10 @@ class SM {
                          const std::chrono::milliseconds &duration,
                          const std::string &filename, bool silent);
     void _stream_iq_data(const stream_fd &out_fd,
+                         const std::chrono::milliseconds &requested_duration,
                          ares::queue<RawCapture *> &queue) const;
     void _write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
+                                double requested_duration,
                                 double duration) const;
 };
 

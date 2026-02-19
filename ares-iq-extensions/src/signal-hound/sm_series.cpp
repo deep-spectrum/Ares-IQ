@@ -767,7 +767,7 @@ void SM::_capture_iq_data(uint64_t captures,
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
     for (size_t i = 0; i < captures; i++) {
-        RawCapture *capture = new RawCapture();
+        auto *capture = new RawCapture();
         capture->buf.resize(samples_per_capture * 2);
 
         smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
@@ -798,7 +798,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
         sizeof(Capture::timestamp);
     uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
-    stream_fd out_fd;
+    stream_fd out_fd{};
 
     std::string iq_file = filename + "-iq.bin";
     std::string ts_file = filename + "-ts.bin";
@@ -825,8 +825,9 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     LOG_DBG("Page size: %u", PAGE_SIZE);
 
     ares::queue<RawCapture *> capture_q;
-    std::thread consumer(
-        [this, out_fd, &capture_q]() { _stream_iq_data(out_fd, capture_q); });
+    std::thread consumer([this, out_fd, duration, &capture_q]() {
+        _stream_iq_data(out_fd, duration, capture_q);
+    });
 
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
@@ -864,6 +865,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 }
 
 void SM::_stream_iq_data(const stream_fd &out_fd,
+                         const std::chrono::milliseconds &requested_duration,
                          ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
     std::vector<uint8_t> buffer;
@@ -906,9 +908,9 @@ void SM::_stream_iq_data(const stream_fd &out_fd,
     if (!buffer.empty()) {
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
-        int err = write(out_fd.iq_fd, buffer.data(), buffer.size());
+        ssize_t err = write(out_fd.iq_fd, buffer.data(), buffer.size());
         if (err < 0) {
-            perror("write");
+            LOG_ERR("write: %s", strerror(errno));
         } else {
             buffer.erase(buffer.begin(), buffer.begin() + err);
         }
@@ -919,15 +921,19 @@ void SM::_stream_iq_data(const stream_fd &out_fd,
 
     auto duration =
         std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+    auto req_dur =
+        std::chrono::duration_cast<std::chrono::seconds>(requested_duration);
 
     _write_stream_metadata(
         out_fd, entries_written,
+        std::chrono::duration_cast<std::chrono::duration<double>>(req_dur)
+            .count(),
         std::chrono::duration_cast<std::chrono::duration<double>>(duration)
             .count());
-    // todo: write metadata
 }
 
 void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
+                                double requested_duration,
                                 double duration) const {
     switch (_configs.type) {
     case smDeviceTypeSM200A: {
@@ -966,6 +972,8 @@ void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
     dprintf(out_fd.meta_fd, "  timestamps: int64\n");
     dprintf(out_fd.meta_fd, "  samples: complex64\n");
     dprintf(out_fd.meta_fd, "timestamp-unit: nanoseconds-since-epoch\n");
+    dprintf(out_fd.meta_fd, "requested-duration-seconds: %f\n",
+            requested_duration);
     dprintf(out_fd.meta_fd, "run-duration-seconds: %f\n\n", duration);
 }
 
