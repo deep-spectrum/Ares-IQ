@@ -460,6 +460,7 @@ class SM {
     void _write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
                                 double requested_duration,
                                 double duration) const;
+    static void _write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue);
 };
 
 /**

@@ -26,6 +26,7 @@
 #include <vector>
 
 namespace py = pybind11;
+using namespace std::chrono_literals;
 
 LOG_MODULE_REGISTER(sm_logger);
 
@@ -828,6 +829,8 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     std::thread consumer([this, out_fd, duration, &capture_q]() {
         _stream_iq_data(out_fd, duration, capture_q);
     });
+    bool running = true;
+    std::thread monitor([&running, &capture_q]() {_write_queue_monitor(&running, capture_q); });
 
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
@@ -851,6 +854,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
+    running = false;
     if (close_fd(out_fd.iq_fd) < 0) {
         throw std::runtime_error(strerror(errno));
     }
@@ -975,6 +979,13 @@ void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
     dprintf(out_fd.meta_fd, "requested-duration-seconds: %f\n",
             requested_duration);
     dprintf(out_fd.meta_fd, "run-duration-seconds: %f\n\n", duration);
+}
+
+void SM::_write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue) {
+    while (*run) {
+        LOG_DBG("Write queue size: %lu", queue.size());
+        std::this_thread::sleep_for(1s);
+    }
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
