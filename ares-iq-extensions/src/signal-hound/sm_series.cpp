@@ -753,7 +753,7 @@ static int open_fd(const char *file, bool direct) {
                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
     }
     return open(file, O_WRONLY | O_CREAT | O_TRUNC,
-                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 }
 
 static int close_fd(int fd) { return close(fd); }
@@ -771,7 +771,8 @@ void SM::_capture_iq_data(uint64_t captures,
         capture->buf.resize(samples_per_capture * 2);
 
         smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
-                nullptr, 0, &capture->timestamp, smFalse, &sample_loss, nullptr);
+                nullptr, 0, &capture->timestamp, smFalse, &sample_loss,
+                nullptr);
         smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
                      &capture->gps_info.latitude, &capture->gps_info.longitude,
                      &capture->gps_info.altitude, nullptr, nullptr);
@@ -862,11 +863,13 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
 }
 
-void SM::_stream_iq_data(const stream_fd &out_fd, ares::queue<RawCapture *> &queue) const {
+void SM::_stream_iq_data(const stream_fd &out_fd,
+                         ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
     std::vector<uint8_t> buffer;
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
+    auto start = std::chrono::steady_clock::now();
     while (true) {
         auto *write_data = queue.get();
 
@@ -875,7 +878,8 @@ void SM::_stream_iq_data(const stream_fd &out_fd, ares::queue<RawCapture *> &que
         }
 
         const size_t num_bytes = write_data->buf.size() * sizeof(float);
-        const uint8_t *data = reinterpret_cast<uint8_t *>(write_data->buf.data());
+        const uint8_t *data =
+            reinterpret_cast<uint8_t *>(write_data->buf.data());
         buffer.insert(buffer.end(), data, data + num_bytes);
         int64_t timestamp = write_data->timestamp;
         delete write_data;
@@ -897,6 +901,7 @@ void SM::_stream_iq_data(const stream_fd &out_fd, ares::queue<RawCapture *> &que
 
         entries_written += 1;
     }
+    auto stop = std::chrono::steady_clock::now();
 
     if (!buffer.empty()) {
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
@@ -912,7 +917,56 @@ void SM::_stream_iq_data(const stream_fd &out_fd, ares::queue<RawCapture *> &que
     LOG_DBG("%lu bytes dropped", buffer.size());
     LOG_DBG("Entries written: %lu", entries_written);
 
+    auto duration =
+        std::chrono::duration_cast<std::chrono::seconds>(stop - start);
+
+    _write_stream_metadata(
+        out_fd, entries_written,
+        std::chrono::duration_cast<std::chrono::duration<double>>(duration)
+            .count());
     // todo: write metadata
+}
+
+void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
+                                double duration) const {
+    switch (_configs.type) {
+    case smDeviceTypeSM200A: {
+        dprintf(out_fd.meta_fd, "device: SM200A\n");
+        break;
+    }
+    case smDeviceTypeSM200B: {
+        dprintf(out_fd.meta_fd, "device: SM200B\n");
+        break;
+    }
+    case smDeviceTypeSM200C: {
+        dprintf(out_fd.meta_fd, "device: SM200C\n");
+        break;
+    }
+    case smDeviceTypeSM435B: {
+        dprintf(out_fd.meta_fd, "device: SM435B\n");
+        break;
+    }
+    case smDeviceTypeSM435C: {
+        dprintf(out_fd.meta_fd, "device: SM435C\n");
+        break;
+    }
+    default: {
+        dprintf(out_fd.meta_fd, "device: Invalid\n");
+        break;
+    }
+    }
+
+    dprintf(out_fd.meta_fd, "captures: %lu\n", entries);
+    dprintf(out_fd.meta_fd, "samples-per-capture: %u\n",
+            _configs.samples_per_capture);
+    dprintf(out_fd.meta_fd, "samples-shape:\n");
+    dprintf(out_fd.meta_fd, "  rows: %lu\n", entries);
+    dprintf(out_fd.meta_fd, "  columns: %u\n", _configs.samples_per_capture);
+    dprintf(out_fd.meta_fd, "types:\n");
+    dprintf(out_fd.meta_fd, "  timestamps: int64\n");
+    dprintf(out_fd.meta_fd, "  samples: complex64\n");
+    dprintf(out_fd.meta_fd, "timestamp-unit: nanoseconds-since-epoch\n");
+    dprintf(out_fd.meta_fd, "run-duration-seconds: %f\n\n", duration);
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
