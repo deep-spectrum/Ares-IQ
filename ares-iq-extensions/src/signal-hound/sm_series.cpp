@@ -745,6 +745,8 @@ bool SM::_is_networked() const {
 }
 
 extern "C" {
+#include <sys/stat.h>
+#include <unistd.h>
 static int open_fd(const char *file) {
     return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -753,30 +755,29 @@ static int open_fd(const char *file) {
 static int close_fd(int fd) { return close(fd); }
 }
 
+const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+
 void SM::_capture_iq_data(uint64_t captures,
-                          ares::queue<std::vector<RawCapture> *> &queue) const {
+                          ares::queue<RawCapture *> &queue) const {
     uint32_t samples_per_capture = _configs.samples_per_capture;
-    std::vector<RawCapture> *captures_ = new std::vector<RawCapture>(captures);
 
-    for (auto &capture : *captures_) {
-        capture.buf.resize(samples_per_capture * 2);
+    for (size_t i = 0; i < captures; i++) {
+        RawCapture *capture = new RawCapture();
+        capture->buf.resize(samples_per_capture * 2);
+
+        smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
+                nullptr, 0, &capture->timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
+                     &capture->gps_info.latitude, &capture->gps_info.longitude,
+                     &capture->gps_info.altitude, nullptr, nullptr);
+        queue.put(capture);
     }
-
-    for (auto &capture : *captures_) {
-        smGetIQ(fd, capture.buf.data(), static_cast<int>(samples_per_capture),
-                nullptr, 0, &capture.timestamp, smFalse, nullptr, nullptr);
-        smGetGPSInfo(fd, smFalse, nullptr, &capture.gps_info.sec_since_epoch,
-                     &capture.gps_info.latitude, &capture.gps_info.longitude,
-                     &capture.gps_info.altitude, nullptr, nullptr);
-    }
-
-    queue.put(captures_);
 }
 
 void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &filename, bool silent) {
-    bool interrupted = false;
+    bool interrupted = false, failed = false;
     if (!_open) {
         _open_device();
     }
@@ -794,15 +795,22 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         throw std::runtime_error(strerror(errno));
     }
 
-    ares::queue<std::vector<RawCapture> *> capture_q;
+    LOG_DBG("Page size: %u", PAGE_SIZE);
+
+    ares::queue<RawCapture *> capture_q;
     std::thread consumer(
-        [out_fd, &capture_q]() { _stream_iq_data(out_fd, capture_q); });
+        [this, out_fd, &capture_q]() { _stream_iq_data(out_fd, capture_q); });
 
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
     auto start = now();
     while ((now() - start) < duration) {
-        _capture_iq_data(captures_per_chunk, capture_q);
+        try {
+            _capture_iq_data(captures_per_chunk, capture_q);
+        } catch (...) {
+            failed = true;
+            break;
+        }
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
             break;
@@ -811,7 +819,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
     // todo: update capture bar
 
-    std::vector<RawCapture> *terminate_value = nullptr;
+    RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
     if (close_fd(out_fd) < 0) {
@@ -821,34 +829,49 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     if (interrupted) {
         throw py::error_already_set();
     }
+
+    if (failed) {
+        throw std::runtime_error("stream iq failed.");
+    }
 }
 
 void SM::_stream_iq_data(int out_fd,
-                         ares::queue<std::vector<RawCapture> *> &queue) {
+                         ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
+    std::vector<SH_COMPLEX_TEMPLATE_TYPE> buffer;
+    buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
-    write(out_fd, &entries_written, sizeof(uint64_t));
+    //write(out_fd, &entries_written, sizeof(uint64_t));
 
     while (true) {
-        std::vector<RawCapture> *write_data = queue.get();
+        RawCapture *write_data = queue.get();
 
         if (write_data == nullptr) {
             break;
         }
 
-        for (auto &capture : *write_data) {
-            _write_capture(out_fd, capture);
+        buffer.insert(buffer.begin(), write_data->buf.begin(), write_data->buf.end());
+        delete write_data;
+
+        if (buffer.size() >= PAGE_SIZE) {
+            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
+            ssize_t bytes_written = write(out_fd, buffer.data(), size);
+            if (bytes_written < 0) {
+                perror("write");
+            }
+            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
         }
 
-        entries_written += write_data->size();
-        delete write_data;
+        entries_written += 1;
     }
 
-    if (lseek(out_fd, 0, SEEK_SET) < 0) {
-        perror("lseek");
-    }
+    LOG_DBG("%u bytes not written", buffer.size());
 
-    write(out_fd, &entries_written, sizeof(uint64_t));
+    // if (lseek(out_fd, 0, SEEK_SET) < 0) {
+    //     perror("lseek");
+    // }
+    //
+    // write(out_fd, &entries_written, sizeof(uint64_t));
 }
 
 void SM::_write_capture(int out_fd, const RawCapture &capture) {
