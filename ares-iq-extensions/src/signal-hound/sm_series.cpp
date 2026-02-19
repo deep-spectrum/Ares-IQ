@@ -819,6 +819,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
     // todo: update capture bar
 
+    LOG_DBG("Terminating stream capture");
     RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();

@@ -57,6 +57,7 @@ template <typename Type> Type queue<Type>::get() {
     _not_empty.wait(guard, [this]() { return !empty(); });
     Type ret = _buffer.front();
     _buffer.pop_front();
+    _size.fetch_sub(1);
 
     return ret;
 }
