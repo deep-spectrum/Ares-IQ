@@ -855,6 +855,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     capture_q.put(terminate_value);
     consumer.join();
     running = false;
+    monitor.join();
     if (close_fd(out_fd.iq_fd) < 0) {
         throw std::runtime_error(strerror(errno));
     }
