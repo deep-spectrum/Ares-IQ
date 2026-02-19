@@ -760,7 +760,7 @@ static int open_fd(const char *file, bool direct) {
 static int close_fd(int fd) { return close(fd); }
 }
 
-const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 void SM::_capture_iq_data(uint64_t captures,
                           ares::queue<RawCapture *> &queue) const {
@@ -982,6 +982,7 @@ void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
 }
 
 void SM::_write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue) {
+    // todo make this nicer
     while (*run) {
         LOG_DBG("Write queue size: %lu", queue.size());
         std::this_thread::sleep_for(1s);
