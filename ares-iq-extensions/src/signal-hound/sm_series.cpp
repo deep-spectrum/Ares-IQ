@@ -872,6 +872,8 @@ void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
     }
 
     if (!buffer.empty()) {
+        size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
+        buffer.resize(new_size);
         int err = write(out_fd, buffer.data(), buffer.size());
         if (err < 0) {
             perror("write");
