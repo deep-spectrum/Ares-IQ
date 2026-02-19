@@ -872,6 +872,7 @@ void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
     }
 
     LOG_DBG("%lu bytes dropped", buffer.size());
+    LOG_DBG("Entries written: %lu", entries_written);
 }
 
 void SM::_write_capture(int out_fd, const RawCapture &capture) {
