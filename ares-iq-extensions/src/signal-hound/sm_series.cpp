@@ -759,6 +759,7 @@ const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 void SM::_capture_iq_data(uint64_t captures,
                           ares::queue<RawCapture *> &queue) const {
+    int sample_loss;
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
     for (size_t i = 0; i < captures; i++) {
@@ -766,11 +767,14 @@ void SM::_capture_iq_data(uint64_t captures,
         capture->buf.resize(samples_per_capture * 2);
 
         smGetIQ(fd, capture->buf.data(), static_cast<int>(samples_per_capture),
-                nullptr, 0, &capture->timestamp, smFalse, nullptr, nullptr);
+                nullptr, 0, &capture->timestamp, smFalse, &sample_loss, nullptr);
         smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
                      &capture->gps_info.latitude, &capture->gps_info.longitude,
                      &capture->gps_info.altitude, nullptr, nullptr);
         queue.put(capture);
+        if (sample_loss == SM_TRUE) {
+            LOG_WRN("SM APi dropping samples");
+        }
     }
 }
 
@@ -836,22 +840,22 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
 }
 
-void SM::_stream_iq_data(int out_fd,
-                         ares::queue<RawCapture *> &queue) const {
+void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
-    std::vector<SH_COMPLEX_TEMPLATE_TYPE> buffer;
+    std::vector<uint8_t> buffer;
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
-    //write(out_fd, &entries_written, sizeof(uint64_t));
-
     while (true) {
-        RawCapture *write_data = queue.get();
+        auto *write_data = queue.get();
 
         if (write_data == nullptr) {
             break;
         }
 
-        buffer.insert(buffer.begin(), write_data->buf.begin(), write_data->buf.end());
+        const size_t num_bytes = write_data->buf.size() * sizeof(float);
+        const uint8_t *data = reinterpret_cast<uint8_t *>(write_data->buf.data());
+        buffer.insert(buffer.end(), data, data + num_bytes);
+        int64_t timestamp = write_data->timestamp;
         delete write_data;
 
         if (buffer.size() >= PAGE_SIZE) {
@@ -859,6 +863,7 @@ void SM::_stream_iq_data(int out_fd,
             ssize_t bytes_written = write(out_fd, buffer.data(), size);
             if (bytes_written < 0) {
                 perror("write");
+                continue;
             }
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
         }
@@ -866,13 +871,7 @@ void SM::_stream_iq_data(int out_fd,
         entries_written += 1;
     }
 
-    LOG_DBG("%u bytes not written", buffer.size());
-
-    // if (lseek(out_fd, 0, SEEK_SET) < 0) {
-    //     perror("lseek");
-    // }
-    //
-    // write(out_fd, &entries_written, sizeof(uint64_t));
+    LOG_DBG("%lu bytes dropped", buffer.size());
 }
 
 void SM::_write_capture(int out_fd, const RawCapture &capture) {

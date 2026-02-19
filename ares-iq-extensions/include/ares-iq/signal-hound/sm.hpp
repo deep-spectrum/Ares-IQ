@@ -448,8 +448,7 @@ class SM {
     void _stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &filename, bool silent);
-    void _stream_iq_data(int out_fd,
-                                ares::queue<RawCapture *> &queue) const;
+    void _stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const;
 
     static void _write_capture(int out_fd, const RawCapture &capture);
 };
