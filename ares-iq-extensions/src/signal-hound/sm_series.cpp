@@ -747,9 +747,13 @@ bool SM::_is_networked() const {
 extern "C" {
 #include <sys/stat.h>
 #include <unistd.h>
-static int open_fd(const char *file) {
-    return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
-                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+static int open_fd(const char *file, bool direct) {
+    if (direct) {
+        return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    }
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
 }
 
 static int close_fd(int fd) { return close(fd); }
@@ -793,9 +797,27 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
         sizeof(Capture::timestamp);
     uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
+    stream_fd out_fd;
 
-    int out_fd = open_fd(filename.c_str());
-    if (out_fd < 0) {
+    std::string iq_file = filename + "-iq.bin";
+    std::string ts_file = filename + "-ts.bin";
+    std::string meta_file = filename + ".yaml";
+
+    out_fd.iq_fd = open_fd(iq_file.c_str(), true);
+    if (out_fd.iq_fd < 0) {
+        throw std::runtime_error(strerror(errno));
+    }
+
+    out_fd.ts_fd = open_fd(ts_file.c_str(), false);
+    if (out_fd.ts_fd < 0) {
+        close_fd(out_fd.iq_fd);
+        throw std::runtime_error(strerror(errno));
+    }
+
+    out_fd.meta_fd = open_fd(meta_file.c_str(), false);
+    if (out_fd.meta_fd < 0) {
+        close_fd(out_fd.iq_fd);
+        close_fd(out_fd.ts_fd);
         throw std::runtime_error(strerror(errno));
     }
 
@@ -827,7 +849,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
-    if (close_fd(out_fd) < 0) {
+    if (close_fd(out_fd.iq_fd) < 0) {
         throw std::runtime_error(strerror(errno));
     }
 
@@ -840,7 +862,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
 }
 
-void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
+void SM::_stream_iq_data(const stream_fd &out_fd, ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
     std::vector<uint8_t> buffer;
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
@@ -860,12 +882,17 @@ void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
 
         if (buffer.size() >= PAGE_SIZE) {
             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(out_fd, buffer.data(), size);
+            ssize_t bytes_written = write(out_fd.iq_fd, buffer.data(), size);
             if (bytes_written < 0) {
-                perror("write");
+                LOG_ERR("write: %s", strerror(errno));
                 continue;
             }
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+        }
+
+        ssize_t written = write(out_fd.ts_fd, &timestamp, sizeof(int64_t));
+        if (written < 0) {
+            LOG_ERR("write: %s", strerror(errno));
         }
 
         entries_written += 1;
@@ -874,7 +901,7 @@ void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
     if (!buffer.empty()) {
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
-        int err = write(out_fd, buffer.data(), buffer.size());
+        int err = write(out_fd.iq_fd, buffer.data(), buffer.size());
         if (err < 0) {
             perror("write");
         } else {
@@ -884,28 +911,8 @@ void SM::_stream_iq_data(int out_fd, ares::queue<RawCapture *> &queue) const {
 
     LOG_DBG("%lu bytes dropped", buffer.size());
     LOG_DBG("Entries written: %lu", entries_written);
-}
 
-void SM::_write_capture(int out_fd, const RawCapture &capture) {
-    int err;
-    // size_t samples = capture.buf.size() / 2;
-
-    // err = write(out_fd, &samples, sizeof(uint64_t));
-    // if (err < 0) {
-    //     perror("write");
-    // }
-    //
-    // double ts = static_cast<double>(capture.timestamp) / 1e9;
-    // err = write(out_fd, &ts, sizeof(double));
-    // if (err < 0) {
-    //     perror("write");
-    // }
-
-    err = write(out_fd, capture.buf.data(),
-                capture.buf.size() * sizeof(SH_COMPLEX_TEMPLATE_TYPE));
-    if (err < 0) {
-        perror("write");
-    }
+    // todo: write metadata
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
