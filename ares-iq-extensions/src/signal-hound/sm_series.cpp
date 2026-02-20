@@ -413,14 +413,14 @@ void SM::close() { _close_device(); }
 
 void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
-                        const std::string &filename, bool silent,
-                        bool verbose) {
+                        const std::string &save_dir, bool silent,
+                        bool verbose, bool stop_if_sample_loss) {
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
     try {
-        _stream_iq_data(center, bw, chunk_size, duration, filename, silent);
+        _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent, stop_if_sample_loss);
     } catch (...) {
         if (verbose) {
             RESTORE_LOG_LEVEL();
@@ -748,8 +748,6 @@ bool SM::_is_networked() const {
 extern "C" {
 #include <sys/stat.h>
 #include <unistd.h>
-#include <pthread.h>
-#include <sched.h>
 
 static int open_fd(const char *file, bool direct) {
     if (direct) {
@@ -761,21 +759,12 @@ static int open_fd(const char *file, bool direct) {
 }
 
 static int close_fd(int fd) { return close(fd); }
-
-static int current_thread_raise_priority() {
-    pthread_t thread = pthread_self();
-    struct sched_param params;
-
-    params.sched_priority = sched_get_priority_max(SCHED_FIFO);
-
-    return pthread_setschedparam(thread, SCHED_FIFO, &params);
-}
 }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 void SM::_capture_iq_data(uint64_t captures,
-                          ares::queue<RawCapture *> &queue) const {
+                          ares::queue<RawCapture *> &queue, uint32_t chunk) const {
     int sample_loss;
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
@@ -789,6 +778,7 @@ void SM::_capture_iq_data(uint64_t captures,
         smGetGPSInfo(fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
                      &capture->gps_info.latitude, &capture->gps_info.longitude,
                      &capture->gps_info.altitude, nullptr, nullptr);
+        capture->chunk_id = chunk;
         queue.put(capture);
         if (sample_loss == SM_TRUE) {
             LOG_WRN("SM APi dropping samples");
@@ -798,8 +788,8 @@ void SM::_capture_iq_data(uint64_t captures,
 
 void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
-                         const std::string &filename, bool silent) {
-    bool interrupted = false, failed = false;
+                         const std::string &save_dir, bool silent, bool sample_loss_stop) {
+    bool interrupted = false;
     if (!_open) {
         _open_device();
     }
@@ -811,40 +801,12 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
         sizeof(Capture::timestamp);
     uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
-    stream_fd out_fd{};
-
-    std::string iq_file = filename + "-iq.bin";
-    std::string ts_file = filename + "-ts.bin";
-    std::string meta_file = filename + ".yaml";
-
-    out_fd.iq_fd = open_fd(iq_file.c_str(), true);
-    if (out_fd.iq_fd < 0) {
-        throw std::runtime_error(strerror(errno));
-    }
-
-    out_fd.ts_fd = open_fd(ts_file.c_str(), false);
-    if (out_fd.ts_fd < 0) {
-        close_fd(out_fd.iq_fd);
-        throw std::runtime_error(strerror(errno));
-    }
-
-    out_fd.meta_fd = open_fd(meta_file.c_str(), false);
-    if (out_fd.meta_fd < 0) {
-        close_fd(out_fd.iq_fd);
-        close_fd(out_fd.ts_fd);
-        throw std::runtime_error(strerror(errno));
-    }
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
 
-    int err;
-    if ((err = current_thread_raise_priority()) != 0) {
-        LOG_ERR("Failed to set scheduler priority: %s", strerror(err));
-    }
-
     ares::queue<RawCapture *> capture_q;
-    std::thread consumer([this, out_fd, duration, &capture_q]() {
-        _stream_iq_data(out_fd, duration, capture_q);
+    std::thread consumer([this, save_dir, duration, &capture_q]() {
+        _stream_iq_data(save_dir, duration, capture_q);
     });
     bool running = true;
     std::thread monitor([&running, &capture_q]() {_write_queue_monitor(&running, capture_q); });
@@ -852,13 +814,8 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
     auto start = now();
-    while ((now() - start) < duration) {
-        try {
-            _capture_iq_data(captures_per_chunk, capture_q);
-        } catch (...) {
-            failed = true;
-            break;
-        }
+    for (uint32_t chunk = 0; (now() - start) < duration; chunk++) {
+        _capture_iq_data(captures_per_chunk, capture_q, chunk);
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
             break;
@@ -873,28 +830,17 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     consumer.join();
     running = false;
     monitor.join();
-    if (close_fd(out_fd.iq_fd) < 0) {
-        throw std::runtime_error(strerror(errno));
-    }
 
     if (interrupted) {
         throw py::error_already_set();
     }
-
-    if (failed) {
-        throw std::runtime_error("stream iq failed.");
-    }
 }
 
-void SM::_stream_iq_data(const stream_fd &out_fd,
+void SM::_stream_iq_data(const std::string &save_dir,
                          const std::chrono::milliseconds &requested_duration,
                          ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
     std::vector<uint8_t> buffer;
-    int err;
-    if ((err = current_thread_raise_priority()) != 0) {
-        LOG_ERR("Failed to set scheduler priority: %s", strerror(err));
-    }
 
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
@@ -959,7 +905,7 @@ void SM::_stream_iq_data(const stream_fd &out_fd,
             .count());
 }
 
-void SM::_write_stream_metadata(const stream_fd &out_fd, uint64_t entries,
+void SM::_write_stream_metadata(const std::string &save_dir, uint64_t entries,
                                 double requested_duration,
                                 double duration) const {
     switch (_configs.type) {
