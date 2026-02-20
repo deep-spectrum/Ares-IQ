@@ -864,10 +864,10 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     py::dict ret;
 
     ret["captures"] = metadata.total_captures;
-    ret["samples-per-capture"] = _configs.samples_per_capture;
-    ret["captures-per-chunk"] = captures_per_chunk;
-    ret["save-duration"] = metadata.write_duration;
-    ret["sample-loss"] = sample_loss;
+    ret["samples_per_capture"] = _configs.samples_per_capture;
+    ret["captures_per_chunk"] = captures_per_chunk;
+    ret["save_duration"] = metadata.write_duration;
+    ret["sample_loss"] = sample_loss;
 
     return ret;
 }
