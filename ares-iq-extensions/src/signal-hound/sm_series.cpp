@@ -819,7 +819,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
     auto start = now();
-    for (int32_t chunk = 0; (now() - start) < duration; chunk++) {
+    for (int32_t chunk = 0; (now() - start) < duration && !metadata.save_failed; chunk++) {
         _capture_iq_data(captures_per_chunk, capture_q, chunk);
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
@@ -828,6 +828,13 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         // todo: update capture bar
     }
     // todo: update capture bar
+
+    if (metadata.save_failed) {
+        while (!capture_q.empty()) {
+            auto data = capture_q.get();
+            delete data;
+        }
+    }
 
     LOG_DBG("Terminating stream capture");
     RawCapture *terminate_value = nullptr;
@@ -841,6 +848,7 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
 }
 
+constexpr double ns_per_sec = 1e9;
 void SM::_stream_iq_data(const std::string &save_dir,
                          RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const {
@@ -850,6 +858,10 @@ void SM::_stream_iq_data(const std::string &save_dir,
     int iq_fd = -1, ts_fd = -1;
 
     ts_fd = _open_fd(ts_fd, save_dir, false, 0);
+    if (ts_fd < 0) {
+        metadata.save_failed = true;
+        return;
+    }
 
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
@@ -867,13 +879,18 @@ void SM::_stream_iq_data(const std::string &save_dir,
             _flush_chunk(iq_fd, buffer);
             iq_fd = _open_fd(iq_fd, save_dir, true, write_data->chunk_id);
             current_chunk = write_data->chunk_id;
+            if (iq_fd < 0) {
+                metadata.save_failed = true;
+                delete write_data;
+                break;
+            }
         }
 
         const size_t num_bytes = write_data->buf.size() * sizeof(float);
         const uint8_t *data =
             reinterpret_cast<uint8_t *>(write_data->buf.data());
         buffer.insert(buffer.end(), data, data + num_bytes);
-        int64_t timestamp = write_data->timestamp;
+        double timestamp = static_cast<double>(write_data->timestamp) / ns_per_sec;
         delete write_data;
 
         if (buffer.size() >= PAGE_SIZE) {
@@ -886,7 +903,7 @@ void SM::_stream_iq_data(const std::string &save_dir,
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
         }
 
-        ssize_t written = write(ts_fd, &timestamp, sizeof(int64_t));
+        ssize_t written = write(ts_fd, &timestamp, sizeof(double));
         if (written < 0) {
             LOG_ERR("write: %s", strerror(errno));
         }
@@ -934,7 +951,6 @@ int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
     int new_fd = open_fd(oss.str().c_str(), iq);
     if (new_fd < 0) {
         LOG_ERR("open: %s", strerror(errno));
-        throw std::runtime_error(strerror(errno));
     }
     return new_fd;
 }

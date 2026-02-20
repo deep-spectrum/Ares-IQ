@@ -447,8 +447,8 @@ class SM {
 
     struct RecordingMetadata {
         std::chrono::steady_clock::duration write_duration;
-        uint64_t total_captures;
-        bool save_failed = false;
+        uint64_t total_captures = 0;
+        volatile bool save_failed = false;
     };
 
     void _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
