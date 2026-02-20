@@ -423,7 +423,7 @@ py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
     py::dict ret;
     try {
         ret = _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
-                        stop_if_sample_loss);
+                        stop_if_sample_loss, done_cb);
     } catch (...) {
         if (verbose) {
             RESTORE_LOG_LEVEL();
