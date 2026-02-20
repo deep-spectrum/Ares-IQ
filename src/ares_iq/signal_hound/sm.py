@@ -1,5 +1,3 @@
-import datetime
-
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
@@ -13,6 +11,9 @@ import logging
 from ctypes import c_uint16
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+import datetime
+import yaml
+from pathlib import Path
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -177,6 +178,7 @@ class SM(ABC):
                                   port=configs.port)
         self._dev = _SM(configs_)
         self._gps_stamping = configs_.gps_timestamping
+        self._model = model
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
@@ -263,9 +265,30 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, filename: str, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
-        meta = self._dev.stream_iq(center, bw, chunk_size, duration, filename, silent, verbose, stop_sample_loss)
-        print(meta)
+    def _save_stream_iq_meta(self, meta: dict[str, object], save_directory: Path):
+        meta += {
+            "device": self._model.name,
+        }
+        with open(save_directory / "meta.yaml", "w") as f:
+            yaml.safe_dump(meta, f)
+
+    @staticmethod
+    def _create_save_directory(save_directory: str | Path) -> Path:
+        #todo
+        return Path(save_directory)
+
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, save_directory: str | Path, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
+
+        save_directory = self._create_save_directory(save_directory)
+
+        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose, stop_sample_loss)
+        meta += {
+            "center-frequency": center,
+            "bandwidth": bw,
+            "capture-duration": duration.total_seconds(),
+            "stop-if-sample-loss": stop_sample_loss,
+        }
+        self._save_stream_iq_meta(meta, save_directory)
 
 
 @dataclass(frozen=True)
