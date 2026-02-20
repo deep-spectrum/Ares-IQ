@@ -263,8 +263,8 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, filename: str, silent: bool = True, verbose: bool = False):
-        self._dev.stream_iq(center, bw, chunk_size, duration, filename, silent, verbose)
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, filename: str, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
+        self._dev.stream_iq(center, bw, chunk_size, duration, filename, silent, verbose, stop_sample_loss)
 
 
 @dataclass(frozen=True)
