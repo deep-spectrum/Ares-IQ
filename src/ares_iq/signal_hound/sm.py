@@ -266,9 +266,7 @@ class SM(ABC):
         self.close()
 
     def _save_stream_iq_meta(self, meta: dict[str, object], save_directory: Path):
-        meta += {
-            "device": self._model.name,
-        }
+        meta["device"] = self._model.name
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
 
@@ -282,7 +280,7 @@ class SM(ABC):
         save_directory = self._create_save_directory(save_directory)
 
         meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose, stop_sample_loss)
-        meta += {
+        meta["parameters"] = {
             "center-frequency": center,
             "bandwidth": bw,
             "capture-duration": duration.total_seconds(),
