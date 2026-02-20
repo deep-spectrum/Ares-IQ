@@ -21,6 +21,7 @@
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/functional.h>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -414,7 +415,7 @@ void SM::close() { _close_device(); }
 py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
                         const std::string &save_dir, bool silent, bool verbose,
-                        bool stop_if_sample_loss) {
+                        bool stop_if_sample_loss, const std::function<void()> &done_cb) {
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
@@ -796,7 +797,7 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
 py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &save_dir, bool silent,
-                         bool sample_loss_stop) {
+                         bool sample_loss_stop, const std::function<void()> &done_cb) {
     bool interrupted = false, sample_loss = false;
     if (!_open) {
         _open_device();
@@ -838,6 +839,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         // todo: update capture bar
     }
     // todo: update capture bar
+    done_cb();
 
     if (metadata.save_failed) {
         while (!capture_q.empty()) {

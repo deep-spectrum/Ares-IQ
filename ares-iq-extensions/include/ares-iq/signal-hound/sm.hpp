@@ -14,6 +14,7 @@
 #include <ares/queue.hpp>
 #include <complex>
 #include <pybind11/pybind11.h>
+#include <functional>
 
 namespace py = pybind11;
 
@@ -404,7 +405,7 @@ class SM {
     py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
                         const std::string &save_dir, bool silent, bool verbose,
-                        bool stop_if_sample_loss);
+                        bool stop_if_sample_loss, const std::function<void()> &done_cb);
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -456,7 +457,7 @@ class SM {
     py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &save_dir, bool silent,
-                         bool sample_loss_stop);
+                         bool sample_loss_stop, const std::function<void()> &done_cb);
     void _stream_iq_data(const std::string &save_dir,
                          RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const;

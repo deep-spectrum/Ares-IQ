@@ -14,6 +14,7 @@ from abc import ABC, abstractmethod
 import datetime
 import yaml
 from pathlib import Path
+from typing import Callable
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -278,11 +279,16 @@ class SM(ABC):
         save_directory.mkdir(exist_ok=True)
         return save_directory
 
-    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, save_directory: str | Path, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, save_directory: str | Path, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None):
 
         save_directory = self._create_save_directory(save_directory)
 
-        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose, stop_sample_loss)
+        def done():
+            print("Done")
+            if stop_cb is not None:
+                stop_cb()
+
+        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose, stop_sample_loss, done)
         meta["parameters"] = {
             "center_frequency": center,
             "bandwidth": bw,
