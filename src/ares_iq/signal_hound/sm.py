@@ -267,7 +267,7 @@ class SM(ABC):
 
     def _save_stream_iq_meta(self, meta: dict[str, object | datetime.timedelta], save_directory: Path):
         meta["device"] = self._model.name
-        meta["save_duration"] = meta["save-duration"].total_seconds()
+        meta["save_duration"] = meta["save_duration"].total_seconds()
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
 
