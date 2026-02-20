@@ -403,7 +403,8 @@ class SM {
 
     void stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
-                        const std::string &save_dir, bool silent, bool verbose, bool stop_if_sample_loss);
+                        const std::string &save_dir, bool silent, bool verbose,
+                        bool stop_if_sample_loss);
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -441,21 +442,29 @@ class SM {
         std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
         SmGpsInfo gps_info = {};
         int64_t timestamp;
-        uint32_t chunk_id;
+        int32_t chunk_id;
     };
 
-    void _capture_iq_data(uint64_t captures,
-                          ares::queue<RawCapture *> &queue, uint32_t chunk) const;
+    struct RecordingMetadata {
+        std::chrono::steady_clock::duration write_duration;
+        uint64_t total_captures;
+        bool save_failed = false;
+    };
+
+    void _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+                          int32_t chunk) const;
     void _stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
-                         const std::string &save_dir, bool silent, bool sample_loss_stop);
+                         const std::string &save_dir, bool silent,
+                         bool sample_loss_stop);
     void _stream_iq_data(const std::string &save_dir,
-                         const std::chrono::milliseconds &requested_duration,
+                         RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const;
-    void _write_stream_metadata(const std::string &save_dir, uint64_t entries,
-                                double requested_duration,
-                                double duration) const;
-    static void _write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue);
+    static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
+    static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
+                        int32_t chunk);
+    static void _write_queue_monitor(bool *run,
+                                     ares::queue<RawCapture *> &queue);
 };
 
 /**

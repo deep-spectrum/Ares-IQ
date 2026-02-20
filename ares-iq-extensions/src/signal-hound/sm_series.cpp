@@ -413,14 +413,15 @@ void SM::close() { _close_device(); }
 
 void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
-                        const std::string &save_dir, bool silent,
-                        bool verbose, bool stop_if_sample_loss) {
+                        const std::string &save_dir, bool silent, bool verbose,
+                        bool stop_if_sample_loss) {
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
     try {
-        _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent, stop_if_sample_loss);
+        _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
+                        stop_if_sample_loss);
     } catch (...) {
         if (verbose) {
             RESTORE_LOG_LEVEL();
@@ -763,8 +764,8 @@ static int close_fd(int fd) { return close(fd); }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
-void SM::_capture_iq_data(uint64_t captures,
-                          ares::queue<RawCapture *> &queue, uint32_t chunk) const {
+void SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+                          int32_t chunk) const {
     int sample_loss;
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
@@ -788,7 +789,8 @@ void SM::_capture_iq_data(uint64_t captures,
 
 void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
-                         const std::string &save_dir, bool silent, bool sample_loss_stop) {
+                         const std::string &save_dir, bool silent,
+                         bool sample_loss_stop) {
     bool interrupted = false;
     if (!_open) {
         _open_device();
@@ -804,17 +806,20 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
 
+    RecordingMetadata metadata;
     ares::queue<RawCapture *> capture_q;
-    std::thread consumer([this, save_dir, duration, &capture_q]() {
-        _stream_iq_data(save_dir, duration, capture_q);
+    std::thread consumer([this, save_dir, &metadata, &capture_q]() {
+        _stream_iq_data(save_dir, metadata, capture_q);
     });
     bool running = true;
-    std::thread monitor([&running, &capture_q]() {_write_queue_monitor(&running, capture_q); });
+    std::thread monitor([&running, &capture_q]() {
+        _write_queue_monitor(&running, capture_q);
+    });
 
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
     auto start = now();
-    for (uint32_t chunk = 0; (now() - start) < duration; chunk++) {
+    for (int32_t chunk = 0; (now() - start) < duration; chunk++) {
         _capture_iq_data(captures_per_chunk, capture_q, chunk);
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
@@ -837,10 +842,14 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 }
 
 void SM::_stream_iq_data(const std::string &save_dir,
-                         const std::chrono::milliseconds &requested_duration,
+                         RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
+    int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
+    int iq_fd = -1, ts_fd = -1;
+
+    ts_fd = _open_fd(ts_fd, save_dir, false, 0);
 
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
@@ -849,7 +858,15 @@ void SM::_stream_iq_data(const std::string &save_dir,
         auto *write_data = queue.get();
 
         if (write_data == nullptr) {
+            _flush_chunk(iq_fd, buffer);
+            close_fd(iq_fd);
             break;
+        }
+
+        if (current_chunk != write_data->chunk_id) {
+            _flush_chunk(iq_fd, buffer);
+            iq_fd = _open_fd(iq_fd, save_dir, true, write_data->chunk_id);
+            current_chunk = write_data->chunk_id;
         }
 
         const size_t num_bytes = write_data->buf.size() * sizeof(float);
@@ -861,7 +878,7 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
         if (buffer.size() >= PAGE_SIZE) {
             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(out_fd.iq_fd, buffer.data(), size);
+            ssize_t bytes_written = write(iq_fd, buffer.data(), size);
             if (bytes_written < 0) {
                 LOG_ERR("write: %s", strerror(errno));
                 continue;
@@ -869,7 +886,7 @@ void SM::_stream_iq_data(const std::string &save_dir,
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
         }
 
-        ssize_t written = write(out_fd.ts_fd, &timestamp, sizeof(int64_t));
+        ssize_t written = write(ts_fd, &timestamp, sizeof(int64_t));
         if (written < 0) {
             LOG_ERR("write: %s", strerror(errno));
         }
@@ -877,77 +894,49 @@ void SM::_stream_iq_data(const std::string &save_dir,
         entries_written += 1;
     }
     auto stop = std::chrono::steady_clock::now();
+    close_fd(ts_fd);
 
+    LOG_DBG("%lu bytes dropped", buffer.size());
+    LOG_DBG("Entries written: %lu", entries_written);
+
+    metadata.total_captures = entries_written;
+    metadata.write_duration = stop - start;
+}
+
+void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
     if (!buffer.empty()) {
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
-        ssize_t err = write(out_fd.iq_fd, buffer.data(), buffer.size());
+        ssize_t err = write(iq_fd, buffer.data(), buffer.size());
         if (err < 0) {
             LOG_ERR("write: %s", strerror(errno));
         } else {
             buffer.erase(buffer.begin(), buffer.begin() + err);
         }
     }
-
-    LOG_DBG("%lu bytes dropped", buffer.size());
-    LOG_DBG("Entries written: %lu", entries_written);
-
-    auto duration =
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start);
-    auto req_dur =
-        std::chrono::duration_cast<std::chrono::seconds>(requested_duration);
-
-    _write_stream_metadata(
-        out_fd, entries_written,
-        std::chrono::duration_cast<std::chrono::duration<double>>(req_dur)
-            .count(),
-        std::chrono::duration_cast<std::chrono::duration<double>>(duration)
-            .count());
 }
 
-void SM::_write_stream_metadata(const std::string &save_dir, uint64_t entries,
-                                double requested_duration,
-                                double duration) const {
-    switch (_configs.type) {
-    case smDeviceTypeSM200A: {
-        dprintf(out_fd.meta_fd, "device: SM200A\n");
-        break;
-    }
-    case smDeviceTypeSM200B: {
-        dprintf(out_fd.meta_fd, "device: SM200B\n");
-        break;
-    }
-    case smDeviceTypeSM200C: {
-        dprintf(out_fd.meta_fd, "device: SM200C\n");
-        break;
-    }
-    case smDeviceTypeSM435B: {
-        dprintf(out_fd.meta_fd, "device: SM435B\n");
-        break;
-    }
-    case smDeviceTypeSM435C: {
-        dprintf(out_fd.meta_fd, "device: SM435C\n");
-        break;
-    }
-    default: {
-        dprintf(out_fd.meta_fd, "device: Invalid\n");
-        break;
-    }
+int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
+                 int32_t chunk) {
+    std::stringstream oss;
+    if (old_fd > 0) {
+        close_fd(old_fd);
     }
 
-    dprintf(out_fd.meta_fd, "captures: %lu\n", entries);
-    dprintf(out_fd.meta_fd, "samples-per-capture: %u\n",
-            _configs.samples_per_capture);
-    dprintf(out_fd.meta_fd, "samples-shape:\n");
-    dprintf(out_fd.meta_fd, "  rows: %lu\n", entries);
-    dprintf(out_fd.meta_fd, "  columns: %u\n", _configs.samples_per_capture);
-    dprintf(out_fd.meta_fd, "types:\n");
-    dprintf(out_fd.meta_fd, "  timestamps: int64\n");
-    dprintf(out_fd.meta_fd, "  samples: complex64\n");
-    dprintf(out_fd.meta_fd, "timestamp-unit: nanoseconds-since-epoch\n");
-    dprintf(out_fd.meta_fd, "requested-duration-seconds: %f\n",
-            requested_duration);
-    dprintf(out_fd.meta_fd, "run-duration-seconds: %f\n\n", duration);
+    if (iq) {
+        oss << save_dir << "/"
+            << "iq" << chunk << ".c8";
+    } else {
+        oss << save_dir << "/"
+            << "ts.f8";
+    }
+
+    int new_fd = open_fd(oss.str().c_str(), iq);
+    if (new_fd < 0) {
+        LOG_ERR("open: %s", strerror(errno));
+        throw std::runtime_error(strerror(errno));
+    }
+    return new_fd;
 }
 
 void SM::_write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue) {
