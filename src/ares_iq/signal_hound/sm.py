@@ -284,7 +284,6 @@ class SM(ABC):
         save_directory = self._create_save_directory(save_directory)
 
         def done():
-            print("Done")
             if stop_cb is not None:
                 stop_cb()
 
