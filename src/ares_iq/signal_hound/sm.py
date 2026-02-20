@@ -273,8 +273,10 @@ class SM(ABC):
 
     @staticmethod
     def _create_save_directory(save_directory: str | Path) -> Path:
-        #todo
-        return Path(save_directory)
+        if isinstance(save_directory, str):
+            save_directory = Path(save_directory)
+        save_directory.mkdir(exist_ok=True)
+        return save_directory
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, save_directory: str | Path, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
 
