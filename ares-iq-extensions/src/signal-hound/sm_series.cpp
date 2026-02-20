@@ -846,7 +846,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         }
     }
 
-    LOG_DBG("Terminating stream capture");
+    LOG_INF("Data collected");
     RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
