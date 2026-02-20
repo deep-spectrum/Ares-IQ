@@ -748,6 +748,9 @@ bool SM::_is_networked() const {
 extern "C" {
 #include <sys/stat.h>
 #include <unistd.h>
+#include <pthread.h>
+#include <sched.h>
+
 static int open_fd(const char *file, bool direct) {
     if (direct) {
         return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
@@ -758,6 +761,15 @@ static int open_fd(const char *file, bool direct) {
 }
 
 static int close_fd(int fd) { return close(fd); }
+
+static int current_thread_raise_priority() {
+    pthread_t thread = pthread_self();
+    struct sched_param params;
+
+    params.sched_priority = sched_get_priority_max(SCHED_FIFO);
+
+    return pthread_setschedparam(thread, SCHED_FIFO, &params);
+}
 }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
@@ -825,6 +837,11 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
 
+    int err;
+    if ((err = current_thread_raise_priority()) != 0) {
+        LOG_ERR("Failed to set scheduler priority: %s", strerror(err));
+    }
+
     ares::queue<RawCapture *> capture_q;
     std::thread consumer([this, out_fd, duration, &capture_q]() {
         _stream_iq_data(out_fd, duration, capture_q);
@@ -874,6 +891,11 @@ void SM::_stream_iq_data(const stream_fd &out_fd,
                          ares::queue<RawCapture *> &queue) const {
     uint64_t entries_written = 0;
     std::vector<uint8_t> buffer;
+    int err;
+    if ((err = current_thread_raise_priority()) != 0) {
+        LOG_ERR("Failed to set scheduler priority: %s", strerror(err));
+    }
+
     buffer.reserve(_configs.samples_per_capture * 2 * 10);
 
     auto start = std::chrono::steady_clock::now();
