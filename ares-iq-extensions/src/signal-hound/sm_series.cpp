@@ -767,9 +767,10 @@ static int close_fd(int fd) { return close(fd); }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
-void SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
                           int32_t chunk) const {
     int sample_loss;
+    bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
     for (size_t i = 0; i < captures; i++) {
@@ -786,15 +787,17 @@ void SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
         queue.put(capture);
         if (sample_loss == SM_TRUE) {
             LOG_WRN("SM APi dropping samples");
+            sample_loss_ = true;
         }
     }
+    return sample_loss_;
 }
 
 py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &save_dir, bool silent,
                          bool sample_loss_stop) {
-    bool interrupted = false;
+    bool interrupted = false, sample_loss = false;
     if (!_open) {
         _open_device();
     }
@@ -823,9 +826,13 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     auto now = std::chrono::steady_clock::now;
     auto start = now();
     for (int32_t chunk = 0; (now() - start) < duration && !metadata.save_failed; chunk++) {
-        _capture_iq_data(captures_per_chunk, capture_q, chunk);
+        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) || sample_loss;
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
+            break;
+        }
+        if (sample_loss_stop && sample_loss) {
+            LOG_ERR("Stopping prematurely due to sample loss");
             break;
         }
         // todo: update capture bar
@@ -860,6 +867,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     ret["samples-per-capture"] = _configs.samples_per_capture;
     ret["captures-per-chunk"] = captures_per_chunk;
     ret["save-duration"] = metadata.write_duration;
+    ret["sample-loss"] = sample_loss;
 
     return ret;
 }

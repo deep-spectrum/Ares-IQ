@@ -451,7 +451,7 @@ class SM {
         volatile bool save_failed = false;
     };
 
-    void _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+    bool _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
                           int32_t chunk) const;
     py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
