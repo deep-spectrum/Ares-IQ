@@ -433,7 +433,7 @@ py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
     if (verbose) {
         RESTORE_LOG_LEVEL();
     }
-    
+
     return ret;
 }
 

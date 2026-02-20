@@ -264,7 +264,8 @@ class SM(ABC):
         self.close()
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, filename: str, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False):
-        self._dev.stream_iq(center, bw, chunk_size, duration, filename, silent, verbose, stop_sample_loss)
+        meta = self._dev.stream_iq(center, bw, chunk_size, duration, filename, silent, verbose, stop_sample_loss)
+        print(meta)
 
 
 @dataclass(frozen=True)
