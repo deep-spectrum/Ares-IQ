@@ -411,7 +411,7 @@ void SM::open() {
 
 void SM::close() { _close_device(); }
 
-void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
+py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
                         const std::chrono::milliseconds &duration,
                         const std::string &save_dir, bool silent, bool verbose,
                         bool stop_if_sample_loss) {
@@ -419,8 +419,9 @@ void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
+    py::dict ret;
     try {
-        _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
+        ret = _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
                         stop_if_sample_loss);
     } catch (...) {
         if (verbose) {
@@ -432,6 +433,8 @@ void SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
     if (verbose) {
         RESTORE_LOG_LEVEL();
     }
+    
+    return ret;
 }
 
 void SM::_log_mode() const {
@@ -787,7 +790,7 @@ void SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
     }
 }
 
-void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
+py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                          const std::chrono::milliseconds &duration,
                          const std::string &save_dir, bool silent,
                          bool sample_loss_stop) {
@@ -846,6 +849,19 @@ void SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     if (interrupted) {
         throw py::error_already_set();
     }
+
+    if (metadata.save_failed) {
+        throw std::runtime_error("Operation failed");
+    }
+
+    py::dict ret;
+
+    ret["captures"] = metadata.total_captures;
+    ret["samples-per-capture"] = _configs.samples_per_capture;
+    ret["captures-per-chunk"] = captures_per_chunk;
+    ret["save-duration"] = metadata.write_duration;
+
+    return ret;
 }
 
 constexpr double ns_per_sec = 1e9;
