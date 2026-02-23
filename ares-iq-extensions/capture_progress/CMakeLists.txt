@@ -1,11 +1,11 @@
 cmake_minimum_required(VERSION 3.15)
 project(capture_progress)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 option(USE_PYTHON_LIB "Use Python library implementation of CaptureProgress" OFF)
 
-add_library(capture_progress STATIC src/capture-progress/progress.cpp)
+add_library(capture_progress STATIC src/capture-progress/progress.cpp src/capture-progress/monitor.cpp)
 set_target_properties(capture_progress PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(capture_progress PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 
