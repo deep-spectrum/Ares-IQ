@@ -166,9 +166,9 @@ class SM(ABC):
             serial: The serial number to connect to. Only relevant for USB SM devices.
         """
         if configs is None:
-            configs_ = _SmConfigs(type=model)
+            configs_ = _SmConfigs(device=model)
         else:
-            configs_ = _SmConfigs(type=model,
+            configs_ = _SmConfigs(device=model,
                                   serial=serial,
                                   gps_timestamping=configs.gps_timestamping,
                                   gps_lock_timeout=configs.gps_lock_timeout,
