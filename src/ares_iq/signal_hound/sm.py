@@ -292,7 +292,7 @@ class SM(ABC):
             "center_frequency": center,
             "bandwidth": bw,
             "capture_duration": duration.total_seconds(),
-            "stop_if_sample-loss": stop_sample_loss,
+            "stop_if_sample_loss": stop_sample_loss,
         }
         self._save_stream_iq_meta(meta, save_directory)
 
