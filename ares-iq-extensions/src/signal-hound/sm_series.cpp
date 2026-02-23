@@ -305,12 +305,21 @@ float SmSFPDiagnostics::get_tx_power() const { return txPower; }
 
 float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
 
+#define SM_NETWORK_DIAGNOSTICS_POPULATE(dict_, field_)                         \
+    do {                                                                       \
+        STRUCT_PARAM_TO_DICT(dict_, field_);                                   \
+        if (static_cast<int64_t>(field_) == UINT64_C(0)) {                     \
+            dict_[#field_] = py::none();                                       \
+        }                                                                      \
+    } while (false)
+
 py::dict SmSFPDiagnostics::as_dict() {
     py::dict dict;
-    STRUCT_PARAM_TO_DICT(dict, temp);
-    STRUCT_PARAM_TO_DICT(dict, voltage);
-    STRUCT_PARAM_TO_DICT(dict, txPower);
-    STRUCT_PARAM_TO_DICT(dict, rxPower);
+    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, temp);
+    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, temp);
+    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, voltage);
+    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, txPower);
+    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, rxPower);
     return dict;
 }
 
