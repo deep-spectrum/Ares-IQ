@@ -292,15 +292,31 @@ class SM(ABC):
         save_directory.mkdir(exist_ok=True)
         return save_directory
 
-    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta, save_directory: str | Path, silent: bool = True, verbose: bool = False, stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None):
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
+                  save_directory: str | Path, silent: bool = True, verbose: bool = False,
+                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None):
+        """Stream I/Q data to disk.
 
+        Args:
+            center: The center frequency in Hz.
+            bw: The capture bandwidth in Hz.
+            chunk_size: The file chunk size in bytes.
+            duration: The amount of time to stream I/Q for.
+            save_directory: The directory to save the I/Q data, timestamps, and metadata to. If this directory does
+                            not exist, then this method will attempt to create the specified directory.
+            silent: Run the streamed capture in silent mode (no status bars). By default, this is `True`.
+            verbose: Run the streamed capture in verbose mode (info logging messages). By default, this is `False`.
+            stop_sample_loss: Stop the streamed capture if sample loss starts occurring. By default, this is `False`.
+            stop_cb: User callback for notifying when the streamed capture is done. By default, this is `None`.
+        """
         save_directory = self._create_save_directory(save_directory)
 
         def done():
             if stop_cb is not None:
                 stop_cb()
 
-        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose, stop_sample_loss, done)
+        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
+                                   stop_sample_loss, done)
         meta["parameters"] = {
             "center_frequency": center,
             "bandwidth": bw,
@@ -328,6 +344,7 @@ class SmSFPDiagnostics:
 
 class NetworkedSM(SM, ABC):
     """Base class for networked SM devices"""
+
     def network_speed_test(self, duration: float) -> float:
         """Perform a network speed test for the connected device.
 
@@ -376,6 +393,7 @@ class SM200C(NetworkedSM):
 
 class SM435B(SM):
     """SM435B device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435B, configs, serial)
 
@@ -463,6 +481,14 @@ def sm_get_device_list(usb: bool = True, networked: bool = True, max_network_dev
 
 @dataclass()
 class SmNetworkConfig:
+    """SM device network configurations.
+
+    Attributes:
+        mac: The MAC address of the SM device.
+        ip: The device IP address.
+        port: The device network port.
+        serial: The network device serial number.
+    """
     mac: str = ""
     ip: str = DEFAULT_DEV_ADDR
     port: int = DEFAULT_PORT
@@ -477,6 +503,9 @@ def sm_get_network_config(serial: int) -> SmNetworkConfig:
 
     Returns:
         The SM device network configuration.
+
+    Notes:
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = retrieve_networked_configurations(serial)
     return SmNetworkConfig(mac=config_.mac, ip=config_.ipaddr, port=config_.port, serial=serial)
@@ -493,6 +522,7 @@ def sm_configure_network_device(serial: int, config: SmNetworkConfig, non_volati
     Notes:
         The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
         The mac and the serial fields are immutable.
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     configure_networked_device(serial, config_, non_volatile)
@@ -509,6 +539,7 @@ def sm_broadcast_network_config(config: SmNetworkConfig, host: str | None = None
     Notes:
         The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
         The mac and the serial fields are immutable.
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     if host is None:

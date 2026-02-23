@@ -87,6 +87,10 @@ struct SMConfigs {
      */
     uint32_t samples_per_capture = 500000;
 
+    /**
+     * Retrieve the dictionary representation of the configurations.
+     * @return The dictionary representation.
+     */
     py::dict as_dict();
 };
 
@@ -404,12 +408,32 @@ class SM {
      */
     void close();
 
+    /**
+     * Stream captured I/Q data directly to storage.
+     *
+     * @param center The center frequency in Hz.
+     * @param bw The bandwidth in Hz.
+     * @param chunk_size The file chunk size in bytes.
+     * @param duration The duration of the I/Q stream.
+     * @param save_dir The save directory for the captured I/Q data. Must
+     * already exist.
+     * @param silent Run the stream in silent mode (No status bars).
+     * @param verbose Run the stream with logging messages.
+     * @param stop_if_sample_loss Stop streaming if sample loss starts
+     * occurring.
+     * @param done_cb The callback to call when streaming is aborted or is done.
+     * @return Stream capture metadata.
+     */
     py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
                             const std::chrono::milliseconds &duration,
                             const std::string &save_dir, bool silent,
                             bool verbose, bool stop_if_sample_loss,
                             const std::function<void()> &done_cb);
 
+    /**
+     * .
+     * @return The SM device configurations passed in upon initialization.
+     */
     SMConfigs get_configs() const;
 
   private:
