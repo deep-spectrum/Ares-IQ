@@ -271,7 +271,7 @@ class SM(ABC):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
         model = "Not set"
         for key, value in configs.items():
-            if issubclass(value, enum.IntEnum):
+            if issubclass(type(value), enum.IntEnum):
                 configs[key] = value.name
             if key == "type":
                 model = value.name
