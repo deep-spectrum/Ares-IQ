@@ -14,6 +14,7 @@
 #include <ares-iq/util.hpp>
 #include <capture-progress/progress.hpp>
 #include <cassert>
+#include <cmath>
 #include <complex>
 #include <fcntl.h>
 #include <logging/log.hpp>
@@ -274,17 +275,25 @@ float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
 
+#define SM_DIAGNOSTICS_POPULATE_TEMP(dict_, field_)                            \
+    do {                                                                       \
+        STRUCT_PARAM_TO_DICT(dict_, field_, diagnostics);                      \
+        if (static_cast<int64_t>(diagnostics.field_) == INT64_C(240)) {        \
+            dict[#field_] = py::none();                                        \
+        }                                                                      \
+    } while (false)
+
 py::dict SmDiagnostics::as_dict() {
     py::dict dict;
     STRUCT_PARAM_TO_DICT(dict, voltage, diagnostics);
     STRUCT_PARAM_TO_DICT(dict, currentInput, diagnostics);
     STRUCT_PARAM_TO_DICT(dict, currentOCXO, diagnostics);
     STRUCT_PARAM_TO_DICT(dict, tempFPGAInternal, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, tempFPGANear, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, tempOCXO, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, tempVCO, diagnostics);
+    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempFPGANear);
+    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempOCXO);
+    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempVCO);
     STRUCT_PARAM_TO_DICT(dict, tempRFBoardLO, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, tempPowerSupply, diagnostics);
+    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempPowerSupply);
     return dict;
 }
 
