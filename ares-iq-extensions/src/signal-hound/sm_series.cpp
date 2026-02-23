@@ -18,10 +18,10 @@
 #include <fcntl.h>
 #include <logging/log.hpp>
 #include <pybind11/chrono.h>
+#include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
-#include <pybind11/functional.h>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -84,7 +84,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_readwrite("software_filter", &SMConfigs::software_filter,
                        "Use software filtering")
         .def_readwrite("samples_per_capture", &SMConfigs::samples_per_capture,
-                       "The number of samples to collect per a capture");
+                       "The number of samples to collect per a capture")
+        .def("__dict__", &SMConfigs::as_dict, "Convert struct to dictionary");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")
@@ -174,7 +175,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              "Retrieve the diagnostic information for the SFP+ port")
         .def("open", &SM::open, "Open SM device")
         .def("close", &SM::close, "Close SM device")
-        .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file");
+        .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file")
+        .def("get_configs", &SM::get_configs, "Retrieve SM configurations");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -222,6 +224,22 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     KWARG_TO_STRUCT_PARAM(kwargs, decimation);
     KWARG_TO_STRUCT_PARAM(kwargs, software_filter);
     KWARG_TO_STRUCT_PARAM(kwargs, samples_per_capture);
+}
+
+py::dict SMConfigs::as_dict() {
+    py::dict dict;
+    STRUCT_PARAM_TO_DICT(dict, type);
+    STRUCT_PARAM_TO_DICT(dict, serial);
+    STRUCT_PARAM_TO_DICT(dict, host);
+    STRUCT_PARAM_TO_DICT(dict, device_addr);
+    STRUCT_PARAM_TO_DICT(dict, port);
+    STRUCT_PARAM_TO_DICT(dict, gps_timestamping);
+    STRUCT_PARAM_TO_DICT(dict, gps_lock_timeout);
+    STRUCT_PARAM_TO_DICT(dict, gps_model);
+    STRUCT_PARAM_TO_DICT(dict, decimation);
+    STRUCT_PARAM_TO_DICT(dict, software_filter);
+    STRUCT_PARAM_TO_DICT(dict, samples_per_capture);
+    return dict;
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -413,17 +431,18 @@ void SM::open() {
 void SM::close() { _close_device(); }
 
 py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
-                        const std::chrono::milliseconds &duration,
-                        const std::string &save_dir, bool silent, bool verbose,
-                        bool stop_if_sample_loss, const std::function<void()> &done_cb) {
+                            const std::chrono::milliseconds &duration,
+                            const std::string &save_dir, bool silent,
+                            bool verbose, bool stop_if_sample_loss,
+                            const std::function<void()> &done_cb) {
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
     py::dict ret;
     try {
-        ret = _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
-                        stop_if_sample_loss, done_cb);
+        ret = _stream_iq_data(center, bw, chunk_size, duration, save_dir,
+                              silent, stop_if_sample_loss, done_cb);
     } catch (...) {
         if (verbose) {
             RESTORE_LOG_LEVEL();
@@ -437,6 +456,8 @@ py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     return ret;
 }
+
+SMConfigs SM::get_configs() const { return _configs; }
 
 void SM::_log_mode() const {
     SmMode mode;
@@ -795,9 +816,10 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
 }
 
 py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
-                         const std::chrono::milliseconds &duration,
-                         const std::string &save_dir, bool silent,
-                         bool sample_loss_stop, const std::function<void()> &done_cb) {
+                             const std::chrono::milliseconds &duration,
+                             const std::string &save_dir, bool silent,
+                             bool sample_loss_stop,
+                             const std::function<void()> &done_cb) {
     bool interrupted = false, sample_loss = false;
     if (!_open) {
         _open_device();
@@ -826,8 +848,10 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     // todo: timed capture bar
     auto now = std::chrono::steady_clock::now;
     auto start = now();
-    for (int32_t chunk = 0; (now() - start) < duration && !metadata.save_failed; chunk++) {
-        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) || sample_loss;
+    for (int32_t chunk = 0; (now() - start) < duration && !metadata.save_failed;
+         chunk++) {
+        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
+                      sample_loss;
         if (PyErr_CheckSignals() != 0) {
             interrupted = true;
             break;
@@ -841,12 +865,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     // todo: update capture bar
     done_cb();
 
-    if (metadata.save_failed) {
-        while (!capture_q.empty()) {
-            auto data = capture_q.get();
-            delete data;
-        }
-    }
+    _clear_queue(metadata, capture_q);
 
     LOG_INF("Data collected");
     RawCapture *terminate_value = nullptr;
@@ -916,7 +935,8 @@ void SM::_stream_iq_data(const std::string &save_dir,
         const uint8_t *data =
             reinterpret_cast<uint8_t *>(write_data->buf.data());
         buffer.insert(buffer.end(), data, data + num_bytes);
-        double timestamp = static_cast<double>(write_data->timestamp) / ns_per_sec;
+        double timestamp =
+            static_cast<double>(write_data->timestamp) / ns_per_sec;
         delete write_data;
 
         if (buffer.size() >= PAGE_SIZE) {
@@ -944,6 +964,16 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
     metadata.total_captures = entries_written;
     metadata.write_duration = stop - start;
+}
+
+void SM::_clear_queue(const RecordingMetadata &meta,
+                      ares::queue<RawCapture *> &queue) {
+    if (meta.save_failed) {
+        while (!queue.empty()) {
+            auto data = queue.get();
+            delete data;
+        }
+    }
 }
 
 void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
@@ -981,7 +1011,8 @@ int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
     return new_fd;
 }
 
-void SM::_write_queue_monitor(bool *run, ares::queue<RawCapture *> &queue) {
+void SM::_write_queue_monitor(const bool *run,
+                              ares::queue<RawCapture *> &queue) {
     // todo make this nicer
     while (*run) {
         LOG_DBG("Write queue size: %lu", queue.size());

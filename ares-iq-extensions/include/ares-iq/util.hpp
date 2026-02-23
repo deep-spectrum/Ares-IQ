@@ -12,4 +12,7 @@
         }                                                                      \
     } while (false)
 
+#define STRUCT_PARAM_TO_DICT(dict_, parameter_)                                \
+    dict_[#parameter_] = this->parameter_
+
 #endif // VERSION_UTIL_HPP

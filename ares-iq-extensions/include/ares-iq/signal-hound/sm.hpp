@@ -13,8 +13,8 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/queue.hpp>
 #include <complex>
-#include <pybind11/pybind11.h>
 #include <functional>
+#include <pybind11/pybind11.h>
 
 namespace py = pybind11;
 
@@ -86,6 +86,8 @@ struct SMConfigs {
      * The number of samples per a capture.
      */
     uint32_t samples_per_capture = 500000;
+
+    py::dict as_dict();
 };
 
 /**
@@ -403,9 +405,12 @@ class SM {
     void close();
 
     py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
-                        const std::chrono::milliseconds &duration,
-                        const std::string &save_dir, bool silent, bool verbose,
-                        bool stop_if_sample_loss, const std::function<void()> &done_cb);
+                            const std::chrono::milliseconds &duration,
+                            const std::string &save_dir, bool silent,
+                            bool verbose, bool stop_if_sample_loss,
+                            const std::function<void()> &done_cb);
+
+    SMConfigs get_configs() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -455,16 +460,19 @@ class SM {
     bool _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
                           int32_t chunk) const;
     py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
-                         const std::chrono::milliseconds &duration,
-                         const std::string &save_dir, bool silent,
-                         bool sample_loss_stop, const std::function<void()> &done_cb);
+                             const std::chrono::milliseconds &duration,
+                             const std::string &save_dir, bool silent,
+                             bool sample_loss_stop,
+                             const std::function<void()> &done_cb);
     void _stream_iq_data(const std::string &save_dir,
                          RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const;
+    static void _clear_queue(const RecordingMetadata &meta,
+                             ares::queue<RawCapture *> &queue);
     static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
     static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
                         int32_t chunk);
-    static void _write_queue_monitor(bool *run,
+    static void _write_queue_monitor(const bool *run,
                                      ares::queue<RawCapture *> &queue);
 };
 
