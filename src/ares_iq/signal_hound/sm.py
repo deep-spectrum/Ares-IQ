@@ -2,7 +2,8 @@ import enum
 
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
-    _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
+    _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
+    sm_api_version
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -271,6 +272,7 @@ class SM(ABC):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
         meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
         meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
+        meta["diagnostics"]["api_version"] = sm_api_version()
         try:
             meta["diagnostics"]["network_diagnostics"] = self._dev.network_diagnostic_info().as_dict()
         except RuntimeError:
