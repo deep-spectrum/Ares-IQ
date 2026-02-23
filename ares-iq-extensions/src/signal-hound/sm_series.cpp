@@ -85,7 +85,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                        "Use software filtering")
         .def_readwrite("samples_per_capture", &SMConfigs::samples_per_capture,
                        "The number of samples to collect per a capture")
-        .def("__dict__", &SMConfigs::as_dict, "Convert struct to dictionary");
+        .def("as_dict", &SMConfigs::as_dict, "Convert struct to dictionary");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")

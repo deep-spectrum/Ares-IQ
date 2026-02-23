@@ -1,3 +1,5 @@
+import enum
+
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
@@ -179,7 +181,6 @@ class SM(ABC):
                                   port=configs.port)
         self._dev = _SM(configs_)
         self._gps_stamping = configs_.gps_timestamping
-        self._model = model
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
@@ -267,7 +268,19 @@ class SM(ABC):
         self.close()
 
     def _save_stream_iq_meta(self, meta: dict[str, object | datetime.timedelta], save_directory: Path):
-        meta["device"] = self._model.name
+        configs: dict[str, object] = self._dev.get_configs().as_dict()
+        model = "Not set"
+        for key, value in configs.items():
+            if issubclass(value, enum.IntEnum):
+                configs[key] = value.name
+            if key == "type":
+                model = value.name
+        # Device type must be at the root level
+        del configs["type"]
+        # Samples per a capture is already in the metadata
+        del configs["samples_per_capture"]
+        meta["device_configurations"] = configs
+        meta["device"] = model
         meta["save_duration"] = meta["save_duration"].total_seconds()
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
