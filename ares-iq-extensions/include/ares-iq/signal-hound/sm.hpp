@@ -41,7 +41,7 @@ struct SMConfigs {
     /**
      * The SM device type in the SM series.
      */
-    SmDeviceType type = smDeviceTypeNotSet;
+    SmDeviceType device = smDeviceTypeNotSet;
     /**
      * The serial number.
      */
@@ -197,6 +197,8 @@ struct SmDiagnostics {
      * @return Power supply temperature
      */
     [[nodiscard]] float temp_power_supply() const;
+
+    py::dict as_dict();
 };
 
 /**
@@ -252,6 +254,8 @@ struct SmSFPDiagnostics {
      * @return Receive power in mW.
      */
     [[nodiscard]] float get_rx_power() const;
+
+    py::dict as_dict();
 };
 
 /**

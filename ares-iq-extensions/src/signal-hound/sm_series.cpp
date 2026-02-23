@@ -62,7 +62,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
     py::class_<SMConfigs>(m, "_SmConfigs", "SM device configs")
         .def(py::init<const py::kwargs &>())
-        .def_readwrite("type", &SMConfigs::type, "The device type")
+        .def_readwrite("device", &SMConfigs::device, "The device type")
         .def_readwrite("serial", &SMConfigs::serial, "The device serial number")
         .def_readwrite("host", &SMConfigs::host,
                        "Host interface IP on which the networked device is "
@@ -116,7 +116,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                                "Temperature on RF board LO")
         .def_property_readonly("temp_power_supply",
                                &SmDiagnostics::temp_power_supply,
-                               "Power supply temperature");
+                               "Power supply temperature")
+        .def("as_dict", &SmDiagnostics::as_dict,
+             "Retrieve diagnostics as a dictionary");
 
     py::class_<SmSFPDiagnostics>(
         m, "_SmSFPDiagnostics",
@@ -129,7 +131,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_property_readonly("tx_power", &SmSFPDiagnostics::get_tx_power,
                                "Transmit power in mW")
         .def_property_readonly("rx_power", &SmSFPDiagnostics::get_rx_power,
-                               "Receive power in mW");
+                               "Receive power in mW")
+        .def("as_dict", &SmSFPDiagnostics::as_dict,
+             "Retrieve SFP diagnostics as a dictionary");
 
     py::class_<SmNetworkConfig>(m, "_SmNetworkConfig",
                                 "Network configuration for/from the SM device")
@@ -213,7 +217,7 @@ static py::tuple array_to_tuple(const T *data, size_t count) {
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, type);
+    KWARG_TO_STRUCT_PARAM(kwargs, device);
     KWARG_TO_STRUCT_PARAM(kwargs, serial);
     KWARG_TO_STRUCT_PARAM(kwargs, host);
     KWARG_TO_STRUCT_PARAM(kwargs, device_addr);
@@ -228,7 +232,7 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
 
 py::dict SMConfigs::as_dict() {
     py::dict dict;
-    STRUCT_PARAM_TO_DICT(dict, type);
+    STRUCT_PARAM_TO_DICT(dict, device);
     STRUCT_PARAM_TO_DICT(dict, serial);
     STRUCT_PARAM_TO_DICT(dict, host);
     STRUCT_PARAM_TO_DICT(dict, device_addr);
@@ -270,6 +274,20 @@ float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
 
+py::dict SmDiagnostics::as_dict() {
+    py::dict dict;
+    STRUCT_PARAM_TO_DICT(dict, voltage, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, currentInput, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, currentOCXO, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempFPGAInternal, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempFPGANear, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempOCXO, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempVCO, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempRFBoardLO, diagnostics);
+    STRUCT_PARAM_TO_DICT(dict, tempPowerSupply, diagnostics);
+    return dict;
+}
+
 float SmSFPDiagnostics::get_temp() const { return temp; }
 
 float SmSFPDiagnostics::get_voltage() const { return voltage; }
@@ -277,6 +295,15 @@ float SmSFPDiagnostics::get_voltage() const { return voltage; }
 float SmSFPDiagnostics::get_tx_power() const { return txPower; }
 
 float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
+
+py::dict SmSFPDiagnostics::as_dict() {
+    py::dict dict;
+    STRUCT_PARAM_TO_DICT(dict, temp);
+    STRUCT_PARAM_TO_DICT(dict, voltage);
+    STRUCT_PARAM_TO_DICT(dict, txPower);
+    STRUCT_PARAM_TO_DICT(dict, rxPower);
+    return dict;
+}
 
 #define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
 
@@ -577,7 +604,7 @@ void SM::_open_device() {
 
     LOG_DBG("Attempting to open device");
 
-    switch (_configs.type) {
+    switch (_configs.device) {
     case smDeviceTypeSM200A:
     case smDeviceTypeSM200B:
     case smDeviceTypeSM435B: {
@@ -754,7 +781,7 @@ void SM::_acquire_gps_lock() {
 bool SM::_is_networked() const {
     bool ret;
 
-    switch (_configs.type) {
+    switch (_configs.device) {
     case smDeviceTypeSM200A:
     case smDeviceTypeSM200B:
     case smDeviceTypeSM435B:
