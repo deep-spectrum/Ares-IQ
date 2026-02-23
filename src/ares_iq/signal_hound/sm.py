@@ -267,21 +267,20 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _save_stream_iq_meta(self, meta: dict[str, object | datetime.timedelta], save_directory: Path):
+    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]], save_directory: Path):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
-        model = "Not set"
+        meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
+        meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
+        try:
+            meta["diagnostics"]["network_diagnostics"] = self._dev.network_diagnostic_info().as_dict()
+        except RuntimeError:
+            pass
         for key, value in configs.items():
             if issubclass(type(value), enum.IntEnum):
                 configs[key] = value.name
-            if key == "type":
-                model = value.name
-        # Device type must be at the root level
-        del configs["type"]
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
         meta["device_configurations"] = configs
-        meta["device"] = model
-        meta["save_duration"] = meta["save_duration"].total_seconds()
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
 
