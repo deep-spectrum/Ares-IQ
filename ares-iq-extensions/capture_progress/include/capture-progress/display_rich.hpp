@@ -142,20 +142,20 @@ class RichRgb : public RichBase {
         std::stringstream oss;
         auto [red, green, blue] = _sanitize_rgb(rgb);
 
-        oss << "\033[38;2" << red << ";" << green << ";" << blue << "m";
+        oss << "\033[38;2;" << red << ";" << green << ";" << blue << "m";
         _escape_enter = oss.str();
     }
 
-    // template <typename... Args,
-    //           typename = std::enable_if_t<(is_streamable<Args>::value && ...)>>
-    // explicit RichRgb(const BackgroundRgb &rgb, Args &&...args)
-    //     : RichBase("", std::forward<Args>(args)...) {
-    //     std::stringstream oss;
-    //     auto [red, green, blue] = _sanitize_rgb(rgb);
-    //
-    //     oss << "\033[48;2" << red << ";" << green << ";" << blue << "m";
-    //     _escape_enter = oss.str();
-    // }
+    template <typename... Args,
+              typename = std::enable_if_t<(is_streamable<Args>::value && ...)>>
+    explicit RichRgb(const BackgroundRgb &rgb, Args &&...args)
+        : RichBase("", std::forward<Args>(args)...) {
+        std::stringstream oss;
+        auto [red, green, blue] = _sanitize_rgb(rgb);
+
+        oss << "\033[48;2;" << red << ";" << green << ";" << blue << "m";
+        _escape_enter = oss.str();
+    }
 
     template <typename... Args,
               typename = std::enable_if_t<(is_streamable<Args>::value && ...)>>
