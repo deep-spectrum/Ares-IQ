@@ -147,8 +147,8 @@ void MemoryMonitor::_draw_memory(const Memory &mem) {
     double tot_mem = static_cast<double>(mem.totalMem) / 1e6;
 
     std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << used_mem << "G/" << std::fixed
-       << std::setprecision(1) << tot_mem << "G";
+    ss << std::fixed << std::setprecision(1) << std::setw(5) << used_mem << "G/"
+       << std::fixed << std::setprecision(1) << std::setw(5) << tot_mem << "G";
 
     std::cout << RichRgb(FontStyle::FONT_BOLD, usage_color, ss.str())
               << RichWhite(FontStyle::FONT_BOLD, "] ");
@@ -228,8 +228,8 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
     std::string empty = std::string(n_empty, ' ');
 
     std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << std::setw(4) << usage_gb << "G/" << std::fixed
-       << std::setprecision(1) << max_usage_gb << "G";
+    ss << std::fixed << std::setprecision(1) << std::setw(4) << usage_gb << "G/"
+       << std::fixed << std::setprecision(1) << max_usage_gb << "G";
 
     std::cout << RichGreen(green_bar) << RichYellow(yellow_bar)
               << RichRed(red_bar) << RichDefault(empty)
