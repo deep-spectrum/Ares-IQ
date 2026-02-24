@@ -889,7 +889,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     CaptureProgress::MemoryMonitor memory_monitor =
         CaptureProgress::MemoryMonitor(
-            bytes_per_capture, [&capture_q]() { return capture_q.size(); }, 0,
+            bytes_per_capture, [&capture_q]() { return capture_q.size(); }, static_cast<size_t>(10e9),
             silent);
     auto now = std::chrono::steady_clock::now;
     memory_monitor.start();
