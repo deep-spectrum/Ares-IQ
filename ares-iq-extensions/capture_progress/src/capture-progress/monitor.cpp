@@ -121,20 +121,34 @@ void MemoryMonitor::_draw_memory(const Memory &mem) {
         static_cast<int>(static_cast<double>(bar_length) * cache_percent);
     int empty_bars = bar_length - (used_bars + buffer_bars + cache_bars);
 
+    if (used_bars > 0) {
+        std::string used_bar(used_bars, bar_char);
+        std::cout << RichGreen(used_bar);
+    }
+
+    if (buffer_bars > 0) {
+        std::string buffer_bar(buffer_bars, bar_char);
+        std::cout << RichBlue(buffer_bar);
+    }
+
+    if (cache_bars > 0) {
+        std::string cache_bar(cache_bars, bar_char);
+        std::cout << RichYellow(cache_bar);
+    }
+
+    if (empty_bars > 0) {
+        std::string empty(empty_bars, ' ');
+        std::cout << RichDefault(empty);
+    }
+
     double used_mem = static_cast<double>(mem.usedMem) / 1e6;
     double tot_mem = static_cast<double>(mem.totalMem) / 1e6;
 
-    std::string used_bar(used_bars, bar_char);
-    std::string buffer_bar(buffer_bars, bar_char);
-    std::string cache_bar(cache_bars, bar_char);
-    std::string empty(empty_bars, ' ');
     std::stringstream ss;
     ss << std::fixed << std::setprecision(1) << used_mem << "G/" << std::fixed
        << std::setprecision(1) << tot_mem << "G";
 
-    std::cout << RichGreen(used_bars) << RichBlue(buffer_bar)
-              << RichYellow(cache_bar) << RichDefault(empty)
-              << RichRgb(usage_color, ss.str()) << RichWhite("] ");
+    std::cout << RichRgb(usage_color, ss.str()) << RichWhite("] ");
 }
 
 void MemoryMonitor::_draw_time_elapsed() const {
