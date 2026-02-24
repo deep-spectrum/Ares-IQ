@@ -34,15 +34,8 @@ namespace CaptureProgress {
 constexpr char32_t bar_char(U'━');
 constexpr char32_t progress_stub(U'╸');
 constexpr uint32_t bar_length = 40;
-// constexpr char current_progress_color[] = "\033[38;2;249;39;114m";
-// constexpr char remaining_progress_color[] = "\033[38;2;58;59;58m";
 static const RichRgb::ForegroundRgb current_progress_color(249, 39, 114);
 static const RichRgb::ForegroundRgb remaining_progress_color(58, 59, 58);
-
-// constexpr char magenta_color[] = "\033[38;2;162;70;187m";
-// constexpr char yellow_color[] = "\033[38;2;163;115;76m";
-// constexpr char green_color[] = "\033[38;2;115;157;30m";
-// constexpr char default_color[] = "\033[0m";
 
 constexpr char opening_statement[] = "Capturing... ";
 
@@ -154,7 +147,7 @@ void Progress::_refresh_task() {
     CaptureProgressInternal::restore_cursor(std::cout);
 }
 
-void Progress::_init_bar() {
+void Progress::_init_bar() const {
     CaptureProgressInternal::hide_cursor(std::cout);
     _draw_opening();
     _draw_bar();
@@ -247,7 +240,7 @@ void Progress::_draw_bar() const {
 
 void Progress::_draw_rate() const { std::cout << RichMagenta(_rate); }
 
-void Progress::_draw_time_elapsed() {
+void Progress::_draw_time_elapsed() const {
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                        std::chrono::system_clock::now() - _start)
                        .count();
