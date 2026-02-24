@@ -19,6 +19,7 @@
 #include <string>
 
 using namespace std::chrono_literals;
+using CaptureProgressInternal::FontStyle;
 using CaptureProgressInternal::RichBlue;
 using CaptureProgressInternal::RichCyan;
 using CaptureProgressInternal::RichDefault;
@@ -102,7 +103,8 @@ void MemoryMonitor::_draw(const Memory &mem) const {
 }
 
 void MemoryMonitor::_draw_opening() {
-    std::cout << RichCyan("Mem") << RichWhite("[");
+    std::cout << RichCyan(FontStyle::FONT_BOLD, "Mem")
+              << RichWhite(FontStyle::FONT_BOLD, "[");
 }
 
 void MemoryMonitor::_draw_memory(const Memory &mem) {
@@ -148,7 +150,8 @@ void MemoryMonitor::_draw_memory(const Memory &mem) {
     ss << std::fixed << std::setprecision(1) << used_mem << "G/" << std::fixed
        << std::setprecision(1) << tot_mem << "G";
 
-    std::cout << RichRgb(usage_color, ss.str()) << RichWhite("] ");
+    std::cout << RichRgb(FontStyle::FONT_BOLD, usage_color, ss.str())
+              << RichWhite(FontStyle::FONT_BOLD, "] ");
 }
 
 void MemoryMonitor::_draw_time_elapsed() const {
@@ -265,7 +268,7 @@ void MemoryMonitor::_scan_memory_info(Memory &memory) {
     memory.buffersMem = buffersMem;
 }
 
-    constexpr const char *digits = "1234567890";
+constexpr const char *digits = "1234567890";
 
 void MemoryMonitor::_try_read(const std::string &label,
                               const std::string &buffer, int64_t &variable) {
