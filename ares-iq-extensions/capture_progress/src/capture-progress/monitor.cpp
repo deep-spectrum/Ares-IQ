@@ -215,9 +215,9 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
     double max_usage_gb = static_cast<double>(_max_mem_usage) / 1e9;
     double percentage = (usage_gb / max_usage_gb) * 100.0;
 
-    std::string green_bar;
-    std::string yellow_bar;
-    std::string red_bar;
+    std::string green_bar = "";
+    std::string yellow_bar = "";
+    std::string red_bar = "";
 
     _mem_burn_gen_green(percentage, green_bar);
     _mem_burn_gen_yellow(percentage, yellow_bar);
@@ -228,7 +228,7 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
     std::string empty = std::string(n_empty, ' ');
 
     std::stringstream ss;
-    ss << std::fixed << std::setprecision(1) << usage_gb << "G/" << std::fixed
+    ss << std::fixed << std::setprecision(1) << std::setw(4) << usage_gb << "G/" << std::fixed
        << std::setprecision(1) << max_usage_gb << "G";
 
     std::cout << RichGreen(green_bar) << RichYellow(yellow_bar)
