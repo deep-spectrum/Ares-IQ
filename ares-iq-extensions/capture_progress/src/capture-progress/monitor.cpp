@@ -215,9 +215,9 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
     double max_usage_gb = static_cast<double>(_max_mem_usage) / 1e6;
     double percentage = (usage_gb / max_usage_gb) * 100.0;
 
-    std::string green_bar;
-    std::string yellow_bar;
-    std::string red_bar;
+    std::string green_bar = "";
+    std::string yellow_bar = "";
+    std::string red_bar = "";
 
     _mem_burn_gen_green(percentage, green_bar);
     _mem_burn_gen_yellow(percentage, yellow_bar);
@@ -225,7 +225,7 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
 
     size_t n_empty =
         bar_length - (green_bar.size() + yellow_bar.size() + red_bar.size());
-    std::string empty(' ', n_empty);
+    std::string empty = std::string(n_empty, ' ');
 
     std::stringstream ss;
     ss << std::fixed << std::setprecision(1) << usage_gb << "G/" << std::fixed
@@ -243,34 +243,34 @@ constexpr uint32_t max_red_bars = 10;
 
 void MemoryMonitor::_mem_burn_gen_green(double percent, std::string &bars) {
     if (isgreater(percent, 25.0)) {
-        bars = std::string(bar_char, max_green_bars);
+        bars = std::string(max_green_bars, bar_char);
         return;
     }
     double p = percent / 25.0;
     uint32_t num =
         static_cast<uint32_t>(static_cast<double>(max_green_bars) * p);
-    bars = std::string(bar_char, num);
+    bars = std::string(num, bar_char);
 }
 
 void MemoryMonitor::_mem_burn_gen_yellow(double percent, std::string &bars) {
     if (isgreater(percent, 75.0)) {
-        bars = std::string(bar_char, max_yellow_bars);
+        bars = std::string(max_yellow_bars, bar_char);
         return;
     }
     double p = (percent - 25.0) / 50.0;
     uint32_t n =
         static_cast<uint32_t>(static_cast<double>(max_yellow_bars) * p);
-    bars = std::string(bar_char, n);
+    bars = std::string(n, bar_char);
 }
 
 void MemoryMonitor::_mem_burn_gen_red(double percent, std::string &bars) {
     if (isgreater(percent, 100.0)) {
-        bars = std::string(bar_char, max_red_bars);
+        bars = std::string(max_red_bars, bar_char);
         return;
     }
     double p = (percent - 75.0) / 25.0;
     uint32_t n = static_cast<uint32_t>(static_cast<double>(max_red_bars) * p);
-    bars = std::string(bar_char, n);
+    bars = std::string(n, bar_char);
 }
 
 constexpr const char *procmem = "/proc/meminfo";
