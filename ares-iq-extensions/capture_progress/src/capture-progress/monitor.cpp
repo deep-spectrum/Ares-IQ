@@ -243,12 +243,15 @@ void MemoryMonitor::_scan_memory_info(Memory &memory) {
     memory.buffersMem = buffersMem;
 }
 
+    constexpr const char *digits = "1234567890";
+
 void MemoryMonitor::_try_read(const std::string &label,
                               const std::string &buffer, int64_t &variable) {
     if (buffer.compare(0, label.length(), label) != 0) {
         return;
     }
+    size_t pos = buffer.find_first_of(digits);
 
-    variable = strtoll(buffer.c_str() + label.length(), nullptr, 10);
+    variable = strtoll(buffer.c_str() + pos, nullptr, 10);
 }
 } // namespace CaptureProgress
