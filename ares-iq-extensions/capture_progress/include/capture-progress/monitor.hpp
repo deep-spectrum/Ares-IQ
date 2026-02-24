@@ -46,28 +46,23 @@ class MemoryMonitor {
     std::chrono::steady_clock::time_point _start;
     std::chrono::steady_clock::time_point _stop;
 
-    void _refresh_task();
-    void _draw();
-
     struct Memory {
         int64_t totalMem = 0;
-        int64_t cachedMem = 0;
-        int64_t sharedMem = 0;
         int64_t usedMem = 0;
         int64_t buffersMem = 0;
-        int64_t avilableMem = 0;
-        int64_t totalSwap = 0;
-        int64_t usedSwap = 0;
-        int64_t cachedSwap = 0;
-        struct {
-            int64_t usedZswapComp;
-            int64_t usedZswapOrig;
-        } zswap;
+        int64_t cachedMem = 0;
     };
 
-    static void scan_memory_info(Memory &memory);
-    static void try_read(const std::string &label, const std::string &buffer,
-                         int64_t &variable);
+    void _refresh_task();
+    void _draw(const Memory &mem);
+    static void _draw_opening();
+    void _draw_memory(const Memory &mem);
+    void _draw_time_elapsed() const;
+    void _draw_closing() const;
+
+    static void _scan_memory_info(Memory &memory);
+    static void _try_read(const std::string &label, const std::string &buffer,
+                          int64_t &variable);
 };
 } // namespace CaptureProgress
 

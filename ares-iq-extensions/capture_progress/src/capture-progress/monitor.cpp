@@ -8,14 +8,35 @@
  * @author Tom Schmitz \<tschmitz@andrew.cmu.edu\>
  */
 
+#include <capture-progress/display_rich.hpp>
 #include <capture-progress/monitor.hpp>
 #include <chrono>
 #include <fstream>
+#include <iomanip>
+#include <iostream>
+#include <math.h>
 #include <string>
 
 using namespace std::chrono_literals;
+using CaptureProgressInternal::RichBlue;
+using CaptureProgressInternal::RichCyan;
+using CaptureProgressInternal::RichDefault;
+using CaptureProgressInternal::RichGreen;
+using CaptureProgressInternal::RichRed;
+using CaptureProgressInternal::RichRgb;
+using CaptureProgressInternal::RichWhite;
+using CaptureProgressInternal::RichYellow;
 
 namespace CaptureProgress {
+
+static const RichRgb::ForegroundRgb usage_color(81, 78, 94);
+constexpr long seconds_per_hour = 3600;
+constexpr long seconds_per_minute = 60;
+constexpr long minutes_per_hour = 60;
+constexpr uint32_t bar_length = 40;
+constexpr uint32_t stats_length = 11;
+constexpr char bar_char = '|';
+
 MemoryMonitor::MemoryMonitor(size_t item_size,
                              const std::function<size_t()> &size_cb,
                              uint64_t max_mem_usage, bool hide) {
@@ -59,18 +80,85 @@ std::chrono::steady_clock::duration MemoryMonitor::duration() const {
 void MemoryMonitor::_refresh_task() {
     // todo init
 
+    Memory mem;
     while (!_terminate) {
-        std::this_thread::sleep_for(1s);
-        _draw();
+        std::this_thread::sleep_for(100ms);
+        _scan_memory_info(mem);
+        // todo: run memory check
+        _draw(mem);
     }
 
     // todo finalize
-    // todo restore cursor
+    CaptureProgressInternal::restore_cursor(std::cout);
+}
+
+void MemoryMonitor::_draw(const Memory &mem) {
+    _draw_opening();
+    _draw_memory(mem);
+    _draw_time_elapsed();
+    _draw_closing();
+    CaptureProgressInternal::reset_cursor(std::cout);
+}
+
+void MemoryMonitor::_draw_opening() {
+    std::cout << RichCyan("Mem") << RichWhite("[");
+}
+
+void MemoryMonitor::_draw_memory(const Memory &mem) {
+    double used_percent =
+        static_cast<double>(mem.usedMem) / static_cast<double>(mem.totalMem);
+    double buffer_percent =
+        static_cast<double>(mem.buffersMem) / static_cast<double>(mem.totalMem);
+    double cache_percent =
+        static_cast<double>(mem.cachedMem) / static_cast<double>(mem.totalMem);
+
+    int used_bars =
+        static_cast<int>(static_cast<double>(bar_length) * used_percent);
+    int buffer_bars =
+        static_cast<int>(static_cast<double>(bar_length) * buffer_percent);
+    int cache_bars =
+        static_cast<int>(static_cast<double>(bar_length) * cache_percent);
+    int empty_bars = bar_length - (used_bars + buffer_bars + cache_bars);
+
+    double used_mem = static_cast<double>(mem.usedMem) / 1e6;
+    double tot_mem = static_cast<double>(mem.totalMem) / 1e6;
+
+    std::string used_bar(used_bars, bar_char);
+    std::string buffer_bar(buffer_bars, bar_char);
+    std::string cache_bar(cache_bars, bar_char);
+    std::string empty(empty_bars, ' ');
+
+    std::cout << RichGreen(used_bars) << RichBlue(buffer_bar)
+              << RichYellow(cache_bar) << RichDefault(empty) << std::fixed
+              << std::setprecision(1)
+              << RichRgb(usage_color, used_mem, "G/", tot_mem, "G")
+              << RichWhite("] ");
+}
+
+void MemoryMonitor::_draw_time_elapsed() const {
+    auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(
+                       std::chrono::steady_clock::now() - _start)
+                       .count();
+    long hrs = elapsed / seconds_per_hour;
+    long min = (elapsed / seconds_per_minute) % minutes_per_hour;
+    long sec = elapsed % seconds_per_minute;
+
+    std::stringstream oss;
+    oss << std::setw(1) << std::setfill('0') << hrs << ":" << std::setw(2)
+        << std::setfill('0') << min << ":" << std::setw(2) << std::setfill('0')
+        << sec;
+    std::cout << RichYellow(oss.str());
+}
+
+void MemoryMonitor::_draw_closing() const {
+    if (_out_of_memory) {
+        std::cout << RichRed(" Terminated: Resources Exhausted");
+    }
 }
 
 constexpr const char *procmem = "/proc/meminfo";
 
-void MemoryMonitor::scan_memory_info(Memory &memory) {
+void MemoryMonitor::_scan_memory_info(Memory &memory) {
     /*
      * This was taken from htop:
      * https://github.com/htop-dev/htop/blob/2b95568f443af8730d6b27552334f095f4382120/linux/LinuxMachine.c#L130-L219
@@ -99,33 +187,33 @@ void MemoryMonitor::scan_memory_info(Memory &memory) {
     while (std::getline(file, line)) {
         switch (line[0]) {
         case 'M': {
-            try_read("MemAvailable:", line, availableMem);
-            try_read("MemFree:", line, freeMem);
-            try_read("MemTotal:", line, totalMem);
+            _try_read("MemAvailable:", line, availableMem);
+            _try_read("MemFree:", line, freeMem);
+            _try_read("MemTotal:", line, totalMem);
             break;
         }
         case 'B': {
-            try_read("Buffers:", line, buffersMem);
+            _try_read("Buffers:", line, buffersMem);
             break;
         }
         case 'C': {
-            try_read("Cached:", line, cachedMem);
+            _try_read("Cached:", line, cachedMem);
             break;
         }
         case 'S': {
             switch (line[1]) {
             case 'h': {
-                try_read("Shmem:", line, sharedMem);
+                _try_read("Shmem:", line, sharedMem);
                 break;
             }
             case 'w': {
-                try_read("SwapTotal:", line, swapTotalMem);
-                try_read("SwapCached:", line, swapCacheMem);
-                try_read("SwapFree:", line, swapFreeMem);
+                _try_read("SwapTotal:", line, swapTotalMem);
+                _try_read("SwapCached:", line, swapCacheMem);
+                _try_read("SwapFree:", line, swapFreeMem);
                 break;
             }
             case 'R': {
-                try_read("SReclaimable:", line, swapReclaimableMem);
+                _try_read("SReclaimable:", line, swapReclaimableMem);
                 break;
             }
             default:
@@ -134,8 +222,8 @@ void MemoryMonitor::scan_memory_info(Memory &memory) {
             break;
         }
         case 'Z': {
-            try_read("Zswap:", line, zSwapCompMem);
-            try_read("Zswapped", line, zSwapOrigMem);
+            _try_read("Zswap:", line, zSwapCompMem);
+            _try_read("Zswapped", line, zSwapOrigMem);
             break;
         }
         default:
@@ -146,23 +234,15 @@ void MemoryMonitor::scan_memory_info(Memory &memory) {
 
     memory.totalMem = totalMem;
     memory.cachedMem = cachedMem + swapReclaimableMem - sharedMem;
-    memory.sharedMem = sharedMem;
     const int64_t usedDiff =
         freeMem + cachedMem + swapReclaimableMem + buffersMem;
     memory.usedMem =
         (totalMem >= usedDiff) ? totalMem - usedDiff : totalMem - freeMem;
     memory.buffersMem = buffersMem;
-    memory.avilableMem =
-        (availableMem != 0) ? std::min(availableMem, totalMem) : freeMem;
-    memory.totalSwap = swapTotalMem;
-    memory.usedSwap = swapTotalMem - swapFreeMem - swapCacheMem;
-    memory.cachedSwap = swapCacheMem;
-    memory.zswap.usedZswapComp = zSwapCompMem;
-    memory.zswap.usedZswapOrig = zSwapOrigMem;
 }
 
-void MemoryMonitor::try_read(const std::string &label,
-                             const std::string &buffer, int64_t &variable) {
+void MemoryMonitor::_try_read(const std::string &label,
+                              const std::string &buffer, int64_t &variable) {
     if (buffer.compare(0, label.length(), label) != 0) {
         return;
     }

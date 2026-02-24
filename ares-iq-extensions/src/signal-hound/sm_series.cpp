@@ -12,6 +12,7 @@
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares-iq/util.hpp>
+#include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
 #include <cassert>
 #include <cmath>
@@ -889,11 +890,17 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     std::thread monitor([&running, &capture_q]() {
         _write_queue_monitor(&running, capture_q);
     });
-
-    // todo: timed capture bar
+    
+    CaptureProgress::MemoryMonitor memory_monitor =
+        CaptureProgress::MemoryMonitor(
+            bytes_per_capture, [&capture_q]() { return capture_q.size(); }, 0,
+            silent);
     auto now = std::chrono::steady_clock::now;
+    memory_monitor.start();
     auto start = now();
-    for (int32_t chunk = 0; (now() - start) < duration && !metadata.save_failed;
+    for (int32_t chunk = 0;
+         (now() - start) < duration && !metadata.save_failed &&
+         !memory_monitor.out_of_memory();
          chunk++) {
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
@@ -905,9 +912,8 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
             LOG_ERR("Stopping prematurely due to sample loss");
             break;
         }
-        // todo: update capture bar
     }
-    // todo: update capture bar
+    memory_monitor.stop();
     done_cb();
 
     _clear_queue(metadata, capture_q);
