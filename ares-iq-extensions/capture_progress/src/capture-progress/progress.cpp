@@ -14,6 +14,9 @@
 #include <iostream>
 #include <locale>
 #include <sstream>
+#include <capture-progress/display_rich.hpp>
+
+using CaptureProgressInternal::RichMagenta;
 
 #if defined(USE_PYTHON_LIB)
 #include <memory>
@@ -238,7 +241,7 @@ void Progress::_draw_bar() const {
               << "% ";
 }
 
-void Progress::_draw_rate() { std::cout << magenta_color << _rate; }
+void Progress::_draw_rate() const { std::cout << RichMagenta(_rate); }
 
 void Progress::_draw_time_elapsed() {
     auto elapsed = std::chrono::duration_cast<std::chrono::seconds>(

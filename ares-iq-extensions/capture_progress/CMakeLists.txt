@@ -5,7 +5,7 @@ set(CMAKE_CXX_STANDARD 17)
 
 option(USE_PYTHON_LIB "Use Python library implementation of CaptureProgress" OFF)
 
-add_library(capture_progress STATIC src/capture-progress/progress.cpp src/capture-progress/monitor.cpp)
+add_library(capture_progress STATIC src/capture-progress/progress.cpp src/capture-progress/monitor.cpp src/capture-progress/rich_display.cpp)
 set_target_properties(capture_progress PROPERTIES POSITION_INDEPENDENT_CODE ON)
 target_include_directories(capture_progress PUBLIC ${CMAKE_CURRENT_SOURCE_DIR}/include)
 

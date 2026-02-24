@@ -88,7 +88,7 @@ class Progress {
     void _update_rate();
     static void _draw_opening();
     void _draw_bar() const;
-    void _draw_rate();
+    void _draw_rate() const;
     void _draw_time_elapsed();
 
     static void _reset_cursor();
