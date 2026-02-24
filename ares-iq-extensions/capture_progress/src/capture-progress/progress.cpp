@@ -176,7 +176,7 @@ void Progress::_finalize() {
     std::string bar = converter.to_bytes(complete_bar);
 
     _draw_opening();
-    std::cout << RichGreen(bar) << RichMagenta(" 100%");
+    std::cout << RichGreen(bar) << RichMagenta(" 100% ");
     _draw_rate();
     _draw_time_elapsed();
 }
@@ -235,7 +235,7 @@ void Progress::_draw_bar() const {
 
     std::cout << RichRgb(current_progress_color, utf8_complete_bar)
               << RichRgb(remaining_progress_color, utf8_remaining_bar) << " "
-              << RichMagenta(static_cast<int>(_percent_complete * 100.0), " % ");
+              << RichMagenta(static_cast<int>(_percent_complete * 100.0), "% ");
 }
 
 void Progress::_draw_rate() const { std::cout << RichMagenta(_rate); }
