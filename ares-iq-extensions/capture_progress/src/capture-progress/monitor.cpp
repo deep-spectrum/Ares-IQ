@@ -11,12 +11,12 @@
 #include <capture-progress/display_rich.hpp>
 #include <capture-progress/monitor.hpp>
 #include <chrono>
+#include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
 #include <math.h>
 #include <string>
-#include <cstdlib>
 
 using namespace std::chrono_literals;
 using CaptureProgressInternal::RichBlue;
@@ -128,12 +128,13 @@ void MemoryMonitor::_draw_memory(const Memory &mem) {
     std::string buffer_bar(buffer_bars, bar_char);
     std::string cache_bar(cache_bars, bar_char);
     std::string empty(empty_bars, ' ');
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << used_mem << "G/" << std::fixed
+       << std::setprecision(1) << tot_mem << "G";
 
     std::cout << RichGreen(used_bars) << RichBlue(buffer_bar)
-              << RichYellow(cache_bar) << RichDefault(empty) << std::fixed
-              << std::setprecision(1)
-              << RichRgb(usage_color, used_mem, "G/", tot_mem, "G")
-              << RichWhite("] ");
+              << RichYellow(cache_bar) << RichDefault(empty)
+              << RichRgb(usage_color, ss.str()) << RichWhite("] ");
 }
 
 void MemoryMonitor::_draw_time_elapsed() const {
