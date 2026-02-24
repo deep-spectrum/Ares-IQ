@@ -890,7 +890,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     std::thread monitor([&running, &capture_q]() {
         _write_queue_monitor(&running, capture_q);
     });
-    
+
     CaptureProgress::MemoryMonitor memory_monitor =
         CaptureProgress::MemoryMonitor(
             bytes_per_capture, [&capture_q]() { return capture_q.size(); }, 0,

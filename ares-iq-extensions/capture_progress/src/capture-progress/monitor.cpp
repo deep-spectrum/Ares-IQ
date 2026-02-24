@@ -78,7 +78,7 @@ std::chrono::steady_clock::duration MemoryMonitor::duration() const {
 }
 
 void MemoryMonitor::_refresh_task() {
-    // todo init
+    CaptureProgressInternal::hide_cursor(std::cout);
 
     Memory mem;
     while (!_terminate) {
