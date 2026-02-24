@@ -8,15 +8,19 @@
  * @author Tom Schmitz \<tschmitz@andrew.cmu.edu\>
  */
 
+#include <capture-progress/display_rich.hpp>
 #include <capture-progress/progress.hpp>
 #include <codecvt>
 #include <iomanip>
 #include <iostream>
 #include <locale>
 #include <sstream>
-#include <capture-progress/display_rich.hpp>
 
+using CaptureProgressInternal::RichDefault;
+using CaptureProgressInternal::RichGreen;
 using CaptureProgressInternal::RichMagenta;
+using CaptureProgressInternal::RichRgb;
+using CaptureProgressInternal::RichYellow;
 
 #if defined(USE_PYTHON_LIB)
 #include <memory>
@@ -30,12 +34,15 @@ namespace CaptureProgress {
 constexpr char32_t bar_char(U'━');
 constexpr char32_t progress_stub(U'╸');
 constexpr uint32_t bar_length = 40;
-constexpr char current_progress_color[] = "\033[38;2;249;39;114m";
-constexpr char remaining_progress_color[] = "\033[38;2;58;59;58m";
-constexpr char magenta_color[] = "\033[38;2;162;70;187m";
-constexpr char yellow_color[] = "\033[38;2;163;115;76m";
-constexpr char green_color[] = "\033[38;2;115;157;30m";
-constexpr char default_color[] = "\033[0m";
+// constexpr char current_progress_color[] = "\033[38;2;249;39;114m";
+// constexpr char remaining_progress_color[] = "\033[38;2;58;59;58m";
+static const RichRgb::ForegroundRgb current_progress_color(249, 39, 114);
+static const RichRgb::ForegroundRgb remaining_progress_color(58, 59, 58);
+
+// constexpr char magenta_color[] = "\033[38;2;162;70;187m";
+// constexpr char yellow_color[] = "\033[38;2;163;115;76m";
+// constexpr char green_color[] = "\033[38;2;115;157;30m";
+// constexpr char default_color[] = "\033[0m";
 
 constexpr char opening_statement[] = "Capturing... ";
 
@@ -144,16 +151,16 @@ void Progress::_refresh_task() {
     }
 
     _finalize();
-    _restore_cursor();
+    CaptureProgressInternal::restore_cursor(std::cout);
 }
 
 void Progress::_init_bar() {
-    _hide_cursor();
+    CaptureProgressInternal::hide_cursor(std::cout);
     _draw_opening();
     _draw_bar();
     _draw_rate();
     _draw_time_elapsed();
-    _reset_cursor();
+    CaptureProgressInternal::reset_cursor(std::cout);
 }
 
 void Progress::_draw() {
@@ -162,7 +169,7 @@ void Progress::_draw() {
     _draw_bar();
     _draw_rate();
     _draw_time_elapsed();
-    _reset_cursor();
+    CaptureProgressInternal::reset_cursor(std::cout);
 }
 
 void Progress::_finalize() {
@@ -176,7 +183,7 @@ void Progress::_finalize() {
     std::string bar = converter.to_bytes(complete_bar);
 
     _draw_opening();
-    std::cout << green_color << bar << magenta_color << " 100% ";
+    std::cout << RichGreen(bar) << RichMagenta(" 100%");
     _draw_rate();
     _draw_time_elapsed();
 }
@@ -202,9 +209,7 @@ void Progress::_update_rate() {
                         static_cast<double>(_total_samples);
 }
 
-void Progress::_draw_opening() {
-    std::cout << default_color << opening_statement;
-}
+void Progress::_draw_opening() { std::cout << RichDefault(opening_statement); }
 
 void Progress::_draw_bar() const {
     auto complete_bars = static_cast<uint64_t>(static_cast<double>(bar_length) *
@@ -235,10 +240,9 @@ void Progress::_draw_bar() const {
     std::string utf8_complete_bar = converter.to_bytes(complete_bar);
     std::string utf8_remaining_bar = converter.to_bytes(remaining_bar);
 
-    std::cout << current_progress_color << utf8_complete_bar
-              << remaining_progress_color << utf8_remaining_bar << " "
-              << magenta_color << static_cast<int>(_percent_complete * 100.0)
-              << "% ";
+    std::cout << RichRgb(current_progress_color, utf8_complete_bar)
+              << RichRgb(remaining_progress_color, utf8_remaining_bar) << " "
+              << RichMagenta(static_cast<int>(_percent_complete * 100.0), " %");
 }
 
 void Progress::_draw_rate() const { std::cout << RichMagenta(_rate); }
@@ -255,17 +259,7 @@ void Progress::_draw_time_elapsed() {
     oss << std::setw(1) << std::setfill('0') << hrs << ":" << std::setw(2)
         << std::setfill('0') << min << ":" << std::setw(2) << std::setfill('0')
         << sec;
-    std::cout << yellow_color << oss.str();
-}
-
-void Progress::_reset_cursor() {
-    std::cout << default_color << "\r" << std::flush;
-}
-
-void Progress::_hide_cursor() { std::cout << "\033[?25l" << std::flush; }
-
-void Progress::_restore_cursor() {
-    std::cout << "\r\n" << default_color << "\033[?25h" << std::flush;
+    std::cout << RichYellow(oss.str());
 }
 #endif // !defined(USE_PYTHON_LIB)
 } // namespace CaptureProgress

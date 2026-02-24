@@ -90,10 +90,6 @@ class Progress {
     void _draw_bar() const;
     void _draw_rate() const;
     void _draw_time_elapsed();
-
-    static void _reset_cursor();
-    static void _hide_cursor();
-    static void _restore_cursor();
 #else
     std::unique_ptr<StupidFuckingIdiom> _impl;
 #endif // !defined(USE_PYTHON_LIB)
