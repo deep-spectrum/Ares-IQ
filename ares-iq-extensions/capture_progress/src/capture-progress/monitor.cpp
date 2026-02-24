@@ -85,7 +85,7 @@ void MemoryMonitor::_refresh_task() {
     while (!_terminate) {
         std::this_thread::sleep_for(100ms);
         _scan_memory_info(mem);
-        // todo: run memory check
+        _check_usage();
         _draw(mem);
     }
 
@@ -93,7 +93,7 @@ void MemoryMonitor::_refresh_task() {
     CaptureProgressInternal::restore_cursor(std::cout);
 }
 
-void MemoryMonitor::_draw(const Memory &mem) {
+void MemoryMonitor::_draw(const Memory &mem) const {
     _draw_opening();
     _draw_memory(mem);
     _draw_time_elapsed();
@@ -169,6 +169,14 @@ void MemoryMonitor::_draw_time_elapsed() const {
 void MemoryMonitor::_draw_closing() const {
     if (_out_of_memory) {
         std::cout << RichRed(" Terminated: Resources Exhausted");
+    }
+}
+
+void MemoryMonitor::_check_usage() {
+    size_t elements = _size_cb();
+    size_t mem_usage = elements * _element_size;
+    if (mem_usage > _max_mem_usage) {
+        _out_of_memory = true;
     }
 }
 

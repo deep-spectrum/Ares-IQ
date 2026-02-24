@@ -54,11 +54,13 @@ class MemoryMonitor {
     };
 
     void _refresh_task();
-    void _draw(const Memory &mem);
+    void _draw(const Memory &mem) const;
     static void _draw_opening();
-    void _draw_memory(const Memory &mem);
+    static void _draw_memory(const Memory &mem);
     void _draw_time_elapsed() const;
     void _draw_closing() const;
+
+    void _check_usage();
 
     static void _scan_memory_info(Memory &memory);
     static void _try_read(const std::string &label, const std::string &buffer,

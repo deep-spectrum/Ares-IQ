@@ -886,10 +886,6 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     std::thread consumer([this, save_dir, &metadata, &capture_q]() {
         _stream_iq_data(save_dir, metadata, capture_q);
     });
-    // bool running = true;
-    // std::thread monitor([&running, &capture_q]() {
-    //     _write_queue_monitor(&running, capture_q);
-    // });
 
     CaptureProgress::MemoryMonitor memory_monitor =
         CaptureProgress::MemoryMonitor(
@@ -922,8 +918,6 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     RawCapture *terminate_value = nullptr;
     capture_q.put(terminate_value);
     consumer.join();
-    // running = false;
-    // monitor.join();
 
     if (interrupted) {
         throw py::error_already_set();
