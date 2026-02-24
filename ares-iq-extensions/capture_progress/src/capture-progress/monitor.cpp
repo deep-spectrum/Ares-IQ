@@ -16,6 +16,7 @@
 #include <iostream>
 #include <math.h>
 #include <string>
+#include <cstdlib>
 
 using namespace std::chrono_literals;
 using CaptureProgressInternal::RichBlue;
@@ -247,6 +248,6 @@ void MemoryMonitor::_try_read(const std::string &label,
         return;
     }
 
-    variable = std::stoll(buffer.c_str() + label.length());
+    variable = strtoll(buffer.c_str() + label.length(), nullptr, 10);
 }
 } // namespace CaptureProgress
