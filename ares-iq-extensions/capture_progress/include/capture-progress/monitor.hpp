@@ -62,6 +62,14 @@ class MemoryMonitor {
 
     void _check_usage();
 
+    void _memory_usage_burndown() const;
+    void _draw_mem_burn(size_t items) const;
+    static void _mem_burn_open();
+    void _mem_burn_memory_bar(size_t items) const;
+    static void _mem_burn_gen_green(double percent, std::string &bars);
+    static void _mem_burn_gen_yellow(double percent, std::string &bars);
+    static void _mem_burn_gen_red(double percent, std::string &bars);
+
     static void _scan_memory_info(Memory &memory);
     static void _try_read(const std::string &label, const std::string &buffer,
                           int64_t &variable);

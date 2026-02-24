@@ -90,7 +90,7 @@ void MemoryMonitor::_refresh_task() {
         _draw(mem);
     }
 
-    // todo finalize
+    _memory_usage_burndown();
     CaptureProgressInternal::restore_cursor(std::cout);
 }
 
@@ -181,6 +181,93 @@ void MemoryMonitor::_check_usage() {
     if (mem_usage > _max_mem_usage) {
         _out_of_memory = true;
     }
+}
+
+void MemoryMonitor::_memory_usage_burndown() const {
+    std::cout << "\n";
+
+    if (!_out_of_memory) {
+        return;
+    }
+
+    size_t usage = _size_cb();
+    while (usage != 0u) {
+        std::this_thread::sleep_for(100ms);
+        usage = _size_cb();
+        _draw_mem_burn(usage);
+    }
+}
+
+void MemoryMonitor::_draw_mem_burn(size_t items) const {
+    _mem_burn_open();
+    _mem_burn_memory_bar(items);
+    _draw_time_elapsed();
+    CaptureProgressInternal::reset_cursor(std::cout);
+}
+
+void MemoryMonitor::_mem_burn_open() {
+    std::cout << RichCyan(FontStyle::FONT_BOLD, "Memory Usage")
+              << RichWhite(FontStyle::FONT_BOLD, "[");
+}
+
+void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
+    double usage_gb = static_cast<double>(items * _element_size) / 1e6;
+    double max_usage_gb = static_cast<double>(_max_mem_usage) / 1e6;
+    double percentage = (usage_gb / max_usage_gb) * 100.0;
+
+    std::string green_bar;
+    std::string yellow_bar;
+    std::string red_bar;
+
+    _mem_burn_gen_green(percentage, green_bar);
+    _mem_burn_gen_yellow(percentage, yellow_bar);
+    _mem_burn_gen_red(percentage, red_bar);
+
+    size_t n_empty =
+        bar_length - (green_bar.size() + yellow_bar.size() + red_bar.size());
+    std::string empty(' ', n_empty);
+
+    std::stringstream ss;
+    ss << std::fixed << std::setprecision(1) << usage_gb << "G/" << std::fixed
+       << std::setprecision(1) << max_usage_gb << "G";
+
+    std::cout << RichGreen(green_bar) << RichYellow(yellow_bar)
+              << RichRed(red_bar) << RichDefault(empty)
+              << RichRgb(FontStyle::FONT_BOLD, usage_color, ss.str())
+              << RichWhite(FontStyle::FONT_BOLD, "] ");
+}
+
+constexpr uint32_t max_green_bars = 10;
+constexpr uint32_t max_yellow_bars = 20;
+constexpr uint32_t max_red_bars = 10;
+
+void MemoryMonitor::_mem_burn_gen_green(double percent, std::string &bars) {
+    if (isgreater(percent, 25.0)) {
+        bars = std::string(bar_char, max_green_bars);
+    }
+    double p = percent / 25.0;
+    uint32_t num =
+        static_cast<uint32_t>(static_cast<double>(max_green_bars) * p);
+    bars = std::string(bar_char, num);
+}
+
+void MemoryMonitor::_mem_burn_gen_yellow(double percent, std::string &bars) {
+    if (isgreater(percent, 75.0)) {
+        bars = std::string(bar_char, max_yellow_bars);
+    }
+    double p = (percent - 25.0) / 50.0;
+    uint32_t n =
+        static_cast<uint32_t>(static_cast<double>(max_yellow_bars) * p);
+    bars = std::string(bar_char, n);
+}
+
+void MemoryMonitor::_mem_burn_gen_red(double percent, std::string &bars) {
+    if (isgreater(percent, 100.0)) {
+        bars = std::string(bar_char, max_red_bars);
+    }
+    double p = (percent - 75.0) / 25.0;
+    uint32_t n = static_cast<uint32_t>(static_cast<double>(max_red_bars) * p);
+    bars = std::string(bar_char, n);
 }
 
 constexpr const char *procmem = "/proc/meminfo";
