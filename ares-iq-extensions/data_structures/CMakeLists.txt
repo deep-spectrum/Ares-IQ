@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(ares_data_structures)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 # If sources are needed in the future, switch to STATIC <source files>
 add_library(ares_data_structures INTERFACE)
