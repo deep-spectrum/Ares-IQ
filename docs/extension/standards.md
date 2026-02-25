@@ -22,10 +22,9 @@ if applicable.
 
 ## 1) Language
 
-The language and standard used is C++11. As painful as it is, this is
-what pybind11 requires. If an API uses C, then it should be pretty
-simple to get it into C++. Just make sure to wrap the header with the
-following if it\'s not already present in the header:
+The language and standard used is C++17. If an API uses C, then it 
+should be pretty simple to get it into C++. Just make sure to wrap 
+the header with the following if it\'s not already present in the header:
 
 ``` {.C}
 extern "C" {}
@@ -320,8 +319,8 @@ auto bar = "27";
 Can you predict what the types of `foo` and `bar` will be at compile
 time without using your IDE? Probably not! That is why it is recommended
 to only use `auto` in certain situations, like casting to another type
-or when you need to use a loop iterator. C++11 does not allow `auto` in
-lambda parameters. Below are some examples of bad uses and good uses:
+or when you need to use a loop iterator.  Below are some examples of bad 
+uses and good uses:
 
 ``` {.C++}
 // Not OK
