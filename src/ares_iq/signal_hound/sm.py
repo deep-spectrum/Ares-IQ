@@ -1,6 +1,9 @@
+import enum
+
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
-    _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState
+    _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
+    sm_api_version
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -11,6 +14,11 @@ import logging
 from ctypes import c_uint16
 from dataclasses import dataclass
 from abc import ABC, abstractmethod
+import datetime
+import yaml
+from pathlib import Path
+from typing import Callable
+import psutil
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -160,9 +168,9 @@ class SM(ABC):
             serial: The serial number to connect to. Only relevant for USB SM devices.
         """
         if configs is None:
-            configs_ = _SmConfigs(type=model)
+            configs_ = _SmConfigs(device=model)
         else:
-            configs_ = _SmConfigs(type=model,
+            configs_ = _SmConfigs(device=model,
                                   serial=serial,
                                   gps_timestamping=configs.gps_timestamping,
                                   gps_lock_timeout=configs.gps_lock_timeout,
@@ -261,6 +269,72 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]], save_directory: Path):
+        configs: dict[str, object] = self._dev.get_configs().as_dict()
+        meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
+        meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
+        meta["diagnostics"]["api_version"] = sm_api_version()
+        try:
+            meta["diagnostics"]["network_diagnostics"] = self._dev.network_diagnostic_info().as_dict()
+        except RuntimeError:
+            pass
+        for key, value in configs.items():
+            if issubclass(type(value), enum.IntEnum):
+                configs[key] = value.name
+        # Samples per a capture is already in the metadata
+        del configs["samples_per_capture"]
+        meta["device_configurations"] = configs
+        with open(save_directory / "meta.yaml", "w") as f:
+            yaml.safe_dump(meta, f)
+
+    @staticmethod
+    def _create_save_directory(save_directory: str | Path) -> Path:
+        if isinstance(save_directory, str):
+            save_directory = Path(save_directory)
+        save_directory.mkdir(exist_ok=True)
+        return save_directory
+
+    def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
+                  save_directory: str | Path, silent: bool = True, verbose: bool = False,
+                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None, ram_usage_limit: int | None = 0):
+        """Stream I/Q data to disk.
+
+        Args:
+            center: The center frequency in Hz.
+            bw: The capture bandwidth in Hz.
+            chunk_size: The file chunk size in bytes.
+            duration: The amount of time to stream I/Q for.
+            save_directory: The directory to save the I/Q data, timestamps, and metadata to. If this directory does
+                            not exist, then this method will attempt to create the specified directory.
+            silent: Run the streamed capture in silent mode (no status bars). By default, this is `True`.
+            verbose: Run the streamed capture in verbose mode (info logging messages). By default, this is `False`.
+            stop_sample_loss: Stop the streamed capture if sample loss starts occurring. By default, this is `False`.
+            stop_cb: User callback for notifying when the streamed capture is done. By default, this is `None`.
+            ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
+                             lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
+                             recommended that this parameter be on the magnitude of GB.
+        """
+        save_directory = self._create_save_directory(save_directory)
+
+        def done():
+            if stop_cb is not None:
+                stop_cb()
+
+        if ram_usage_limit is None:
+            ram_usage_limit = 0
+        elif ram_usage_limit == 0:
+            ram_usage_limit = int(psutil.virtual_memory().total / 2)
+
+        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
+                                   stop_sample_loss, done, ram_usage_limit)
+        meta["parameters"] = {
+            "center_frequency": center,
+            "bandwidth": bw,
+            "capture_duration": duration.total_seconds(),
+            "stop_if_sample_loss": stop_sample_loss,
+        }
+        self._save_stream_iq_meta(meta, save_directory)
+
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
@@ -280,6 +354,7 @@ class SmSFPDiagnostics:
 
 class NetworkedSM(SM, ABC):
     """Base class for networked SM devices"""
+
     def network_speed_test(self, duration: float) -> float:
         """Perform a network speed test for the connected device.
 
@@ -328,6 +403,7 @@ class SM200C(NetworkedSM):
 
 class SM435B(SM):
     """SM435B device."""
+
     def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435B, configs, serial)
 
@@ -415,6 +491,14 @@ def sm_get_device_list(usb: bool = True, networked: bool = True, max_network_dev
 
 @dataclass()
 class SmNetworkConfig:
+    """SM device network configurations.
+
+    Attributes:
+        mac: The MAC address of the SM device.
+        ip: The device IP address.
+        port: The device network port.
+        serial: The network device serial number.
+    """
     mac: str = ""
     ip: str = DEFAULT_DEV_ADDR
     port: int = DEFAULT_PORT
@@ -429,6 +513,9 @@ def sm_get_network_config(serial: int) -> SmNetworkConfig:
 
     Returns:
         The SM device network configuration.
+
+    Notes:
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = retrieve_networked_configurations(serial)
     return SmNetworkConfig(mac=config_.mac, ip=config_.ipaddr, port=config_.port, serial=serial)
@@ -445,6 +532,7 @@ def sm_configure_network_device(serial: int, config: SmNetworkConfig, non_volati
     Notes:
         The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
         The mac and the serial fields are immutable.
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     configure_networked_device(serial, config_, non_volatile)
@@ -461,6 +549,7 @@ def sm_broadcast_network_config(config: SmNetworkConfig, host: str | None = None
     Notes:
         The `ip` and `port` fields in `SmNetworkConfig` are the only fields used for configuration.
         The mac and the serial fields are immutable.
+        The networked device must be connected over USB 2.0 for this function to work.
     """
     config_ = _SmNetworkConfig(ip=config.ip, port=config.port)
     if host is None:

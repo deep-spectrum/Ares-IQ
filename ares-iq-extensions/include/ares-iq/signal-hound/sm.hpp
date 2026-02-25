@@ -11,7 +11,9 @@
 #define VERSION_SM_HPP
 
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares/queue.hpp>
 #include <complex>
+#include <functional>
 #include <pybind11/pybind11.h>
 
 namespace py = pybind11;
@@ -39,7 +41,7 @@ struct SMConfigs {
     /**
      * The SM device type in the SM series.
      */
-    SmDeviceType type = smDeviceTypeNotSet;
+    SmDeviceType device = smDeviceTypeNotSet;
     /**
      * The serial number.
      */
@@ -84,6 +86,12 @@ struct SMConfigs {
      * The number of samples per a capture.
      */
     uint32_t samples_per_capture = 500000;
+
+    /**
+     * Retrieve the dictionary representation of the configurations.
+     * @return The dictionary representation.
+     */
+    py::dict as_dict();
 };
 
 /**
@@ -189,6 +197,8 @@ struct SmDiagnostics {
      * @return Power supply temperature
      */
     [[nodiscard]] float temp_power_supply() const;
+
+    py::dict as_dict();
 };
 
 /**
@@ -244,6 +254,8 @@ struct SmSFPDiagnostics {
      * @return Receive power in mW.
      */
     [[nodiscard]] float get_rx_power() const;
+
+    py::dict as_dict();
 };
 
 /**
@@ -396,9 +408,40 @@ class SM {
     void open();
 
     /**
-     * CLose a connection to  an SM device.
+     * Close a connection to  an SM device.
      */
     void close();
+
+    /**
+     * Stream captured I/Q data directly to storage.
+     *
+     * @param center The center frequency in Hz.
+     * @param bw The bandwidth in Hz.
+     * @param chunk_size The file chunk size in bytes.
+     * @param duration The duration of the I/Q stream.
+     * @param save_dir The save directory for the captured I/Q data. Must
+     * already exist.
+     * @param silent Run the stream in silent mode (No status bars).
+     * @param verbose Run the stream with logging messages.
+     * @param stop_if_sample_loss Stop streaming if sample loss starts
+     * occurring.
+     * @param done_cb The callback to call when streaming is aborted or is done.
+     * @param max_queue_size The maximum allowable queue size in bytes. This
+     * should be a few GB. If 0, there is no maximum queue size.
+     * @return Stream capture metadata.
+     */
+    py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
+                            const std::chrono::milliseconds &duration,
+                            const std::string &save_dir, bool silent,
+                            bool verbose, bool stop_if_sample_loss,
+                            const std::function<void()> &done_cb,
+                            uint64_t max_queue_size);
+
+    /**
+     * .
+     * @return The SM device configurations passed in upon initialization.
+     */
+    SMConfigs get_configs() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -431,6 +474,36 @@ class SM {
     bool _acquire_gps_lock(SmGPSState target_state) const;
 
     bool _is_networked() const;
+
+    struct RawCapture {
+        std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
+        SmGpsInfo gps_info = {};
+        int64_t timestamp;
+        int32_t chunk_id;
+    };
+
+    struct RecordingMetadata {
+        std::chrono::steady_clock::duration write_duration;
+        uint64_t total_captures = 0;
+        volatile bool save_failed = false;
+    };
+
+    bool _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+                          int32_t chunk) const;
+    py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
+                             const std::chrono::milliseconds &duration,
+                             const std::string &save_dir, bool silent,
+                             bool sample_loss_stop,
+                             const std::function<void()> &done_cb,
+                             uint64_t max_queue_size);
+    void _stream_iq_data(const std::string &save_dir,
+                         RecordingMetadata &metadata,
+                         ares::queue<RawCapture *> &queue) const;
+    static void _clear_queue(const RecordingMetadata &meta,
+                             ares::queue<RawCapture *> &queue);
+    static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
+    static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
+                        int32_t chunk);
 };
 
 /**

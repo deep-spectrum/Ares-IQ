@@ -12,17 +12,24 @@
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares-iq/util.hpp>
+#include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
 #include <cassert>
+#include <cmath>
 #include <complex>
+#include <fcntl.h>
 #include <logging/log.hpp>
+#include <pybind11/chrono.h>
+#include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <stdexcept>
+#include <thread>
 #include <vector>
 
 namespace py = pybind11;
+using namespace std::chrono_literals;
 
 LOG_MODULE_REGISTER(sm_logger);
 
@@ -57,7 +64,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
     py::class_<SMConfigs>(m, "_SmConfigs", "SM device configs")
         .def(py::init<const py::kwargs &>())
-        .def_readwrite("type", &SMConfigs::type, "The device type")
+        .def_readwrite("device", &SMConfigs::device, "The device type")
         .def_readwrite("serial", &SMConfigs::serial, "The device serial number")
         .def_readwrite("host", &SMConfigs::host,
                        "Host interface IP on which the networked device is "
@@ -79,7 +86,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_readwrite("software_filter", &SMConfigs::software_filter,
                        "Use software filtering")
         .def_readwrite("samples_per_capture", &SMConfigs::samples_per_capture,
-                       "The number of samples to collect per a capture");
+                       "The number of samples to collect per a capture")
+        .def("as_dict", &SMConfigs::as_dict, "Convert struct to dictionary");
 
     py::class_<SMDevice>(m, "_SmDevice",
                          "SM device metadata from device discovery")
@@ -110,7 +118,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                                "Temperature on RF board LO")
         .def_property_readonly("temp_power_supply",
                                &SmDiagnostics::temp_power_supply,
-                               "Power supply temperature");
+                               "Power supply temperature")
+        .def("as_dict", &SmDiagnostics::as_dict,
+             "Retrieve diagnostics as a dictionary");
 
     py::class_<SmSFPDiagnostics>(
         m, "_SmSFPDiagnostics",
@@ -123,7 +133,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def_property_readonly("tx_power", &SmSFPDiagnostics::get_tx_power,
                                "Transmit power in mW")
         .def_property_readonly("rx_power", &SmSFPDiagnostics::get_rx_power,
-                               "Receive power in mW");
+                               "Receive power in mW")
+        .def("as_dict", &SmSFPDiagnostics::as_dict,
+             "Retrieve SFP diagnostics as a dictionary");
 
     py::class_<SmNetworkConfig>(m, "_SmNetworkConfig",
                                 "Network configuration for/from the SM device")
@@ -168,7 +180,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("network_diagnostic_info", &SM::network_diagnostic_info,
              "Retrieve the diagnostic information for the SFP+ port")
         .def("open", &SM::open, "Open SM device")
-        .def("close", &SM::close, "Close SM device");
+        .def("close", &SM::close, "Close SM device")
+        .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file")
+        .def("get_configs", &SM::get_configs, "Retrieve SM configurations");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -205,7 +219,7 @@ static py::tuple array_to_tuple(const T *data, size_t count) {
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, type);
+    KWARG_TO_STRUCT_PARAM(kwargs, device);
     KWARG_TO_STRUCT_PARAM(kwargs, serial);
     KWARG_TO_STRUCT_PARAM(kwargs, host);
     KWARG_TO_STRUCT_PARAM(kwargs, device_addr);
@@ -216,6 +230,13 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     KWARG_TO_STRUCT_PARAM(kwargs, decimation);
     KWARG_TO_STRUCT_PARAM(kwargs, software_filter);
     KWARG_TO_STRUCT_PARAM(kwargs, samples_per_capture);
+}
+
+py::dict SMConfigs::as_dict() {
+    return to_dict(NV(device), NV(serial), NV(host), NV(device_addr), NV(port),
+                   NV(gps_timestamping), NV(gps_lock_timeout), NV(gps_model),
+                   NV(decimation), NV(software_filter),
+                   NV(samples_per_capture));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -246,6 +267,18 @@ float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
 
+py::dict SmDiagnostics::as_dict() {
+    return to_dict(
+        [](auto v) { return static_cast<int64_t>(v) == INT64_C(240); },
+        py::none(), NV_NO_CHECK(voltage, diagnostics),
+        NV_NO_CHECK(currentInput, diagnostics),
+        NV_NO_CHECK(currentOCXO, diagnostics),
+        NV_NO_CHECK(tempFPGAInternal, diagnostics),
+        NV(tempFPGANear, diagnostics), NV(tempOCXO, diagnostics),
+        NV(tempVCO, diagnostics), NV_NO_CHECK(tempRFBoardLO, diagnostics),
+        NV(tempPowerSupply, diagnostics));
+}
+
 float SmSFPDiagnostics::get_temp() const { return temp; }
 
 float SmSFPDiagnostics::get_voltage() const { return voltage; }
@@ -253,6 +286,11 @@ float SmSFPDiagnostics::get_voltage() const { return voltage; }
 float SmSFPDiagnostics::get_tx_power() const { return txPower; }
 
 float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
+
+py::dict SmSFPDiagnostics::as_dict() {
+    return to_dict([](auto v) { return static_cast<int64_t>(v) == 0; },
+                   py::none(), NV(temp), NV(voltage), NV(txPower), NV(rxPower));
+}
 
 #define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
 
@@ -406,6 +444,37 @@ void SM::open() {
 
 void SM::close() { _close_device(); }
 
+py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
+                            const std::chrono::milliseconds &duration,
+                            const std::string &save_dir, bool silent,
+                            bool verbose, bool stop_if_sample_loss,
+                            const std::function<void()> &done_cb,
+                            uint64_t max_queue_size) {
+    if (verbose) {
+        SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
+    }
+
+    py::dict ret;
+    try {
+        ret =
+            _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
+                            stop_if_sample_loss, done_cb, max_queue_size);
+    } catch (...) {
+        if (verbose) {
+            RESTORE_LOG_LEVEL();
+        }
+        throw;
+    }
+
+    if (verbose) {
+        RESTORE_LOG_LEVEL();
+    }
+
+    return ret;
+}
+
+SMConfigs SM::get_configs() const { return _configs; }
+
 void SM::_log_mode() const {
     SmMode mode;
     check_sm_status(_SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
@@ -524,7 +593,7 @@ void SM::_open_device() {
 
     LOG_DBG("Attempting to open device");
 
-    switch (_configs.type) {
+    switch (_configs.device) {
     case smDeviceTypeSM200A:
     case smDeviceTypeSM200B:
     case smDeviceTypeSM435B: {
@@ -701,7 +770,7 @@ void SM::_acquire_gps_lock() {
 bool SM::_is_networked() const {
     bool ret;
 
-    switch (_configs.type) {
+    switch (_configs.device) {
     case smDeviceTypeSM200A:
     case smDeviceTypeSM200B:
     case smDeviceTypeSM435B:
@@ -716,6 +785,254 @@ bool SM::_is_networked() const {
     }
 
     return ret;
+}
+
+extern "C" {
+#include <sys/stat.h>
+#include <unistd.h>
+
+static int open_fd(const char *file, bool direct) {
+    if (direct) {
+        return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    }
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+}
+
+static int close_fd(int fd) { return close(fd); }
+}
+
+static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+
+bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+                          int32_t chunk) const {
+    int sample_loss;
+    bool sample_loss_ = false;
+    uint32_t samples_per_capture = _configs.samples_per_capture;
+
+    for (size_t i = 0; i < captures; i++) {
+        if (PyErr_CheckSignals() != 0) {
+            break;
+        }
+        auto *capture = new RawCapture();
+        capture->buf.resize(samples_per_capture * 2);
+
+        (void)smGetIQ(fd, capture->buf.data(),
+                      static_cast<int>(samples_per_capture), nullptr, 0,
+                      &capture->timestamp, smFalse, &sample_loss, nullptr);
+        (void)smGetGPSInfo(
+            fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
+            &capture->gps_info.latitude, &capture->gps_info.longitude,
+            &capture->gps_info.altitude, nullptr, nullptr);
+        capture->chunk_id = chunk;
+        queue.put(capture);
+        if (sample_loss == SM_TRUE) {
+            LOG_WRN("SM API dropping samples");
+            sample_loss_ = true;
+        }
+    }
+    return sample_loss_;
+}
+
+py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
+                             const std::chrono::milliseconds &duration,
+                             const std::string &save_dir, bool silent,
+                             bool sample_loss_stop,
+                             const std::function<void()> &done_cb,
+                             uint64_t max_queue_size) {
+    bool interrupted = false, sample_loss = false;
+    if (!_open) {
+        _open_device();
+    }
+
+    _configure(center, bw);
+
+    uint64_t samples_per_capture = _configs.samples_per_capture;
+    uint64_t bytes_per_capture =
+        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+        sizeof(Capture::timestamp);
+    uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
+
+    LOG_DBG("Page size: %u", PAGE_SIZE);
+    LOG_DBG("Queue size limit: %lu bytes", max_queue_size);
+
+    RecordingMetadata metadata;
+    ares::queue<RawCapture *> capture_q;
+    std::thread consumer([this, save_dir, &metadata, &capture_q]() {
+        _stream_iq_data(save_dir, metadata, capture_q);
+    });
+
+    CaptureProgress::MemoryMonitor memory_monitor(
+        bytes_per_capture, [&capture_q]() { return capture_q.size(); },
+        max_queue_size, silent);
+    auto now = std::chrono::steady_clock::now;
+    memory_monitor.start();
+    auto start = now();
+    for (int32_t chunk = 0;
+         (now() - start) < duration && !metadata.save_failed &&
+         !memory_monitor.out_of_memory();
+         chunk++) {
+        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
+                      sample_loss;
+        if (PyErr_CheckSignals() != 0) {
+            interrupted = true;
+            break;
+        }
+        if (sample_loss_stop && sample_loss) {
+            LOG_ERR("Stopping prematurely due to sample loss");
+            break;
+        }
+    }
+    memory_monitor.stop();
+
+    _clear_queue(metadata, capture_q);
+
+    LOG_INF("Data collected");
+    RawCapture *terminate_value = nullptr;
+    capture_q.put(terminate_value);
+    consumer.join();
+
+    if (interrupted) {
+        throw py::error_already_set();
+    }
+
+    if (metadata.save_failed) {
+        throw std::runtime_error("Operation failed");
+    }
+
+    done_cb();
+
+    py::dict ret;
+    py::dict diagnostics;
+
+    diagnostics["save_duration"] = metadata.write_duration;
+    ret["captures"] = metadata.total_captures;
+    ret["samples_per_capture"] = _configs.samples_per_capture;
+    ret["captures_per_chunk"] = captures_per_chunk;
+    ret["diagnostics"] = diagnostics;
+    ret["sample_loss"] = sample_loss;
+
+    return ret;
+}
+
+constexpr double ns_per_sec = 1e9;
+void SM::_stream_iq_data(const std::string &save_dir,
+                         RecordingMetadata &metadata,
+                         ares::queue<RawCapture *> &queue) const {
+    uint64_t entries_written = 0;
+    int32_t current_chunk = -1;
+    std::vector<uint8_t> buffer;
+    int iq_fd = -1, ts_fd = -1;
+
+    ts_fd = _open_fd(ts_fd, save_dir, false, 0);
+    if (ts_fd < 0) {
+        metadata.save_failed = true;
+        return;
+    }
+
+    buffer.reserve(_configs.samples_per_capture * 2 * 10);
+
+    auto start = std::chrono::steady_clock::now();
+    while (true) {
+        auto *write_data = queue.get();
+
+        if (write_data == nullptr) {
+            _flush_chunk(iq_fd, buffer);
+            close_fd(iq_fd);
+            break;
+        }
+
+        if (current_chunk != write_data->chunk_id) {
+            _flush_chunk(iq_fd, buffer);
+            iq_fd = _open_fd(iq_fd, save_dir, true, write_data->chunk_id);
+            current_chunk = write_data->chunk_id;
+            if (iq_fd < 0) {
+                metadata.save_failed = true;
+                delete write_data;
+                break;
+            }
+        }
+
+        const size_t num_bytes = write_data->buf.size() * sizeof(float);
+        const uint8_t *data =
+            reinterpret_cast<uint8_t *>(write_data->buf.data());
+        buffer.insert(buffer.end(), data, data + num_bytes);
+        double timestamp =
+            static_cast<double>(write_data->timestamp) / ns_per_sec;
+        delete write_data;
+
+        if (buffer.size() >= PAGE_SIZE) {
+            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
+            ssize_t bytes_written = write(iq_fd, buffer.data(), size);
+            if (bytes_written < 0) {
+                LOG_ERR("write: %s", strerror(errno));
+                continue;
+            }
+            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+        }
+
+        ssize_t written = write(ts_fd, &timestamp, sizeof(double));
+        if (written < 0) {
+            LOG_ERR("write: %s", strerror(errno));
+        }
+
+        entries_written += 1;
+    }
+    auto stop = std::chrono::steady_clock::now();
+    close_fd(ts_fd);
+
+    LOG_DBG("%lu bytes dropped", buffer.size());
+    LOG_DBG("Entries written: %lu", entries_written);
+
+    metadata.total_captures = entries_written;
+    metadata.write_duration = stop - start;
+}
+
+void SM::_clear_queue(const RecordingMetadata &meta,
+                      ares::queue<RawCapture *> &queue) {
+    if (meta.save_failed) {
+        while (!queue.empty()) {
+            auto data = queue.get();
+            delete data;
+        }
+    }
+}
+
+void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
+    if (!buffer.empty()) {
+        assert(iq_fd > 0);
+        size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
+        buffer.resize(new_size);
+        ssize_t err = write(iq_fd, buffer.data(), buffer.size());
+        if (err < 0) {
+            LOG_ERR("write: %s", strerror(errno));
+        } else {
+            buffer.erase(buffer.begin(), buffer.begin() + err);
+        }
+    }
+}
+
+int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
+                 int32_t chunk) {
+    std::stringstream oss;
+    if (old_fd > 0) {
+        close_fd(old_fd);
+    }
+
+    if (iq) {
+        oss << save_dir << "/"
+            << "iq" << chunk << ".c8";
+    } else {
+        oss << save_dir << "/"
+            << "ts.f8";
+    }
+
+    int new_fd = open_fd(oss.str().c_str(), iq);
+    if (new_fd < 0) {
+        LOG_ERR("open: %s", strerror(errno));
+    }
+    return new_fd;
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {

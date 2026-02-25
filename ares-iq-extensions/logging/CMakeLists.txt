@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.15)
 project(logging)
 
-set(CMAKE_CXX_STANDARD 11)
+set(CMAKE_CXX_STANDARD 17)
 
 option(USE_PYTHON_LOGGERS "Use Python logging library implementation" OFF)
 

@@ -79,7 +79,7 @@ class Progress {
     std::string _rate = "0.0 MS/sec ";
 
     void _refresh_task();
-    void _init_bar();
+    void _init_bar() const;
     void _draw();
     void _finalize();
 
@@ -88,12 +88,8 @@ class Progress {
     void _update_rate();
     static void _draw_opening();
     void _draw_bar() const;
-    void _draw_rate();
-    void _draw_time_elapsed();
-
-    static void _reset_cursor();
-    static void _hide_cursor();
-    static void _restore_cursor();
+    void _draw_rate() const;
+    void _draw_time_elapsed() const;
 #else
     std::unique_ptr<StupidFuckingIdiom> _impl;
 #endif // !defined(USE_PYTHON_LIB)
