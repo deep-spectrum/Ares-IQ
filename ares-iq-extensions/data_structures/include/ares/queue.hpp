@@ -31,14 +31,14 @@ template <typename Type> class queue {
 
     size_t size();
 
-    bool empty() const;
+    bool empty();
 
     void clear();
 
   private:
     std::deque<Type> _buffer;
     std::mutex _lock;
-    std::atomic_size_t _size;
+    std::size_t _size;
     std::condition_variable _not_empty;
 };
 
@@ -112,31 +112,34 @@ template <typename Type> void queue<Type>::put(Type &item) {
     std::unique_lock<std::mutex> guard(_lock);
 
     _buffer.emplace_back(item);
-    _size.fetch_add(1);
+    _size += 1;
     _not_empty.notify_one();
 }
 
 template <typename Type> Type queue<Type>::get() {
     std::unique_lock<std::mutex> guard(_lock);
 
-    _not_empty.wait(guard, [this]() { return !empty(); });
+    _not_empty.wait(guard, [this]() { return _size != 0; });
     Type ret = _buffer.front();
     _buffer.pop_front();
-    _size.fetch_sub(1);
+    _size -= 1;
 
     return ret;
 }
 
-template <typename Type> size_t queue<Type>::size() { return _size; }
+template <typename Type> size_t queue<Type>::size() {
+    std::unique_lock<std::mutex> guard(_lock);
+    return _size;
+}
 
-template <typename Type> bool queue<Type>::empty() const {
-    size_t size = _size;
-    return size == 0;
+template <typename Type> bool queue<Type>::empty() {
+    std::unique_lock<std::mutex> guard(_lock);
+    return _size == 0;
 }
 
 template <typename Type> void queue<Type>::clear() {
     std::unique_lock<std::mutex> guard(_lock);
-    _size.store(0);
+    _size = 0;
     _buffer.clear();
 }
 
