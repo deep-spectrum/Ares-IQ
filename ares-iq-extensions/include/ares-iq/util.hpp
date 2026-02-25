@@ -15,10 +15,10 @@
     } while (false)
 
 #define Z_STRUCT_PARAM_TO_DICT(dict_, parameter_)                              \
-    dict_[#parameter_] = this->parameter_
+    (dict_)[#parameter_] = this->parameter_
 
 #define Z_STRUCT_CONTAINER_TO_DICT(dict_, parameter_, container_)              \
-    dict_[#parameter_] = (container_).parameter_
+    (dict_)[#parameter_] = (container_).parameter_
 
 #define STRUCT_PARAM_TO_DICT(dict_, parameter_, container_...)                 \
     COND_CODE_0(IS_EMPTY(container_),                                          \
