@@ -40,7 +40,7 @@ class RichBase {
   public:
     template <typename... Args,
               typename = std::enable_if_t<(is_streamable<Args>::value && ...)>>
-    explicit RichBase(const std::string &escape, Args &&...args)
+    explicit RichBase(const char *escape, Args &&...args)
         : _escape_enter(escape) {
         std::stringstream ss;
         (ss << ... << std::forward<Args>(args));
@@ -49,7 +49,7 @@ class RichBase {
 
     template <typename... Args,
               typename = std::enable_if_t<(is_streamable<Args>::value && ...)>>
-    explicit RichBase(const FontStyle style, const std::string &base_escape,
+    explicit RichBase(const FontStyle style, const char *base_escape,
                       Args &&...args)
         : _escape_enter(base_escape) {
 
