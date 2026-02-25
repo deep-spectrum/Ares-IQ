@@ -19,17 +19,56 @@
 #include <thread>
 
 namespace CaptureProgress {
+/**
+ * @class MemoryMonitor
+ * Memory monitor view for progress capture.
+ */
 class MemoryMonitor {
   public:
+    /**
+     * .
+     * @param item_size The size of each element in bytes.
+     * @param size_cb The function to call to get the number of elements in the
+     * container.
+     * @param max_mem_usage The maximum number of bytes the container is allowed
+     * to use. Default is `0`.
+     * @param hide Flag to hide this view. Default is `false`.
+     *
+     * @note If `max_mem_usage` is set to `0`, then the memory monitor will not
+     * raise its `out_of_memory` flag.
+     */
     explicit MemoryMonitor(size_t item_size,
                            const std::function<size_t()> &size_cb,
                            uint64_t max_mem_usage = UINT64_C(0),
                            bool hide = false);
+
+    /**
+     * .
+     */
     ~MemoryMonitor();
 
+    /**
+     * Start the memory monitor view.
+     */
     void start();
+
+    /**
+     * Stop the memory monitor view.
+     * @param exception The exception thrown during execution.
+     */
     void stop(const void *exception = nullptr);
+
+    /**
+     * Check for resource exhaustion.
+     * @return Flag indicating if the allowable memory resources got exhausted.
+     */
     bool out_of_memory() const;
+
+    /**
+     * Retrieve the duration between the start and stop calls of the memory
+     * monitor.
+     * @return The duration between the start and stop calls.
+     */
     std::chrono::steady_clock::duration duration() const;
 
   private:
