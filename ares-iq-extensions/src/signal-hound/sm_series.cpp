@@ -280,7 +280,7 @@ float SmDiagnostics::temp_power_supply() const {
     do {                                                                       \
         STRUCT_PARAM_TO_DICT(dict_, field_, diagnostics);                      \
         if (static_cast<int64_t>(diagnostics.field_) == INT64_C(240)) {        \
-            dict[#field_] = py::none();                                        \
+            (dict_)[#field_] = py::none();                                     \
         }                                                                      \
     } while (false)
 
@@ -310,7 +310,7 @@ float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
     do {                                                                       \
         STRUCT_PARAM_TO_DICT(dict_, field_);                                   \
         if (static_cast<int64_t>(field_) == UINT64_C(0)) {                     \
-            dict_[#field_] = py::none();                                       \
+            (dict_)[#field_] = py::none();                                     \
         }                                                                      \
     } while (false)
 
@@ -480,15 +480,17 @@ py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
                             const std::chrono::milliseconds &duration,
                             const std::string &save_dir, bool silent,
                             bool verbose, bool stop_if_sample_loss,
-                            const std::function<void()> &done_cb) {
+                            const std::function<void()> &done_cb,
+                            uint64_t max_queue_size) {
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
     py::dict ret;
     try {
-        ret = _stream_iq_data(center, bw, chunk_size, duration, save_dir,
-                              silent, stop_if_sample_loss, done_cb);
+        ret =
+            _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
+                            stop_if_sample_loss, done_cb, max_queue_size);
     } catch (...) {
         if (verbose) {
             RESTORE_LOG_LEVEL();
@@ -865,7 +867,8 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                              const std::chrono::milliseconds &duration,
                              const std::string &save_dir, bool silent,
                              bool sample_loss_stop,
-                             const std::function<void()> &done_cb) {
+                             const std::function<void()> &done_cb,
+                             uint64_t max_queue_size) {
     bool interrupted = false, sample_loss = false;
     if (!_open) {
         _open_device();
@@ -887,10 +890,9 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         _stream_iq_data(save_dir, metadata, capture_q);
     });
 
-    CaptureProgress::MemoryMonitor memory_monitor =
-        CaptureProgress::MemoryMonitor(
-            bytes_per_capture, [&capture_q]() { return capture_q.size(); },
-            static_cast<size_t>(10e9), silent);
+    CaptureProgress::MemoryMonitor memory_monitor(
+        bytes_per_capture, [&capture_q]() { return capture_q.size(); },
+        max_queue_size, silent);
     auto now = std::chrono::steady_clock::now;
     memory_monitor.start();
     auto start = now();
@@ -1056,15 +1058,6 @@ int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
         LOG_ERR("open: %s", strerror(errno));
     }
     return new_fd;
-}
-
-void SM::_write_queue_monitor(const bool *run,
-                              ares::queue<RawCapture *> &queue) {
-    // todo make this nicer
-    while (*run) {
-        LOG_DBG("Write queue size: %lu", queue.size());
-        std::this_thread::sleep_for(1s);
-    }
 }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {

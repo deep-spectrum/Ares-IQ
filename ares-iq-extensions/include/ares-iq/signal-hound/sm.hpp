@@ -426,13 +426,16 @@ class SM {
      * @param stop_if_sample_loss Stop streaming if sample loss starts
      * occurring.
      * @param done_cb The callback to call when streaming is aborted or is done.
+     * @param max_queue_size The maximum allowable queue size in bytes. This
+     * should be a few GB. If 0, there is no maximum queue size.
      * @return Stream capture metadata.
      */
     py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
                             const std::chrono::milliseconds &duration,
                             const std::string &save_dir, bool silent,
                             bool verbose, bool stop_if_sample_loss,
-                            const std::function<void()> &done_cb);
+                            const std::function<void()> &done_cb,
+                            uint64_t max_queue_size);
 
     /**
      * .
@@ -491,7 +494,8 @@ class SM {
                              const std::chrono::milliseconds &duration,
                              const std::string &save_dir, bool silent,
                              bool sample_loss_stop,
-                             const std::function<void()> &done_cb);
+                             const std::function<void()> &done_cb,
+                             uint64_t max_queue_size);
     void _stream_iq_data(const std::string &save_dir,
                          RecordingMetadata &metadata,
                          ares::queue<RawCapture *> &queue) const;
@@ -500,8 +504,6 @@ class SM {
     static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
     static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
                         int32_t chunk);
-    static void _write_queue_monitor(const bool *run,
-                                     ares::queue<RawCapture *> &queue);
 };
 
 /**

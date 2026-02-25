@@ -11,11 +11,11 @@
 #include <capture-progress/display_rich.hpp>
 #include <capture-progress/monitor.hpp>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <fstream>
 #include <iomanip>
 #include <iostream>
-#include <math.h>
 #include <string>
 
 using namespace std::chrono_literals;
@@ -121,7 +121,7 @@ void MemoryMonitor::_draw_memory(const Memory &mem) {
         static_cast<int>(static_cast<double>(bar_length) * buffer_percent);
     int cache_bars =
         static_cast<int>(static_cast<double>(bar_length) * cache_percent);
-    int empty_bars = bar_length - (used_bars + buffer_bars + cache_bars);
+    uint32_t empty_bars = bar_length - (used_bars + buffer_bars + cache_bars);
 
     if (used_bars > 0) {
         std::string used_bar(used_bars, bar_char);
@@ -215,9 +215,9 @@ void MemoryMonitor::_mem_burn_memory_bar(size_t items) const {
     double max_usage_gb = static_cast<double>(_max_mem_usage) / 1e9;
     double percentage = (usage_gb / max_usage_gb) * 100.0;
 
-    std::string green_bar = "";
-    std::string yellow_bar = "";
-    std::string red_bar = "";
+    std::string green_bar;
+    std::string yellow_bar;
+    std::string red_bar;
 
     _mem_burn_gen_green(percentage, green_bar);
     _mem_burn_gen_yellow(percentage, yellow_bar);
@@ -242,12 +242,12 @@ constexpr uint32_t max_yellow_bars = 20;
 constexpr uint32_t max_red_bars = 10;
 
 void MemoryMonitor::_mem_burn_gen_green(double percent, std::string &bars) {
-    if (isgreater(percent, 25.0)) {
+    if (std::isgreater(percent, 25.0)) {
         bars = std::string(max_green_bars, bar_char);
         return;
     }
     double p = percent / 25.0;
-    uint32_t n = static_cast<uint32_t>(static_cast<double>(max_green_bars) * p);
+    auto n = static_cast<uint32_t>(static_cast<double>(max_green_bars) * p);
     if (n > max_green_bars) {
         n = max_green_bars;
     }
@@ -255,16 +255,15 @@ void MemoryMonitor::_mem_burn_gen_green(double percent, std::string &bars) {
 }
 
 void MemoryMonitor::_mem_burn_gen_yellow(double percent, std::string &bars) {
-    if (isgreater(percent, 75.0)) {
+    if (std::isgreater(percent, 75.0)) {
         bars = std::string(max_yellow_bars, bar_char);
         return;
     }
-    if (isless(percent, 25.0)) {
+    if (std::isless(percent, 25.0)) {
         return;
     }
     double p = (percent - 25.0) / 50.0;
-    uint32_t n =
-        static_cast<uint32_t>(static_cast<double>(max_yellow_bars) * p);
+    auto n = static_cast<uint32_t>(static_cast<double>(max_yellow_bars) * p);
     if (n > max_yellow_bars) {
         n = max_yellow_bars;
     }
@@ -272,15 +271,15 @@ void MemoryMonitor::_mem_burn_gen_yellow(double percent, std::string &bars) {
 }
 
 void MemoryMonitor::_mem_burn_gen_red(double percent, std::string &bars) {
-    if (isgreater(percent, 100.0)) {
+    if (std::isgreater(percent, 100.0)) {
         bars = std::string(max_red_bars, bar_char);
         return;
     }
-    if (isless(percent, 75.0)) {
+    if (std::isless(percent, 75.0)) {
         return;
     }
     double p = (percent - 75.0) / 25.0;
-    uint32_t n = static_cast<uint32_t>(static_cast<double>(max_red_bars) * p);
+    auto n = static_cast<uint32_t>(static_cast<double>(max_red_bars) * p);
     if (n > max_red_bars) {
         n = max_red_bars;
     }
