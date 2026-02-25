@@ -11,12 +11,36 @@
 #ifndef ARES_QUEUE_HPP
 #define ARES_QUEUE_HPP
 
+#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
 #include <exception>
 #include <mutex>
 #include <string>
+
+namespace ares {
+template <typename Type> class queue {
+  public:
+    queue() : _size(0) {}
+    ~queue() = default;
+
+    void put(Type &item);
+
+    Type get();
+
+    size_t size();
+
+    bool empty() const;
+
+    void clear();
+
+  private:
+    std::deque<Type> _buffer;
+    std::mutex _lock;
+    std::atomic_size_t _size;
+    std::condition_variable _not_empty;
+};
 
 class queue_exception : public std::exception {
   public:
@@ -57,33 +81,10 @@ class queue_exception : public std::exception {
     std::string _what;
 };
 
-namespace ares {
-template <typename Type> class queue {
-  public:
-    queue() = default;
-    ~queue() = default;
-
-    void put(Type &item);
-
-    Type get();
-
-    size_t size();
-
-    bool empty();
-
-    void clear();
-
-  private:
-    std::deque<Type> _buffer;
-    std::mutex _lock;
-    std::size_t _size;
-    std::condition_variable _not_empty;
-};
-
 template <typename Type, size_t max_size = 1, bool overwrite = false>
 class bounded_queue {
   public:
-    bounded_queue() = default;
+    bounded_queue() : _size(0) {}
     ~bounded_queue() = default;
 
     void put(Type &item, bool block = true,
@@ -91,16 +92,16 @@ class bounded_queue {
                  std::chrono::milliseconds::zero());
     Type get(bool block = true, const std::chrono::milliseconds &timeout_ms =
                                     std::chrono::milliseconds::zero());
-    size_t size();
-    bool empty();
-    bool full();
+    size_t size() const;
+    bool empty() const;
+    bool full() const;
     void clear();
 
   private:
     Type _buffer[max_size];
     size_t _producer_index = 0;
     size_t _consumer_index = 0;
-    std::size_t _size = 0;
+    std::atomic_size_t _size;
 
     std::mutex _lock;
     std::condition_variable _not_empty;
@@ -111,7 +112,7 @@ template <typename Type> void queue<Type>::put(Type &item) {
     std::unique_lock<std::mutex> guard(_lock);
 
     _buffer.emplace_back(item);
-    _size += 1;
+    _size.fetch_add(1);
     _not_empty.notify_one();
 }
 
@@ -121,28 +122,21 @@ template <typename Type> Type queue<Type>::get() {
     _not_empty.wait(guard, [this]() { return !empty(); });
     Type ret = _buffer.front();
     _buffer.pop_front();
-    _size -= 1;
+    _size.fetch_sub(1);
 
     return ret;
 }
 
-template <typename Type> size_t queue<Type>::size() {
-    size_t ret;
-    std::unique_lock<std::mutex> guard(_lock);
-    ret = _size;
-    return ret;
-}
+template <typename Type> size_t queue<Type>::size() { return _size; }
 
-template <typename Type> bool queue<Type>::empty() {
-    size_t compare;
-    std::unique_lock<std::mutex> guard(_lock);
-    compare = _size;
-    return compare == 0;
+template <typename Type> bool queue<Type>::empty() const {
+    size_t size = _size;
+    return size == 0;
 }
 
 template <typename Type> void queue<Type>::clear() {
     std::unique_lock<std::mutex> guard(_lock);
-    _size = 0;
+    _size.store(0);
     _buffer.clear();
 }
 
@@ -167,7 +161,7 @@ void bounded_queue<Type, max_size, overwrite>::put(
 
     _buffer[_producer_index] = item;
     _producer_index = (_producer_index + 1) % max_size;
-    _size += 1;
+    _size.fetch_add(1);
     if (_size >= max_size) {
         _size = max_size;
         if (overwrite) {
@@ -197,28 +191,25 @@ Type bounded_queue<Type, max_size, overwrite>::get(
 
     ret = _buffer[_consumer_index];
     _consumer_index = (_consumer_index + 1) % max_size;
-    _size -= 1;
+    _size.fetch_sub(1);
     _space_available.notify_one();
     return ret;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-size_t bounded_queue<Type, max_size, overwrite>::size() {
-    std::unique_lock<std::mutex> guard(_lock);
+size_t bounded_queue<Type, max_size, overwrite>::size() const {
     size_t size = _size;
     return size;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-bool bounded_queue<Type, max_size, overwrite>::empty() {
-    std::unique_lock<std::mutex> guard(_lock);
+bool bounded_queue<Type, max_size, overwrite>::empty() const {
     size_t size = _size;
     return size == 0;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-bool bounded_queue<Type, max_size, overwrite>::full() {
-    std::unique_lock<std::mutex> guard(_lock);
+bool bounded_queue<Type, max_size, overwrite>::full() const {
     size_t size = _size;
     return size == max_size;
 }
