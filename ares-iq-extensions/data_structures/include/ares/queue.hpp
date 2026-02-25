@@ -11,7 +11,6 @@
 #ifndef ARES_QUEUE_HPP
 #define ARES_QUEUE_HPP
 
-#include <atomic>
 #include <chrono>
 #include <condition_variable>
 #include <deque>
