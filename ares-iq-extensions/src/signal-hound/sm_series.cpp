@@ -885,7 +885,6 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         }
     }
     memory_monitor.stop();
-    done_cb();
 
     _clear_queue(metadata, capture_q);
 
@@ -901,6 +900,8 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     if (metadata.save_failed) {
         throw std::runtime_error("Operation failed");
     }
+
+    done_cb();
 
     py::dict ret;
     py::dict diagnostics;
