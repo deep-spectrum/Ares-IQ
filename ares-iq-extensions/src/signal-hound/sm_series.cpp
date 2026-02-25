@@ -233,19 +233,10 @@ SMConfigs::SMConfigs(const py::kwargs &kwargs) {
 }
 
 py::dict SMConfigs::as_dict() {
-    py::dict dict;
-    STRUCT_PARAM_TO_DICT(dict, device);
-    STRUCT_PARAM_TO_DICT(dict, serial);
-    STRUCT_PARAM_TO_DICT(dict, host);
-    STRUCT_PARAM_TO_DICT(dict, device_addr);
-    STRUCT_PARAM_TO_DICT(dict, port);
-    STRUCT_PARAM_TO_DICT(dict, gps_timestamping);
-    STRUCT_PARAM_TO_DICT(dict, gps_lock_timeout);
-    STRUCT_PARAM_TO_DICT(dict, gps_model);
-    STRUCT_PARAM_TO_DICT(dict, decimation);
-    STRUCT_PARAM_TO_DICT(dict, software_filter);
-    STRUCT_PARAM_TO_DICT(dict, samples_per_capture);
-    return dict;
+    return to_dict(NV(device), NV(serial), NV(host), NV(device_addr), NV(port),
+                   NV(gps_timestamping), NV(gps_lock_timeout), NV(gps_model),
+                   NV(decimation), NV(software_filter),
+                   NV(samples_per_capture));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -276,26 +267,16 @@ float SmDiagnostics::temp_power_supply() const {
     return diagnostics.tempPowerSupply;
 }
 
-#define SM_DIAGNOSTICS_POPULATE_TEMP(dict_, field_)                            \
-    do {                                                                       \
-        STRUCT_PARAM_TO_DICT(dict_, field_, diagnostics);                      \
-        if (static_cast<int64_t>(diagnostics.field_) == INT64_C(240)) {        \
-            (dict_)[#field_] = py::none();                                     \
-        }                                                                      \
-    } while (false)
-
 py::dict SmDiagnostics::as_dict() {
-    py::dict dict;
-    STRUCT_PARAM_TO_DICT(dict, voltage, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, currentInput, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, currentOCXO, diagnostics);
-    STRUCT_PARAM_TO_DICT(dict, tempFPGAInternal, diagnostics);
-    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempFPGANear);
-    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempOCXO);
-    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempVCO);
-    STRUCT_PARAM_TO_DICT(dict, tempRFBoardLO, diagnostics);
-    SM_DIAGNOSTICS_POPULATE_TEMP(dict, tempPowerSupply);
-    return dict;
+    return to_dict(
+        [](auto v) { return static_cast<int64_t>(v) == INT64_C(240); },
+        py::none(), NV_NO_CHECK(voltage, diagnostics),
+        NV_NO_CHECK(currentInput, diagnostics),
+        NV_NO_CHECK(currentOCXO, diagnostics),
+        NV_NO_CHECK(tempFPGAInternal, diagnostics),
+        NV(tempFPGANear, diagnostics), NV(tempOCXO, diagnostics),
+        NV(tempVCO, diagnostics), NV_NO_CHECK(tempRFBoardLO, diagnostics),
+        NV(tempPowerSupply, diagnostics));
 }
 
 float SmSFPDiagnostics::get_temp() const { return temp; }
@@ -306,22 +287,9 @@ float SmSFPDiagnostics::get_tx_power() const { return txPower; }
 
 float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
 
-#define SM_NETWORK_DIAGNOSTICS_POPULATE(dict_, field_)                         \
-    do {                                                                       \
-        STRUCT_PARAM_TO_DICT(dict_, field_);                                   \
-        if (static_cast<int64_t>(field_) == UINT64_C(0)) {                     \
-            (dict_)[#field_] = py::none();                                     \
-        }                                                                      \
-    } while (false)
-
 py::dict SmSFPDiagnostics::as_dict() {
-    py::dict dict;
-    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, temp);
-    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, temp);
-    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, voltage);
-    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, txPower);
-    SM_NETWORK_DIAGNOSTICS_POPULATE(dict, rxPower);
-    return dict;
+    return to_dict([](auto v) { return static_cast<int64_t>(v) == 0; },
+                   py::none(), NV(temp), NV(voltage), NV(txPower), NV(rxPower));
 }
 
 #define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
