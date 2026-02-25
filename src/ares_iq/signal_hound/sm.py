@@ -323,7 +323,7 @@ class SM(ABC):
         if ram_usage_limit is None:
             ram_usage_limit = 0
         elif ram_usage_limit == 0:
-            ram_usage_limit = psutil.virtual_memory().total / 2
+            ram_usage_limit = int(psutil.virtual_memory().total / 2)
 
         meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
                                    stop_sample_loss, done, ram_usage_limit)
