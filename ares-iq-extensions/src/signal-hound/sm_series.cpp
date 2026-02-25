@@ -1007,6 +1007,7 @@ void SM::_clear_queue(const RecordingMetadata &meta,
 
 void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
     if (!buffer.empty()) {
+        assert(iq_fd > 0);
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
         ssize_t err = write(iq_fd, buffer.data(), buffer.size());
