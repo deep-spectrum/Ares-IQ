@@ -22,7 +22,7 @@
 namespace ares {
 template <typename Type> class queue {
   public:
-    queue() : _size(0) {}
+    queue() = default;
     ~queue() = default;
 
     void put(Type &item);
@@ -38,7 +38,7 @@ template <typename Type> class queue {
   private:
     std::deque<Type> _buffer;
     std::mutex _lock;
-    std::size_t _size;
+    std::size_t _size = 0;
     std::condition_variable _not_empty;
 };
 
@@ -84,7 +84,7 @@ class queue_exception : public std::exception {
 template <typename Type, size_t max_size = 1, bool overwrite = false>
 class bounded_queue {
   public:
-    bounded_queue() : _size(0) {}
+    bounded_queue() = default;
     ~bounded_queue() = default;
 
     void put(Type &item, bool block = true,
@@ -92,16 +92,16 @@ class bounded_queue {
                  std::chrono::milliseconds::zero());
     Type get(bool block = true, const std::chrono::milliseconds &timeout_ms =
                                     std::chrono::milliseconds::zero());
-    size_t size() const;
-    bool empty() const;
-    bool full() const;
+    size_t size();
+    bool empty();
+    bool full();
     void clear();
 
   private:
     Type _buffer[max_size];
     size_t _producer_index = 0;
     size_t _consumer_index = 0;
-    std::atomic_size_t _size;
+    std::size_t _size = 0;
 
     std::mutex _lock;
     std::condition_variable _not_empty;
@@ -150,7 +150,7 @@ void bounded_queue<Type, max_size, overwrite>::put(
 
     if (!block) {
         if (!_space_available.wait_for(guard, timeout_ms,
-                                       [this]() { return !full(); })) {
+                                       [this]() { return _size != max_size; })) {
             if (!overwrite) {
                 throw queue_exception(timeout_ms ==
                                               std::chrono::milliseconds::zero()
@@ -159,12 +159,12 @@ void bounded_queue<Type, max_size, overwrite>::put(
             }
         }
     } else {
-        _space_available.wait(guard, [this]() { return !full(); });
+        _space_available.wait(guard, [this]() { return _size != max_size; });
     }
 
     _buffer[_producer_index] = item;
     _producer_index = (_producer_index + 1) % max_size;
-    _size.fetch_add(1);
+    _size += 1;
     if (_size >= max_size) {
         _size = max_size;
         if (overwrite) {
@@ -182,39 +182,39 @@ Type bounded_queue<Type, max_size, overwrite>::get(
 
     if (!block) {
         if (!_not_empty.wait_for(guard, timeout_ms,
-                                 [this]() { return !empty(); })) {
+                                 [this]() { return _size != 0; })) {
             throw queue_exception(timeout_ms ==
                                           std::chrono::milliseconds::zero()
                                       ? queue_exception::QUEUE_EMPTY
                                       : queue_exception::QUEUE_TIMEOUT);
         }
     } else {
-        _not_empty.wait(guard, [this]() { return !empty(); });
+        _not_empty.wait(guard, [this]() { return _size != 0; });
     }
 
     ret = _buffer[_consumer_index];
     _consumer_index = (_consumer_index + 1) % max_size;
-    _size.fetch_sub(1);
+    _size -= 1;
     _space_available.notify_one();
     return ret;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-size_t bounded_queue<Type, max_size, overwrite>::size() const {
-    size_t size = _size;
-    return size;
+size_t bounded_queue<Type, max_size, overwrite>::size() {
+    std::unique_lock<std::mutex> guard(_lock);
+    return _size;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-bool bounded_queue<Type, max_size, overwrite>::empty() const {
-    size_t size = _size;
-    return size == 0;
+bool bounded_queue<Type, max_size, overwrite>::empty() {
+    std::unique_lock<std::mutex> guard(_lock);
+    return _size == 0;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-bool bounded_queue<Type, max_size, overwrite>::full() const {
-    size_t size = _size;
-    return size == max_size;
+bool bounded_queue<Type, max_size, overwrite>::full() {
+    std::unique_lock<std::mutex> guard(_lock);
+    return _size == max_size;
 }
 
 template <typename Type, size_t max_size, bool overwrite>
