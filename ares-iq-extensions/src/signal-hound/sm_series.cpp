@@ -810,28 +810,21 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
-    int32_t error_break_condition = 100;
 
-    SmStatus iq_status, gps_status;
-    for (size_t i = 0; i < captures && error_break_condition > 0; i++) {
+    for (size_t i = 0; i < captures; i++) {
+        if (PyErr_CheckSignals() != 0) {
+            break;
+        }
         auto *capture = new RawCapture();
         capture->buf.resize(samples_per_capture * 2);
 
-        iq_status = smGetIQ(
-            fd, capture->buf.data(), static_cast<int>(samples_per_capture),
-            nullptr, 0, &capture->timestamp, smFalse, &sample_loss, nullptr);
-        gps_status = smGetGPSInfo(
+        (void)smGetIQ(fd, capture->buf.data(),
+                      static_cast<int>(samples_per_capture), nullptr, 0,
+                      &capture->timestamp, smFalse, &sample_loss, nullptr);
+        (void)smGetGPSInfo(
             fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
             &capture->gps_info.latitude, &capture->gps_info.longitude,
             &capture->gps_info.altitude, nullptr, nullptr);
-        if (iq_status != smNoError || gps_status != smNoError) {
-            LOG_WRN("I/Q Error: %s, GPS Error: %s", smGetErrorString(iq_status),
-                    smGetErrorString(gps_status));
-            delete capture;
-            sample_loss_ = true;
-            error_break_condition--;
-            continue;
-        }
         capture->chunk_id = chunk;
         queue.put(capture);
         if (sample_loss == SM_TRUE) {
