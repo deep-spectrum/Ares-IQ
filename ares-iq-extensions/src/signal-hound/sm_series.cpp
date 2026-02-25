@@ -883,6 +883,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
+    LOG_DBG("Queue size limit: %lu bytes", max_queue_size);
 
     RecordingMetadata metadata;
     ares::queue<RawCapture *> capture_q;
