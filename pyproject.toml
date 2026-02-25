@@ -21,6 +21,7 @@ dependencies = [
     "attrs",
     "pyyaml",
     "ares-iq-extensions",
+    "psutil",
 ]
 
 [project.scripts]

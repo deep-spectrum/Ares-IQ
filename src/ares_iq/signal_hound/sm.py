@@ -18,6 +18,7 @@ import datetime
 import yaml
 from pathlib import Path
 from typing import Callable
+import psutil
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -295,7 +296,7 @@ class SM(ABC):
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
-                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None):
+                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None, ram_usage_limit: int | None = 0):
         """Stream I/Q data to disk.
 
         Args:
@@ -309,6 +310,9 @@ class SM(ABC):
             verbose: Run the streamed capture in verbose mode (info logging messages). By default, this is `False`.
             stop_sample_loss: Stop the streamed capture if sample loss starts occurring. By default, this is `False`.
             stop_cb: User callback for notifying when the streamed capture is done. By default, this is `None`.
+            ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
+                             lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
+                             recommended that this parameter be on the magnitude of GB.
         """
         save_directory = self._create_save_directory(save_directory)
 
@@ -316,8 +320,13 @@ class SM(ABC):
             if stop_cb is not None:
                 stop_cb()
 
+        if ram_usage_limit is None:
+            ram_usage_limit = 0
+        elif ram_usage_limit == 0:
+            ram_usage_limit = psutil.virtual_memory().total / 2
+
         meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
-                                   stop_sample_loss, done)
+                                   stop_sample_loss, done, ram_usage_limit)
         meta["parameters"] = {
             "center_frequency": center,
             "bandwidth": bw,
