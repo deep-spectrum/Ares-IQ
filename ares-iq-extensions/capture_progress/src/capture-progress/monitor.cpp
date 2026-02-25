@@ -103,7 +103,7 @@ void MemoryMonitor::_draw(const Memory &mem) const {
 }
 
 void MemoryMonitor::_draw_opening() {
-    std::cout << RichCyan(FontStyle::FONT_BOLD, "Mem")
+    std::cout << RichCyan(FontStyle::FONT_BOLD | FontStyle::FONT_UNDERLINE | FontStyle::FONT_STRIKETHROUGH, "Mem")
               << RichWhite(FontStyle::FONT_BOLD, "[");
 }
 
