@@ -486,11 +486,12 @@ class SM {
         std::chrono::steady_clock::duration write_duration;
         uint64_t total_captures = 0;
         volatile bool save_failed = false;
+        volatile bool signal_received = false;
     };
 
     bool _capture_iq_data(uint64_t captures,
                           ares::queue<std::unique_ptr<RawCapture>> &queue,
-                          int32_t chunk) const;
+                          int32_t chunk, RecordingMetadata &meta) const;
     py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
                              const std::chrono::milliseconds &duration,
                              const std::string &save_dir, bool silent,

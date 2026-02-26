@@ -807,7 +807,7 @@ static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
 bool SM::_capture_iq_data(uint64_t captures,
                           ares::queue<std::unique_ptr<RawCapture>> &queue,
-                          int32_t chunk) const {
+                          int32_t chunk, RecordingMetadata &meta) const {
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
@@ -815,6 +815,7 @@ bool SM::_capture_iq_data(uint64_t captures,
     for (size_t i = 0; i < captures; i++) {
         if (PyErr_CheckSignals() != 0) {
             LOG_INF("Inner loop broken by Python signal");
+            meta.signal_received = true;
             break;
         }
         auto capture = std::make_unique<RawCapture>();
@@ -875,9 +876,9 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
          (now() - start) < duration && !metadata.save_failed &&
          !memory_monitor.out_of_memory();
          chunk++) {
-        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
+        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk, metadata) ||
                       sample_loss;
-        if (PyErr_CheckSignals() != 0) {
+        if (metadata.signal_received) {
             LOG_INF("Outer producer loop terminated by Python signal");
             break;
         }
@@ -886,7 +887,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
             break;
         }
     }
-    memory_monitor.stop(PyErr_CheckSignals() == 0);
+    memory_monitor.stop(!metadata.signal_received);
 
     LOG_INF("Data collected");
     capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
@@ -894,7 +895,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     capture_q.clear();
 
-    if (PyErr_CheckSignals() != 0) {
+    if (metadata.signal_received) {
         throw py::error_already_set();
     }
 
@@ -937,9 +938,8 @@ void SM::_stream_iq_data(
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        if (PyErr_CheckSignals() != 0) {
+        if (metadata.signal_received) {
             LOG_INF("Consumer loop broken by Python signal");
-            metadata.save_failed = true;
             break;
         }
         auto write_data = queue.get();
