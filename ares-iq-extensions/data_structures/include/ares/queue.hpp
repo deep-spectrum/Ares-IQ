@@ -171,17 +171,80 @@ class bounded_queue {
      */
     ~bounded_queue() = default;
 
+    /**
+     * Place an item into the queue.
+     * @param item The item to place into the queue.
+     * @note This will block indefinitely.
+     */
     void put(Type &item);
+
+    /**
+     * Place an item in the queue with a timeout.
+     * @param item The item to place in the queue.
+     * @param timeout_ms The maximum amount of time to block if the queue is
+     * full. If set to std::chrono::milliseconds::zero(), then this method
+     * becomes non-blocking.
+     * @throws queue_exception if timeout expired.
+     */
     void put(Type &item, const std::chrono::milliseconds &timeout_ms);
+
+    /**
+     * Place an item into the queue in a non-blocking fashion.
+     * @param item The item to place in the queue.
+     * @throws queue_exception if the queue is full.
+     *
+     * @note This is the same as calling putt(item,
+     * std::chrono::milliseconds::zero())
+     */
     void put_nonblocking(Type &item);
 
+    /**
+     * Retrieve and remove an item from the queue.
+     * @return The first item in the queue.
+     *
+     * @note This will block indefinitely if there are no items in the queue.
+     */
     Type get();
+
+    /**
+     * Retrieve and remove an item from the queue with a timeout.
+     * @param timeout_ms The maximum amount of time to wait for item to become
+     * ready in the queue. If set to std::chrono::milliseconds::zero(), then
+     * this method will become non-blocking.
+     * @return The first item in the queue.
+     * @throws queue_exception if timeout expired.
+     */
     Type get(const std::chrono::milliseconds &timeout_ms);
+
+    /**
+     * Retrieve and remove an item from the queue in a non-blocking fashion.
+     * @return The first item in the queue.
+     * @throws queue_exception if the queue is empty.
+     * @note This is the same as calling get(std::chrono::milliseconds::zero())
+     */
     Type get_nonblocking();
 
+    /**
+     * .
+     * @return The number of elements in the queue.
+     */
     size_t size();
+
+    /**
+     * .
+     * @return `true` if the queue is empty. `false` otherwise.
+     */
     bool empty();
+
+    /**
+     * .
+     * @return `true` if the queue is full. `false` otherwise.
+     */
     bool full();
+
+    /**
+     * Clears the queue.
+     */
     void clear();
 
   private:
