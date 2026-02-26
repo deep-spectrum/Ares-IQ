@@ -161,14 +161,24 @@ template <typename Type> class queue {
 template <typename Type, size_t max_size = 1, bool overwrite = false>
 class bounded_queue {
   public:
+    /**
+     * .
+     */
     bounded_queue() = default;
+
+    /**
+     * .
+     */
     ~bounded_queue() = default;
 
-    void put(Type &item, bool block = true,
-             const std::chrono::milliseconds &timeout_ms =
-                 std::chrono::milliseconds::zero());
-    Type get(bool block = true, const std::chrono::milliseconds &timeout_ms =
-                                    std::chrono::milliseconds::zero());
+    void put(Type &item);
+    void put(Type &item, const std::chrono::milliseconds &timeout_ms);
+    void put_nonblocking(Type &item);
+
+    Type get();
+    Type get(const std::chrono::milliseconds &timeout_ms);
+    Type get_nonblocking();
+
     size_t size();
     bool empty();
     bool full();
@@ -241,22 +251,29 @@ template <typename Type> void queue<Type>::clear() {
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-void bounded_queue<Type, max_size, overwrite>::put(
-    Type &item, bool block, const std::chrono::milliseconds &timeout_ms) {
+void bounded_queue<Type, max_size, overwrite>::put(Type &item) {
     std::unique_lock<std::mutex> guard(_lock);
 
-    if (!block) {
-        if (!_space_available.wait_for(
-                guard, timeout_ms, [this]() { return _size != max_size; })) {
-            if (!overwrite) {
-                throw queue_exception(timeout_ms ==
-                                              std::chrono::milliseconds::zero()
-                                          ? queue_exception::QUEUE_FULL
-                                          : queue_exception::QUEUE_TIMEOUT);
-            }
+    _space_available.wait(guard, [this]() { return _size != max_size; });
+
+    _buffer[_producer_index] = item;
+    _producer_index = (_producer_index + 1) % max_size;
+    _size += 1;
+    _not_empty.notify_one();
+}
+
+template <typename Type, size_t max_size, bool overwrite>
+void bounded_queue<Type, max_size, overwrite>::put(
+    Type &item, const std::chrono::milliseconds &timeout_ms) {
+    std::unique_lock<std::mutex> guard(_lock);
+    if (!_space_available.wait_for(guard, timeout_ms,
+                                   [this]() { return _size != max_size; })) {
+        if (!overwrite) {
+            throw queue_exception(timeout_ms ==
+                                          std::chrono::milliseconds::zero()
+                                      ? queue_exception::QUEUE_FULL
+                                      : queue_exception::QUEUE_TIMEOUT);
         }
-    } else {
-        _space_available.wait(guard, [this]() { return _size != max_size; });
     }
 
     _buffer[_producer_index] = item;
@@ -272,21 +289,35 @@ void bounded_queue<Type, max_size, overwrite>::put(
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-Type bounded_queue<Type, max_size, overwrite>::get(
-    bool block, const std::chrono::milliseconds &timeout_ms) {
+void bounded_queue<Type, max_size, overwrite>::put_nonblocking(Type &item) {
+    put(item, std::chrono::milliseconds::zero());
+}
+
+template <typename Type, size_t max_size, bool overwrite>
+Type bounded_queue<Type, max_size, overwrite>::get() {
     std::unique_lock<std::mutex> guard(_lock);
     Type ret;
 
-    if (!block) {
-        if (!_not_empty.wait_for(guard, timeout_ms,
-                                 [this]() { return _size != 0; })) {
-            throw queue_exception(timeout_ms ==
-                                          std::chrono::milliseconds::zero()
-                                      ? queue_exception::QUEUE_EMPTY
-                                      : queue_exception::QUEUE_TIMEOUT);
-        }
-    } else {
-        _not_empty.wait(guard, [this]() { return _size != 0; });
+    _not_empty.wait(guard, [this]() { return _size != 0; });
+
+    ret = _buffer[_consumer_index];
+    _consumer_index = (_consumer_index + 1) % max_size;
+    _size -= 1;
+    _space_available.notify_one();
+    return ret;
+}
+
+template <typename Type, size_t max_size, bool overwrite>
+Type bounded_queue<Type, max_size, overwrite>::get(
+    const std::chrono::milliseconds &timeout_ms) {
+    std::unique_lock<std::mutex> guard(_lock);
+    Type ret;
+
+    if (!_not_empty.wait_for(guard, timeout_ms,
+                             [this]() { return _size != 0; })) {
+        throw queue_exception(timeout_ms == std::chrono::milliseconds::zero()
+                                  ? queue_exception::QUEUE_EMPTY
+                                  : queue_exception::QUEUE_TIMEOUT);
     }
 
     ret = _buffer[_consumer_index];
@@ -294,6 +325,11 @@ Type bounded_queue<Type, max_size, overwrite>::get(
     _size -= 1;
     _space_available.notify_one();
     return ret;
+}
+
+template <typename Type, size_t max_size, bool overwrite>
+Type bounded_queue<Type, max_size, overwrite>::get_nonblocking() {
+    return get(std::chrono::milliseconds::zero());
 }
 
 template <typename Type, size_t max_size, bool overwrite>
