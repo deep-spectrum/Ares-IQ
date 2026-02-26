@@ -7,6 +7,9 @@
 
 #include "../logging/include/logging/internal/logging_utils.h"
 #include <type_traits>
+#include <pybind11/pybind11.h>
+
+namespace py = pybind11;
 
 /**
  * Helper macro for converting Python kwargs to struct fields.
