@@ -814,6 +814,7 @@ bool SM::_capture_iq_data(uint64_t captures,
 
     for (size_t i = 0; i < captures; i++) {
         if (PyErr_CheckSignals() != 0) {
+            LOG_INF("Inner loop broken by Python signal");
             break;
         }
         auto capture = std::make_unique<RawCapture>();
@@ -877,6 +878,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
         if (PyErr_CheckSignals() != 0) {
+            LOG_INF("Outer producer loop terminated by Python signal");
             break;
         }
         if (sample_loss_stop && sample_loss) {
@@ -884,7 +886,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
             break;
         }
     }
-    memory_monitor.stop(true);
+    memory_monitor.stop(PyErr_CheckSignals() == 0);
 
     LOG_INF("Data collected");
     capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
@@ -936,6 +938,7 @@ void SM::_stream_iq_data(
     auto start = std::chrono::steady_clock::now();
     while (true) {
         if (PyErr_CheckSignals() != 0) {
+            LOG_INF("Consumer loop broken by Python signal");
             metadata.save_failed = true;
             break;
         }
