@@ -84,7 +84,8 @@ class queue_exception : public std::exception {
  * Thread-safe queue implementation.
  * @tparam Type The queue element type.
  */
-template <typename Type> class queue {
+template <typename Type>
+class queue {
   public:
     /**
      * .
@@ -97,10 +98,11 @@ template <typename Type> class queue {
     ~queue() = default;
 
     /**
-     * Place an item into the queue.
+     * Places an item into the queue.
      * @param item The item to place into the queue.
      */
-    void put(Type &item);
+    template <typename U>
+    void put(U &&item);
 
     /**
      * Retrieve and remove an item from the queue.
@@ -172,31 +174,55 @@ class bounded_queue {
     ~bounded_queue() = default;
 
     /**
-     * Place an item into the queue.
-     * @param item The item to place into the queue.
-     * @note This will block indefinitely.
-     */
-    void put(Type &item);
-
-    /**
-     * Place an item in the queue with a timeout.
-     * @param item The item to place in the queue.
-     * @param timeout_ms The maximum amount of time to block if the queue is
-     * full. If set to std::chrono::milliseconds::zero(), then this method
-     * becomes non-blocking.
-     * @throws queue_exception if timeout expired.
-     */
-    void put(Type &item, const std::chrono::milliseconds &timeout_ms);
-
-    /**
-     * Place an item into the queue in a non-blocking fashion.
-     * @param item The item to place in the queue.
-     * @throws queue_exception if the queue is full.
+     * @brief Adds an item to the back of the queue, transferring ownership if
+     * possible.
      *
-     * @note This is the same as calling putt(item,
+     * This method uses perfect forwarding to either copy or move the provided
+     * item into the internal buffer. If a std::unique_ptr or an rvalue is
+     * passed, ownership is transferred with zero-copy overhead.
+     *
+     * @tparam U A type compatible with the queue's underlying Type.
+     * @param item The element to be added to the queue.
+     */
+    template <typename U>
+    void put(U &&item);
+
+    /**
+     * @brief Adds an item to the back of the bounded queue with a timeout.
+     *
+     * This method uses perfect forwarding to move or copy the item into the
+     * next available slot in the internal buffer. If the queue is full, the
+     * calling thread will block until space becomes available or the
+     * timeout is reached.
+     *
+     * @tparam U A type compatible with the queue's underlying Type.
+     * @param item The element to be added; ownership is transferred if an
+     * rvalue is passed.
+     * @param timeout_ms The maximum duration to block if the queue is full.
+     *                   If zero, the method attempts a non-blocking insertion.
+     * @throws queue_exception If the timeout expires before space becomes
+     * available.
+     */
+    template <typename U>
+    void put(U &&item, const std::chrono::milliseconds &timeout_ms);
+
+    /**
+     * @brief Attempts to add an item to the back of the queue without blocking.
+     *
+     * This method uses perfect forwarding to move or copy the item into the
+     * internal buffer. Unlike the standard put(), this method returns
+     * immediately if the queue is full.
+     *
+     * @tparam U A type compatible with the queue's underlying Type.
+     * @param item The element to be added; ownership is transferred if an
+     * rvalue is passed.
+     * @throws queue_exception If the queue is full and the item cannot be added
+     * immediately.
+     * @note This is the same as calling put(item,
      * std::chrono::milliseconds::zero())
      */
-    void put_nonblocking(Type &item);
+    template <typename U>
+    void put_nonblocking(U &&item);
 
     /**
      * Retrieve and remove an item from the queue.
@@ -258,19 +284,22 @@ class bounded_queue {
     std::condition_variable _space_available;
 };
 
-template <typename Type> void queue<Type>::put(Type &item) {
+template <typename Type>
+template <typename U>
+void queue<Type>::put(U &&item) {
     std::unique_lock<std::mutex> guard(_lock);
 
-    _buffer.emplace_back(item);
+    _buffer.emplace_back(std::forward<U>(item));
     _size += 1;
     _not_empty.notify_one();
 }
 
-template <typename Type> Type queue<Type>::get() {
+template <typename Type>
+Type queue<Type>::get() {
     std::unique_lock<std::mutex> guard(_lock);
 
     _not_empty.wait(guard, [this]() { return _size != 0; });
-    Type ret = _buffer.front();
+    Type ret = std::move(_buffer.front());
     _buffer.pop_front();
     _size -= 1;
 
@@ -286,48 +315,54 @@ Type queue<Type>::get(const std::chrono::milliseconds &timeout_ms) {
                                   ? queue_exception::QUEUE_EMPTY
                                   : queue_exception::QUEUE_TIMEOUT);
     }
-    Type ret = _buffer.front();
+    Type ret = std::move(_buffer.front());
     _buffer.pop_front();
     _size -= 1;
 
     return ret;
 }
 
-template <typename Type> Type queue<Type>::get_nonblocking() {
+template <typename Type>
+Type queue<Type>::get_nonblocking() {
     return get(std::chrono::milliseconds::zero());
 }
 
-template <typename Type> size_t queue<Type>::size() {
+template <typename Type>
+size_t queue<Type>::size() {
     std::unique_lock<std::mutex> guard(_lock);
     return _size;
 }
 
-template <typename Type> bool queue<Type>::empty() {
+template <typename Type>
+bool queue<Type>::empty() {
     std::unique_lock<std::mutex> guard(_lock);
     return _size == 0;
 }
 
-template <typename Type> void queue<Type>::clear() {
+template <typename Type>
+void queue<Type>::clear() {
     std::unique_lock<std::mutex> guard(_lock);
     _size = 0;
     _buffer.clear();
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-void bounded_queue<Type, max_size, overwrite>::put(Type &item) {
+template <typename U>
+void bounded_queue<Type, max_size, overwrite>::put(U &&item) {
     std::unique_lock<std::mutex> guard(_lock);
 
     _space_available.wait(guard, [this]() { return _size != max_size; });
 
-    _buffer[_producer_index] = item;
+    _buffer[_producer_index] = std::forward<U>(item);
     _producer_index = (_producer_index + 1) % max_size;
     _size += 1;
     _not_empty.notify_one();
 }
 
 template <typename Type, size_t max_size, bool overwrite>
+template <typename U>
 void bounded_queue<Type, max_size, overwrite>::put(
-    Type &item, const std::chrono::milliseconds &timeout_ms) {
+    U &&item, const std::chrono::milliseconds &timeout_ms) {
     std::unique_lock<std::mutex> guard(_lock);
     if (!_space_available.wait_for(guard, timeout_ms,
                                    [this]() { return _size != max_size; })) {
@@ -339,7 +374,7 @@ void bounded_queue<Type, max_size, overwrite>::put(
         }
     }
 
-    _buffer[_producer_index] = item;
+    _buffer[_producer_index] = std::forward<U>(item);
     _producer_index = (_producer_index + 1) % max_size;
     _size += 1;
     if (_size >= max_size) {
@@ -352,7 +387,8 @@ void bounded_queue<Type, max_size, overwrite>::put(
 }
 
 template <typename Type, size_t max_size, bool overwrite>
-void bounded_queue<Type, max_size, overwrite>::put_nonblocking(Type &item) {
+template <typename U>
+void bounded_queue<Type, max_size, overwrite>::put_nonblocking(U &&item) {
     put(item, std::chrono::milliseconds::zero());
 }
 
@@ -363,7 +399,7 @@ Type bounded_queue<Type, max_size, overwrite>::get() {
 
     _not_empty.wait(guard, [this]() { return _size != 0; });
 
-    ret = _buffer[_consumer_index];
+    ret = std::move(_buffer[_consumer_index]);
     _consumer_index = (_consumer_index + 1) % max_size;
     _size -= 1;
     _space_available.notify_one();
@@ -383,7 +419,7 @@ Type bounded_queue<Type, max_size, overwrite>::get(
                                   : queue_exception::QUEUE_TIMEOUT);
     }
 
-    ret = _buffer[_consumer_index];
+    ret = std::move(_buffer[_consumer_index]);
     _consumer_index = (_consumer_index + 1) % max_size;
     _size -= 1;
     _space_available.notify_one();

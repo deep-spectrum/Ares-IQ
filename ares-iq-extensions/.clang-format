@@ -8,3 +8,5 @@ IndentCaseLabels: false
 ColumnLimit: 80
 AlignConsecutiveMacros: AcrossEmptyLines
 AlignTrailingComments: true
+AlwaysBreakTemplateDeclarations: Yes
+
