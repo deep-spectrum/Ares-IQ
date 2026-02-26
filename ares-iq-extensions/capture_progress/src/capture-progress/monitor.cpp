@@ -66,7 +66,9 @@ void MemoryMonitor::stop(bool show_burndown, const void *exception) {
     (void)exception;
     _stop = std::chrono::steady_clock::now();
     _terminate.store(true);
-    _refresh_thread.join();
+    if (_refresh_thread.joinable()) {
+        _refresh_thread.join();
+    }
 }
 
 bool MemoryMonitor::out_of_memory() const {
