@@ -321,17 +321,20 @@ class SM(ABC):
                 stop_cb()
 
         if ram_usage_limit is None:
-            ram_usage_limit = 0
-        elif ram_usage_limit == 0:
-            ram_usage_limit = int(psutil.virtual_memory().total / 2)
+            _ram_usage_limit = 0
+        elif ram_usage_limit <= 0:
+            _ram_usage_limit = int(psutil.virtual_memory().total / 2)
+        else:
+            _ram_usage_limit = ram_usage_limit
 
         meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
-                                   stop_sample_loss, done, ram_usage_limit)
+                                   stop_sample_loss, done, _ram_usage_limit)
         meta["parameters"] = {
             "center_frequency": center,
             "bandwidth": bw,
             "capture_duration": duration.total_seconds(),
             "stop_if_sample_loss": stop_sample_loss,
+            "ram_usage_limit": ram_usage_limit
         }
         self._save_stream_iq_meta(meta, save_directory)
 
