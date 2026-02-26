@@ -874,11 +874,11 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
         if (PyErr_CheckSignals() != 0) {
-            LOG_INF("Producer loop terminated by Python signal");
+            LOG_INF("CTRL+C Received");
+            memory_monitor.stop();
             capture_q.clear();
             capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
             consumer.join();
-            memory_monitor.stop();
             throw py::error_already_set();
         }
         if (sample_loss_stop && sample_loss) {
