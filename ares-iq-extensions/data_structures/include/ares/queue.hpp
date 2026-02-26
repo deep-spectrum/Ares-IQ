@@ -163,6 +163,10 @@ class queue {
 template <typename Type, size_t max_size = 1, bool overwrite = false>
 class bounded_queue {
   public:
+    static_assert(
+        max_size > 0,
+        "ares::bounded_queue - Maximum queue size must be greater than 0.");
+
     /**
      * .
      */
