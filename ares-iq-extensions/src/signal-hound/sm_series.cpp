@@ -885,7 +885,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
             break;
         }
     }
-    memory_monitor.stop();
+    memory_monitor.stop(true);
 
     LOG_INF("Data collected");
     capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));

@@ -54,9 +54,10 @@ class MemoryMonitor {
 
     /**
      * Stop the memory monitor view.
+     * @param show_burndown Show the burndown bar when stopping.
      * @param exception The exception thrown during execution.
      */
-    void stop(const void *exception = nullptr);
+    void stop(bool show_burndown = false, const void *exception = nullptr);
 
     /**
      * Check for resource exhaustion.
@@ -77,6 +78,7 @@ class MemoryMonitor {
     std::mutex _memory_mutex;
     std::atomic_bool _terminate{false};
     std::atomic_bool _out_of_memory{false};
+    std::atomic_bool _show_burndown{false};
 
     std::function<size_t()> _size_cb;
     size_t _element_size;

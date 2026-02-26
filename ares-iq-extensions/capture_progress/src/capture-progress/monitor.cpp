@@ -58,10 +58,11 @@ void MemoryMonitor::start() {
     _refresh_thread = std::thread(&MemoryMonitor::_refresh_task, this);
 }
 
-void MemoryMonitor::stop(const void *exception) {
+void MemoryMonitor::stop(bool show_burndown, const void *exception) {
     if (_hide) {
         return;
     }
+    _show_burndown = show_burndown;
     (void)exception;
     _stop = std::chrono::steady_clock::now();
     _terminate.store(true);
@@ -186,7 +187,7 @@ void MemoryMonitor::_check_usage() {
 void MemoryMonitor::_memory_usage_burndown() const {
     std::cout << "\n";
 
-    if (!_out_of_memory) {
+    if (!_out_of_memory && !_show_burndown) {
         return;
     }
 
