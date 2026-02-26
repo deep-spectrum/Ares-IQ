@@ -875,10 +875,10 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                       sample_loss;
         if (PyErr_CheckSignals() != 0) {
             LOG_INF("Producer loop terminated by Python signal");
-            memory_monitor.stop();
-            consumer.detach();
             capture_q.clear();
             capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+            consumer.join();
+            memory_monitor.stop();
             throw py::error_already_set();
         }
         if (sample_loss_stop && sample_loss) {
