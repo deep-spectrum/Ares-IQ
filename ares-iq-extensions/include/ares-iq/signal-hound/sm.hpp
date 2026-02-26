@@ -488,7 +488,8 @@ class SM {
         volatile bool save_failed = false;
     };
 
-    bool _capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+    bool _capture_iq_data(uint64_t captures,
+                          ares::queue<std::unique_ptr<RawCapture>> &queue,
                           int32_t chunk) const;
     py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
                              const std::chrono::milliseconds &duration,
@@ -498,9 +499,7 @@ class SM {
                              uint64_t max_queue_size);
     void _stream_iq_data(const std::string &save_dir,
                          RecordingMetadata &metadata,
-                         ares::queue<RawCapture *> &queue) const;
-    static void _clear_queue(const RecordingMetadata &meta,
-                             ares::queue<RawCapture *> &queue);
+                         ares::queue<std::unique_ptr<RawCapture>> &queue) const;
     static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
     static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
                         int32_t chunk);

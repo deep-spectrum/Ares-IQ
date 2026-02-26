@@ -805,7 +805,8 @@ static int close_fd(int fd) { return close(fd); }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
-bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+bool SM::_capture_iq_data(uint64_t captures,
+                          ares::queue<std::unique_ptr<RawCapture>> &queue,
                           int32_t chunk) const {
     int sample_loss;
     bool sample_loss_ = false;
@@ -815,7 +816,7 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
         if (PyErr_CheckSignals() != 0) {
             break;
         }
-        auto *capture = new RawCapture();
+        auto capture = std::make_unique<RawCapture>();
         capture->buf.resize(samples_per_capture * 2);
 
         (void)smGetIQ(fd, capture->buf.data(),
@@ -826,7 +827,7 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
             &capture->gps_info.latitude, &capture->gps_info.longitude,
             &capture->gps_info.altitude, nullptr, nullptr);
         capture->chunk_id = chunk;
-        queue.put(capture);
+        queue.put(std::move(capture));
         if (sample_loss == SM_TRUE) {
             LOG_WRN("SM API dropping samples");
             sample_loss_ = true;
@@ -858,7 +859,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     LOG_DBG("Queue size limit: %lu bytes", max_queue_size);
 
     RecordingMetadata metadata;
-    ares::queue<RawCapture *> capture_q;
+    ares::queue<std::unique_ptr<RawCapture>> capture_q;
     std::thread consumer([this, save_dir, &metadata, &capture_q]() {
         _stream_iq_data(save_dir, metadata, capture_q);
     });
@@ -886,12 +887,11 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
     }
     memory_monitor.stop();
 
-    _clear_queue(metadata, capture_q);
-
     LOG_INF("Data collected");
-    RawCapture *terminate_value = nullptr;
-    capture_q.put(terminate_value);
+    capture_q.put({});
     consumer.join();
+
+    capture_q.clear();
 
     if (interrupted) {
         throw py::error_already_set();
@@ -918,9 +918,9 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 }
 
 constexpr double ns_per_sec = 1e9;
-void SM::_stream_iq_data(const std::string &save_dir,
-                         RecordingMetadata &metadata,
-                         ares::queue<RawCapture *> &queue) const {
+void SM::_stream_iq_data(
+    const std::string &save_dir, RecordingMetadata &metadata,
+    ares::queue<std::unique_ptr<RawCapture>> &queue) const {
     uint64_t entries_written = 0;
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
@@ -936,7 +936,7 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto *write_data = queue.get();
+        auto write_data = queue.get();
 
         if (write_data == nullptr) {
             _flush_chunk(iq_fd, buffer);
@@ -950,7 +950,6 @@ void SM::_stream_iq_data(const std::string &save_dir,
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
                 metadata.save_failed = true;
-                delete write_data;
                 break;
             }
         }
@@ -961,7 +960,6 @@ void SM::_stream_iq_data(const std::string &save_dir,
         buffer.insert(buffer.end(), data, data + num_bytes);
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
-        delete write_data;
 
         if (buffer.size() >= PAGE_SIZE) {
             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
@@ -988,16 +986,6 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
     metadata.total_captures = entries_written;
     metadata.write_duration = stop - start;
-}
-
-void SM::_clear_queue(const RecordingMetadata &meta,
-                      ares::queue<RawCapture *> &queue) {
-    if (meta.save_failed) {
-        while (!queue.empty()) {
-            auto data = queue.get();
-            delete data;
-        }
-    }
 }
 
 void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
