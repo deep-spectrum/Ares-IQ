@@ -842,7 +842,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
                              bool sample_loss_stop,
                              const std::function<void()> &done_cb,
                              uint64_t max_queue_size) {
-    bool interrupted = false, sample_loss = false;
+    bool sample_loss = false;
     if (!_open) {
         _open_device();
     }
@@ -877,7 +877,6 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
         if (PyErr_CheckSignals() != 0) {
-            interrupted = true;
             break;
         }
         if (sample_loss_stop && sample_loss) {
@@ -893,7 +892,7 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 
     capture_q.clear();
 
-    if (interrupted) {
+    if (PyErr_CheckSignals() != 0) {
         throw py::error_already_set();
     }
 
@@ -936,6 +935,10 @@ void SM::_stream_iq_data(
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
+        if (PyErr_CheckSignals() != 0) {
+            metadata.save_failed = true;
+            break;
+        }
         auto write_data = queue.get();
 
         if (write_data == nullptr) {
