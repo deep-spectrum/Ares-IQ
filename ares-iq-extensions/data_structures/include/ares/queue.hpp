@@ -19,32 +19,24 @@
 #include <string>
 
 namespace ares {
-template <typename Type> class queue {
-  public:
-    queue() = default;
-    ~queue() = default;
-
-    void put(Type &item);
-
-    Type get();
-
-    size_t size();
-
-    bool empty();
-
-    void clear();
-
-  private:
-    std::deque<Type> _buffer;
-    std::mutex _lock;
-    std::size_t _size = 0;
-    std::condition_variable _not_empty;
-};
-
+/**
+ * Queue exceptions.
+ */
 class queue_exception : public std::exception {
   public:
-    enum queue_exception_reason { QUEUE_EMPTY, QUEUE_FULL, QUEUE_TIMEOUT };
+    /**
+     * The queue exception reason.
+     */
+    enum queue_exception_reason {
+        QUEUE_EMPTY,  ///< Queue empty.
+        QUEUE_FULL,   ///< Queue full.
+        QUEUE_TIMEOUT ///< Queue operation timed out.
+    };
 
+    /**
+     * .
+     * @param exc_reason The reason for the queue exception.
+     */
     explicit queue_exception(const queue_exception_reason &exc_reason)
         : _reason(exc_reason) {
         switch (exc_reason) {
@@ -67,10 +59,18 @@ class queue_exception : public std::exception {
         }
     }
 
+    /**
+     * Retrieve the error message.
+     * @return The error message.
+     */
     [[nodiscard]] const char *what() const noexcept override {
         return _what.c_str();
     }
 
+    /**
+     * Retrieve the exception reason enum.
+     * @return The exception reas as an enum.
+     */
     [[nodiscard]] queue_exception_reason reason() const noexcept {
         return _reason;
     }
@@ -80,6 +80,84 @@ class queue_exception : public std::exception {
     std::string _what;
 };
 
+/**
+ * Thread-safe queue implementation.
+ * @tparam Type The queue element type.
+ */
+template <typename Type> class queue {
+  public:
+    /**
+     * .
+     */
+    queue() = default;
+
+    /**
+     * .
+     */
+    ~queue() = default;
+
+    /**
+     * Place an item into the queue.
+     * @param item The item to place into the queue.
+     */
+    void put(Type &item);
+
+    /**
+     * Retrieve and remove an item from the queue.
+     * @return The first item in the queue.
+     *
+     * @note This will block indefinitely if there are no items in the queue.
+     */
+    Type get();
+
+    /**
+     * Retrieve and remove an item from the queue with a timeout.
+     * @param timeout_ms The maximum amount of time to wait for item to become
+     * ready in the queue. If set to std::chrono::milliseconds::zero(), then
+     * this method will become non-blocking.
+     * @return The first item in the queue.
+     * @throws queue_exception if timeout expired.
+     */
+    Type get(const std::chrono::milliseconds &timeout_ms);
+
+    /**
+     * Retrieve and remove an item from the queue in a non-blocking fashion.
+     * @return The first item in the queue.
+     * @throws queue_exception if the queue is empty.
+     * @note This is the same as calling get(std::chrono::milliseconds::zero())
+     */
+    Type get_nonblocking();
+
+    /**
+     * .
+     * @return The number of elements in the queue.
+     */
+    size_t size();
+
+    /**
+     * .
+     * @return `true` if the queue is empty. `false` otherwise.
+     */
+    bool empty();
+
+    /**
+     * Clears the queue.
+     */
+    void clear();
+
+  private:
+    std::deque<Type> _buffer;
+    std::mutex _lock;
+    std::size_t _size = 0;
+    std::condition_variable _not_empty;
+};
+
+/**
+ * Thread-safe, statically allocated queue.
+ * @tparam Type The queue element type.
+ * @tparam max_size The maximum size of the queue.
+ * @tparam overwrite Overwrite old data if full.
+ */
 template <typename Type, size_t max_size = 1, bool overwrite = false>
 class bounded_queue {
   public:
@@ -126,6 +204,26 @@ template <typename Type> Type queue<Type>::get() {
     return ret;
 }
 
+template <typename Type>
+Type queue<Type>::get(const std::chrono::milliseconds &timeout_ms) {
+    std::unique_lock<std::mutex> guard(_lock);
+    if (!_not_empty.wait_for(guard, timeout_ms,
+                             [this]() { return _size != 0; })) {
+        throw queue_exception(timeout_ms == std::chrono::milliseconds::zero()
+                                  ? queue_exception::QUEUE_EMPTY
+                                  : queue_exception::QUEUE_TIMEOUT);
+    }
+    Type ret = _buffer.front();
+    _buffer.pop_front();
+    _size -= 1;
+
+    return ret;
+}
+
+template <typename Type> Type queue<Type>::get_nonblocking() {
+    return get(std::chrono::milliseconds::zero());
+}
+
 template <typename Type> size_t queue<Type>::size() {
     std::unique_lock<std::mutex> guard(_lock);
     return _size;
@@ -148,8 +246,8 @@ void bounded_queue<Type, max_size, overwrite>::put(
     std::unique_lock<std::mutex> guard(_lock);
 
     if (!block) {
-        if (!_space_available.wait_for(guard, timeout_ms,
-                                       [this]() { return _size != max_size; })) {
+        if (!_space_available.wait_for(
+                guard, timeout_ms, [this]() { return _size != max_size; })) {
             if (!overwrite) {
                 throw queue_exception(timeout_ms ==
                                               std::chrono::milliseconds::zero()
