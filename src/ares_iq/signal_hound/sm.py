@@ -329,7 +329,7 @@ class SM(ABC):
             _ram_usage_limit = ram_usage_limit
 
         params = _StreamParameters(
-            center=center,
+            center_frequency=center,
             bandwidth=bw,
             file_chunk_size=chunk_size,
             duration=duration,
