@@ -219,17 +219,10 @@ static py::tuple array_to_tuple(const T *data, size_t count) {
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, device);
-    KWARG_TO_STRUCT_PARAM(kwargs, serial);
-    KWARG_TO_STRUCT_PARAM(kwargs, host);
-    KWARG_TO_STRUCT_PARAM(kwargs, device_addr);
-    KWARG_TO_STRUCT_PARAM(kwargs, port);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_timestamping);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_lock_timeout);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_model);
-    KWARG_TO_STRUCT_PARAM(kwargs, decimation);
-    KWARG_TO_STRUCT_PARAM(kwargs, software_filter);
-    KWARG_TO_STRUCT_PARAM(kwargs, samples_per_capture);
+    from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
+                SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
+                SP(gps_model), SP(decimation), SP(software_filter),
+                SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
@@ -302,8 +295,7 @@ static void check_sm_status(SmStatus status, const std::string &caller) {
 }
 
 SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, ip);
-    KWARG_TO_STRUCT_PARAM(kwargs, port);
+    from_kwargs(kwargs, SP(ip), SP(port));
 }
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
@@ -444,29 +436,22 @@ void SM::open() {
 
 void SM::close() { _close_device(); }
 
-py::dict SM::stream_iq_data(double center, double bw, uint64_t chunk_size,
-                            const std::chrono::milliseconds &duration,
-                            const std::string &save_dir, bool silent,
-                            bool verbose, bool stop_if_sample_loss,
-                            const std::function<void()> &done_cb,
-                            uint64_t max_queue_size) {
-    if (verbose) {
+py::dict SM::stream_iq_data(const StreamParameters &params) {
+    if (params.verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
 
     py::dict ret;
     try {
-        ret =
-            _stream_iq_data(center, bw, chunk_size, duration, save_dir, silent,
-                            stop_if_sample_loss, done_cb, max_queue_size);
+        ret = _stream_iq_data(params);
     } catch (...) {
-        if (verbose) {
+        if (params.verbose) {
             RESTORE_LOG_LEVEL();
         }
         throw;
     }
 
-    if (verbose) {
+    if (params.verbose) {
         RESTORE_LOG_LEVEL();
     }
 
@@ -805,17 +790,15 @@ static int close_fd(int fd) { return close(fd); }
 
 static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 
-bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
+bool SM::_capture_iq_data(uint64_t captures,
+                          ares::queue<std::unique_ptr<RawCapture>> &queue,
                           int32_t chunk) const {
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
 
     for (size_t i = 0; i < captures; i++) {
-        if (PyErr_CheckSignals() != 0) {
-            break;
-        }
-        auto *capture = new RawCapture();
+        auto capture = std::make_unique<RawCapture>();
         capture->buf.resize(samples_per_capture * 2);
 
         (void)smGetIQ(fd, capture->buf.data(),
@@ -826,7 +809,7 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
             &capture->gps_info.latitude, &capture->gps_info.longitude,
             &capture->gps_info.altitude, nullptr, nullptr);
         capture->chunk_id = chunk;
-        queue.put(capture);
+        queue.put(std::move(capture));
         if (sample_loss == SM_TRUE) {
             LOG_WRN("SM API dropping samples");
             sample_loss_ = true;
@@ -835,78 +818,73 @@ bool SM::_capture_iq_data(uint64_t captures, ares::queue<RawCapture *> &queue,
     return sample_loss_;
 }
 
-py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
-                             const std::chrono::milliseconds &duration,
-                             const std::string &save_dir, bool silent,
-                             bool sample_loss_stop,
-                             const std::function<void()> &done_cb,
-                             uint64_t max_queue_size) {
-    bool interrupted = false, sample_loss = false;
+py::dict SM::_stream_iq_data(const StreamParameters &params) {
+    bool sample_loss = false;
     if (!_open) {
         _open_device();
     }
 
-    _configure(center, bw);
+    _configure(params.center_frequency, params.bandwidth);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
         sizeof(Capture::timestamp);
-    uint64_t captures_per_chunk = chunk_size / bytes_per_capture;
+    uint64_t captures_per_chunk = params.file_chunk_size / bytes_per_capture;
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
-    LOG_DBG("Queue size limit: %lu bytes", max_queue_size);
+    LOG_DBG("Queue size limit: %lu bytes", params.max_buffer_size);
 
     RecordingMetadata metadata;
-    ares::queue<RawCapture *> capture_q;
-    std::thread consumer([this, save_dir, &metadata, &capture_q]() {
-        _stream_iq_data(save_dir, metadata, capture_q);
+    ares::queue<std::unique_ptr<RawCapture>> capture_q;
+    std::thread consumer([this, &params, &metadata, &capture_q]() {
+        _stream_iq_data(params, metadata, capture_q);
     });
 
     CaptureProgress::MemoryMonitor memory_monitor(
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
-        max_queue_size, silent);
+        params.max_buffer_size, params.silent);
     auto now = std::chrono::steady_clock::now;
     memory_monitor.start();
     auto start = now();
     for (int32_t chunk = 0;
-         (now() - start) < duration && !metadata.save_failed &&
+         (now() - start) < params.duration && !metadata.save_failed &&
          !memory_monitor.out_of_memory();
          chunk++) {
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
         if (PyErr_CheckSignals() != 0) {
-            interrupted = true;
-            break;
+            LOG_INF("CTRL+C Received");
+            memory_monitor.stop();
+            capture_q.clear();
+            capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+            consumer.join();
+            throw py::error_already_set();
         }
-        if (sample_loss_stop && sample_loss) {
+        if (params.stop_on_sample_loss && sample_loss) {
             LOG_ERR("Stopping prematurely due to sample loss");
             break;
         }
     }
-    memory_monitor.stop();
-
-    _clear_queue(metadata, capture_q);
+    memory_monitor.stop(true);
 
     LOG_INF("Data collected");
-    RawCapture *terminate_value = nullptr;
-    capture_q.put(terminate_value);
+    capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
     consumer.join();
 
-    if (interrupted) {
-        throw py::error_already_set();
-    }
+    capture_q.clear();
 
     if (metadata.save_failed) {
         throw std::runtime_error("Operation failed");
     }
 
-    done_cb();
+    params.done_cb();
 
     py::dict ret;
     py::dict diagnostics;
 
     diagnostics["save_duration"] = metadata.write_duration;
+    diagnostics["resource_exhaustion"] = memory_monitor.out_of_memory();
     ret["captures"] = metadata.total_captures;
     ret["samples_per_capture"] = _configs.samples_per_capture;
     ret["captures_per_chunk"] = captures_per_chunk;
@@ -917,15 +895,15 @@ py::dict SM::_stream_iq_data(double center, double bw, uint64_t chunk_size,
 }
 
 constexpr double ns_per_sec = 1e9;
-void SM::_stream_iq_data(const std::string &save_dir,
-                         RecordingMetadata &metadata,
-                         ares::queue<RawCapture *> &queue) const {
+void SM::_stream_iq_data(
+    const StreamParameters &params, RecordingMetadata &metadata,
+    ares::queue<std::unique_ptr<RawCapture>> &queue) const {
     uint64_t entries_written = 0;
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
 
-    ts_fd = _open_fd(ts_fd, save_dir, false, 0);
+    ts_fd = _open_fd(ts_fd, params.save_directory, false, 0);
     if (ts_fd < 0) {
         metadata.save_failed = true;
         return;
@@ -935,7 +913,7 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
     auto start = std::chrono::steady_clock::now();
     while (true) {
-        auto *write_data = queue.get();
+        auto write_data = queue.get();
 
         if (write_data == nullptr) {
             _flush_chunk(iq_fd, buffer);
@@ -945,11 +923,11 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
         if (current_chunk != write_data->chunk_id) {
             _flush_chunk(iq_fd, buffer);
-            iq_fd = _open_fd(iq_fd, save_dir, true, write_data->chunk_id);
+            iq_fd = _open_fd(iq_fd, params.save_directory, true,
+                             write_data->chunk_id);
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
                 metadata.save_failed = true;
-                delete write_data;
                 break;
             }
         }
@@ -960,7 +938,6 @@ void SM::_stream_iq_data(const std::string &save_dir,
         buffer.insert(buffer.end(), data, data + num_bytes);
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
-        delete write_data;
 
         if (buffer.size() >= PAGE_SIZE) {
             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
@@ -987,16 +964,6 @@ void SM::_stream_iq_data(const std::string &save_dir,
 
     metadata.total_captures = entries_written;
     metadata.write_duration = stop - start;
-}
-
-void SM::_clear_queue(const RecordingMetadata &meta,
-                      ares::queue<RawCapture *> &queue) {
-    if (meta.save_failed) {
-        while (!queue.empty()) {
-            auto data = queue.get();
-            delete data;
-        }
-    }
 }
 
 void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {

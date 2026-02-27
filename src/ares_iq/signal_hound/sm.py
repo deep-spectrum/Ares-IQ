@@ -4,6 +4,7 @@ from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfig
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
     sm_api_version
+from ares_iq_ext import _StreamParameters
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -269,7 +270,8 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]], save_directory: Path):
+    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
+                             save_directory: Path):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
         meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
         meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
@@ -296,7 +298,8 @@ class SM(ABC):
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
-                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None, ram_usage_limit: int | None = 0):
+                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
+                  ram_usage_limit: int | None = 0):
         """Stream I/Q data to disk.
 
         Args:
@@ -321,18 +324,29 @@ class SM(ABC):
                 stop_cb()
 
         if ram_usage_limit is None:
-            ram_usage_limit = 0
-        elif ram_usage_limit == 0:
-            ram_usage_limit = int(psutil.virtual_memory().total / 2)
+            _ram_usage_limit = 0
+        elif ram_usage_limit <= 0:
+            _ram_usage_limit = int(psutil.virtual_memory().total / 2)
+        else:
+            _ram_usage_limit = ram_usage_limit
 
-        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
-                                   stop_sample_loss, done, ram_usage_limit)
-        meta["parameters"] = {
-            "center_frequency": center,
-            "bandwidth": bw,
-            "capture_duration": duration.total_seconds(),
-            "stop_if_sample_loss": stop_sample_loss,
-        }
+        params = _StreamParameters(
+            center_frequency=center,
+            bandwidth=bw,
+            file_chunk_size=chunk_size,
+            duration=duration,
+            save_directory=str(save_directory),
+            silent=silent,
+            verbose=verbose,
+            stop_sample_loss=stop_sample_loss,
+            done_cb=done,
+            max_buffer_size=_ram_usage_limit
+        )
+
+        meta = self._dev.stream_iq(params)
+        meta["parameters"] = params.as_dict()
+        meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
+        meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         self._save_stream_iq_meta(meta, save_directory)
 
 
