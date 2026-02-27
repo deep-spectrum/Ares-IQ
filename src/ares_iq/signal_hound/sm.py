@@ -1,5 +1,3 @@
-import enum
-
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
@@ -10,7 +8,7 @@ from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
 from ares_iq.typing import QuantizedData
 from ares_iq.configs import ConfigBase
-from enum import Enum
+from enum import Enum, IntEnum
 import logging
 from ctypes import c_uint16
 from dataclasses import dataclass
@@ -281,7 +279,7 @@ class SM(ABC):
         except RuntimeError:
             pass
         for key, value in configs.items():
-            if issubclass(type(value), enum.IntEnum):
+            if issubclass(type(value), IntEnum):
                 configs[key] = value.name
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
