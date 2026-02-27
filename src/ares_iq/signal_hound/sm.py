@@ -270,7 +270,8 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]], save_directory: Path):
+    def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
+                             save_directory: Path):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
         meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
         meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
@@ -297,7 +298,8 @@ class SM(ABC):
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
-                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None, ram_usage_limit: int | None = 0):
+                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
+                  ram_usage_limit: int | None = 0):
         """Stream I/Q data to disk.
 
         Args:

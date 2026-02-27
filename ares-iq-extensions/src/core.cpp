@@ -11,8 +11,8 @@
 #include <ares-iq/common.hpp>
 #include <ares-iq/util.hpp>
 #include <pybind11/chrono.h>
-#include <pybind11/pybind11.h>
 #include <pybind11/functional.h>
+#include <pybind11/pybind11.h>
 
 #define STRINGIFY(x)       #x
 #define MACRO_STRINGIFY(x) STRINGIFY(x)
