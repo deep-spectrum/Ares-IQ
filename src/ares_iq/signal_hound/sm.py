@@ -333,7 +333,7 @@ class SM(ABC):
             bandwidth=bw,
             file_chunk_size=chunk_size,
             duration=duration,
-            save_directory=save_directory,
+            save_directory=str(save_directory),
             silent=silent,
             verbose=verbose,
             stop_sample_loss=stop_sample_loss,
