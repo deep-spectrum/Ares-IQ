@@ -250,12 +250,8 @@ double USRP::gain() const {
 }
 
 USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, dev_args);
-    KWARG_TO_STRUCT_PARAM(kwargs, spc);
-    KWARG_TO_STRUCT_PARAM(kwargs, subdev);
-    KWARG_TO_STRUCT_PARAM(kwargs, ref);
-    KWARG_TO_STRUCT_PARAM(kwargs, rate);
-    KWARG_TO_STRUCT_PARAM(kwargs, gain);
+    from_kwargs(kwargs, SP(dev_args), SP(spc), SP(subdev), SP(ref), SP(rate),
+                SP(gain));
 }
 
 void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
@@ -268,5 +264,5 @@ void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
 uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
 
 USRPStreamArgs::USRPStreamArgs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, spp);
+    from_kwargs(kwargs, SP(spp));
 }

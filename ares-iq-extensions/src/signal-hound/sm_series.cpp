@@ -219,17 +219,10 @@ static py::tuple array_to_tuple(const T *data, size_t count) {
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, device);
-    KWARG_TO_STRUCT_PARAM(kwargs, serial);
-    KWARG_TO_STRUCT_PARAM(kwargs, host);
-    KWARG_TO_STRUCT_PARAM(kwargs, device_addr);
-    KWARG_TO_STRUCT_PARAM(kwargs, port);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_timestamping);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_lock_timeout);
-    KWARG_TO_STRUCT_PARAM(kwargs, gps_model);
-    KWARG_TO_STRUCT_PARAM(kwargs, decimation);
-    KWARG_TO_STRUCT_PARAM(kwargs, software_filter);
-    KWARG_TO_STRUCT_PARAM(kwargs, samples_per_capture);
+    from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
+                SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
+                SP(gps_model), SP(decimation), SP(software_filter),
+                SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
@@ -302,8 +295,7 @@ static void check_sm_status(SmStatus status, const std::string &caller) {
 }
 
 SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
-    KWARG_TO_STRUCT_PARAM(kwargs, ip);
-    KWARG_TO_STRUCT_PARAM(kwargs, port);
+    from_kwargs(kwargs, SP(ip), SP(port));
 }
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
