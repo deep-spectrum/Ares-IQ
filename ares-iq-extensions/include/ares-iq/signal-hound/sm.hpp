@@ -10,6 +10,7 @@
 #ifndef VERSION_SM_HPP
 #define VERSION_SM_HPP
 
+#include <ares-iq/common.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/queue.hpp>
 #include <complex>
@@ -415,27 +416,10 @@ class SM {
     /**
      * Stream captured I/Q data directly to storage.
      *
-     * @param center The center frequency in Hz.
-     * @param bw The bandwidth in Hz.
-     * @param chunk_size The file chunk size in bytes.
-     * @param duration The duration of the I/Q stream.
-     * @param save_dir The save directory for the captured I/Q data. Must
-     * already exist.
-     * @param silent Run the stream in silent mode (No status bars).
-     * @param verbose Run the stream with logging messages.
-     * @param stop_if_sample_loss Stop streaming if sample loss starts
-     * occurring.
-     * @param done_cb The callback to call when streaming is aborted or is done.
-     * @param max_queue_size The maximum allowable queue size in bytes. This
-     * should be a few GB. If 0, there is no maximum queue size.
+     * @param params The stream parameters.
      * @return Stream capture metadata.
      */
-    py::dict stream_iq_data(double center, double bw, uint64_t chunk_size,
-                            const std::chrono::milliseconds &duration,
-                            const std::string &save_dir, bool silent,
-                            bool verbose, bool stop_if_sample_loss,
-                            const std::function<void()> &done_cb,
-                            uint64_t max_queue_size);
+    py::dict stream_iq_data(const StreamParameters &params);
 
     /**
      * .
@@ -492,13 +476,8 @@ class SM {
     bool _capture_iq_data(uint64_t captures,
                           ares::queue<std::unique_ptr<RawCapture>> &queue,
                           int32_t chunk) const;
-    py::dict _stream_iq_data(double center, double bw, uint64_t chunk_size,
-                             const std::chrono::milliseconds &duration,
-                             const std::string &save_dir, bool silent,
-                             bool sample_loss_stop,
-                             const std::function<void()> &done_cb,
-                             uint64_t max_queue_size);
-    void _stream_iq_data(const std::string &save_dir,
+    py::dict _stream_iq_data(const StreamParameters &params);
+    void _stream_iq_data(const StreamParameters &params,
                          RecordingMetadata &metadata,
                          ares::queue<std::unique_ptr<RawCapture>> &queue) const;
     static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);

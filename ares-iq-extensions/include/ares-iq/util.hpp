@@ -50,7 +50,7 @@ void from_kwargs(const py::kwargs &kwargs, Args &&...args) {
     (process(std::forward<Args>(args)), ...);
 }
 #define Z_SP(field_)                                                           \
-    StructParam<decltype(field_)> { #field_, &field_ }
+    StructParam<decltype(field_)> { #field_, &(field_) }
 #define Z_SP_CONTAINER(field_, container_)                                     \
     StructParam<decltype((container_).field_)> { #field_, &(container_).field_ }
 
