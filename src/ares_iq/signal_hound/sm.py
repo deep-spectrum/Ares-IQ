@@ -4,6 +4,7 @@ from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfig
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
     sm_api_version
+from ares_iq_ext import _StreamParameters
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -327,15 +328,23 @@ class SM(ABC):
         else:
             _ram_usage_limit = ram_usage_limit
 
-        meta = self._dev.stream_iq(center, bw, chunk_size, duration, str(save_directory), silent, verbose,
-                                   stop_sample_loss, done, _ram_usage_limit)
-        meta["parameters"] = {
-            "center_frequency": center,
-            "bandwidth": bw,
-            "capture_duration": duration.total_seconds(),
-            "stop_if_sample_loss": stop_sample_loss,
-            "ram_usage_limit": ram_usage_limit
-        }
+        params = _StreamParameters(
+            center=center,
+            bandwidth=bw,
+            file_chunk_size=chunk_size,
+            duration=duration,
+            save_directory=save_directory,
+            silent=silent,
+            verbose=verbose,
+            stop_sample_loss=stop_sample_loss,
+            done_cb=done,
+            max_buffer_size=_ram_usage_limit
+        )
+
+        meta = self._dev.stream_iq(params)
+        meta["parameters"] = params.as_dict()
+        meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
+        meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         self._save_stream_iq_meta(meta, save_directory)
 
 

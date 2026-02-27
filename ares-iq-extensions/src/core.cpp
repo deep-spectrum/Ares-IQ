@@ -41,6 +41,5 @@ StreamParameters::StreamParameters(const py::kwargs &kwargs) {
 
 py::dict StreamParameters::as_dict() {
     return to_dict(NV(center_frequency), NV(bandwidth), NV(file_chunk_size),
-                   NV(duration), NV(save_directory), NV(silent), NV(verbose),
-                   NV(stop_on_sample_loss));
+                   NV(duration), NV(save_directory), NV(stop_on_sample_loss));
 }

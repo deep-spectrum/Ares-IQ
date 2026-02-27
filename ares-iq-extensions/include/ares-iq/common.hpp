@@ -59,11 +59,13 @@ struct StreamParameters {
 
     /**
      * Run the stream in silent mode (No status bars).
+     * @note Not in dictionary representation. Not important for metadata.
      */
     bool silent = true;
 
     /**
      * Run the stream with logging messages.
+     * @note Not in dictionary representation. Not important for metadata.
      */
     bool verbose = false;
 
@@ -74,17 +76,22 @@ struct StreamParameters {
 
     /**
      * The callback to call when streaming is aborted or is done.
+     * @note Not in dictionary representation. Not important for metadata.
      */
     std::function<void()> done_cb = nullptr;
 
     /**
      * The maximum allowable queue size in bytes. This should be a few GB. If 0,
      * there is no maximum queue size.
+     * @note Not in dictionary representation. Python API and C++ API are
+     * different. It is better to use the Python input parameter in the metadata
+     * since that is public facing.
      */
     uint64_t max_buffer_size = 0;
 
     /**
      * Custom hook for streamed data.
+     * @note Not in dictionary representation. Not important for metadata.
      * @todo: Figure out what to pass in
      */
     std::function<void()> stream_cb = nullptr;
@@ -92,8 +99,8 @@ struct StreamParameters {
     /**
      * Return the struct as a Python dictionary.
      * @return The configurations as a dictionary.
-     * @warning max_buffer_size is not included because the Python API side of
-     * things is different from the C++ side of things.
+     * @warning Not all parameters are in the dictionary. See the parameter
+     * comments as to why.
      */
     py::dict as_dict();
 };
