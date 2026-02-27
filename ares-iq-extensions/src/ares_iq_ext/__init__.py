@@ -1,6 +1,6 @@
 from __future__ import annotations
 
 from . import usrp
-from ._core import __version__
+from ._core import __version__, _StreamParameters
 
-__all__ = ["__version__", "usrp"]
+__all__ = ["__version__", "usrp", "_StreamParameters"]

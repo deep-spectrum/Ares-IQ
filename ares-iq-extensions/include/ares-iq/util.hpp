@@ -6,8 +6,8 @@
 #define VERSION_UTIL_HPP
 
 #include "../logging/include/logging/internal/logging_utils.h"
-#include <type_traits>
 #include <pybind11/pybind11.h>
+#include <type_traits>
 
 namespace py = pybind11;
 
@@ -22,6 +22,41 @@ namespace py = pybind11;
             (key_) = (kwargs_)[#key_].cast<decltype(key_)>();                  \
         }                                                                      \
     } while (false)
+
+template <typename T>
+struct StructParam {
+    const char *name;
+    T *value;
+};
+
+template <typename T>
+struct is_struct_param : std::false_type {};
+
+template <typename T>
+struct is_struct_param<StructParam<T>> : std::true_type {};
+
+template <typename... Args>
+void from_kwargs(const py::kwargs &kwargs, Args &&...args) {
+    static_assert((is_struct_param<std::decay_t<Args>>::value && ...),
+                  "All arguments to from must be wrapped in SP()");
+
+    auto process = [&](auto &&item) {
+        if (kwargs.contains(item.name)) {
+            using T = std::remove_pointer_t<std::decay_t<decltype(item.value)>>;
+            *(item.value) = kwargs[item.name].template cast<T>();
+        }
+    };
+
+    (process(std::forward<Args>(args)), ...);
+}
+#define Z_SP(field_)                                                           \
+    StructParam<decltype(field_)> { #field_, &field_ }
+#define Z_SP_CONTAINER(field_, container_)                                     \
+    StructParam<decltype((container_).field_)> { #field_, &(container_).field_ }
+
+#define SP(field_, container_...)                                              \
+    COND_CODE_0(IS_EMPTY(container_), (Z_SP_CONTAINER(field_, container_)),    \
+                (Z_SP(field_)))
 
 template <typename T>
 struct NamedValue {
@@ -99,6 +134,9 @@ py::dict to_dict(Predicate &&check, Default &&default_val, Args &&...args) {
 template <typename... Args>
 py::dict to_dict(Args &&...args) {
     py::dict dict;
+    static_assert(
+        (is_named_value<std::decay_t<Args>>::value && ...),
+        "All arguments to to_dict must be wrapped in NV() or NV_NO_CHECK()");
     ((dict[args.name] = args.value), ...);
     return dict;
 }
