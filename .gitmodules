@@ -6,3 +6,6 @@
 	path = ares-iq-extensions/extern/uhd
 	url = https://github.com/deep-spectrum/uhd.git
 	branch = UHD-4.9
+[submodule "ares-iq-extensions/extern/ares-common"]
+	path = ares-iq-extensions/extern/ares-common
+	url = https://github.com/deep-spectrum/ares-common.git
