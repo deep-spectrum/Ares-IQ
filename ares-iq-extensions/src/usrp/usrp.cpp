@@ -10,7 +10,7 @@
  */
 
 #include <ares-iq/usrp/usrp.hpp>
-#include <ares-iq/util.hpp>
+#include <ares/pyutil.hpp>
 #include <boost/format.hpp>
 #include <capture-progress/progress.hpp>
 #include <exception>
@@ -250,7 +250,7 @@ double USRP::gain() const {
 }
 
 USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
-    from_kwargs(kwargs, SP(dev_args), SP(spc), SP(subdev), SP(ref), SP(rate),
+    ares::from_kwargs(kwargs, SP(dev_args), SP(spc), SP(subdev), SP(ref), SP(rate),
                 SP(gain));
 }
 
@@ -264,5 +264,5 @@ void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
 uint64_t USRPconfigs::get_samples_per_capture() const { return spc; }
 
 USRPStreamArgs::USRPStreamArgs(const py::kwargs &kwargs) {
-    from_kwargs(kwargs, SP(spp));
+    ares::from_kwargs(kwargs, SP(spp));
 }

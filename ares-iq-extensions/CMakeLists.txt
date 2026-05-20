@@ -21,8 +21,7 @@ endif()
 
 add_subdirectory(extern/pybind11)
 add_subdirectory(capture_progress)
-add_subdirectory(logging)
-add_subdirectory(data_structures)
+add_subdirectory(extern/ares-common)
 
 include(FindUHD)
 include(CheckLinuxDistro)

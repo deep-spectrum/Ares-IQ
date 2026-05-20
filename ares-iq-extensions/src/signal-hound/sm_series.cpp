@@ -11,14 +11,14 @@
 
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
-#include <ares-iq/util.hpp>
+#include <ares/pyutil.hpp>
 #include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
 #include <cassert>
 #include <cmath>
 #include <complex>
 #include <fcntl.h>
-#include <logging/log.hpp>
+#include <ares/logging/log.hpp>
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
@@ -209,24 +209,15 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
 }
 
-template <typename T>
-static py::tuple array_to_tuple(const T *data, size_t count) {
-    py::tuple t(static_cast<py::ssize_t>(count));
-    for (size_t i = 0; i < count; i++) {
-        t[i] = data[i];
-    }
-    return t;
-}
-
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
-    from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
+    ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
                 SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
                 SP(gps_model), SP(decimation), SP(software_filter),
                 SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
-    return to_dict(NV(device), NV(serial), NV(host), NV(device_addr), NV(port),
+    return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr), NV(port),
                    NV(gps_timestamping), NV(gps_lock_timeout), NV(gps_model),
                    NV(decimation), NV(software_filter),
                    NV(samples_per_capture));
@@ -261,7 +252,7 @@ float SmDiagnostics::temp_power_supply() const {
 }
 
 py::dict SmDiagnostics::as_dict() {
-    return to_dict(
+    return ares::to_dict(
         [](auto v) { return static_cast<int64_t>(v) == INT64_C(240); },
         py::none(), NV_NO_CHECK(voltage, diagnostics),
         NV_NO_CHECK(currentInput, diagnostics),
@@ -281,7 +272,7 @@ float SmSFPDiagnostics::get_tx_power() const { return txPower; }
 float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
 
 py::dict SmSFPDiagnostics::as_dict() {
-    return to_dict([](auto v) { return static_cast<int64_t>(v) == 0; },
+    return ares::to_dict([](auto v) { return static_cast<int64_t>(v) == 0; },
                    py::none(), NV(temp), NV(voltage), NV(txPower), NV(rxPower));
 }
 
@@ -295,7 +286,7 @@ static void check_sm_status(SmStatus status, const std::string &caller) {
 }
 
 SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
-    from_kwargs(kwargs, SP(ip), SP(port));
+    ares::from_kwargs(kwargs, SP(ip), SP(port));
 }
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
@@ -1034,7 +1025,7 @@ py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     serials.insert(std::end(serials), std::begin(net_serials),
                    std::end(net_serials));
 
-    return array_to_tuple(serials.data(), serials.size());
+    return ares::array_to_tuple(serials.data(), serials.size());
 }
 
 static SmStatus
@@ -1155,7 +1146,7 @@ py::tuple get_device_list2(int max_network_devs, bool usb, bool network,
         devs.emplace_back(dev);
     }
 
-    return array_to_tuple(devs.data(), devs.size());
+    return ares::array_to_tuple(devs.data(), devs.size());
 }
 
 static SmStatus
