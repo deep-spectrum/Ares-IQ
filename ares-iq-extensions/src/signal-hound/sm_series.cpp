@@ -665,6 +665,11 @@ static void log_gps_state(SmGPSState state) {
     count++;
 }
 
+static bool check_python_signals() {
+    py::gil_scoped_acquire acquire;
+    return PyErr_CheckSignals() != 0;
+}
+
 bool SM::_acquire_gps_lock(SmGPSState target_state) const {
     SmGPSState state;
     bool locked;
@@ -673,7 +678,7 @@ bool SM::_acquire_gps_lock(SmGPSState target_state) const {
     status = smGetGPSState(fd, &state);
     log_gps_state(state);
 
-    if (PyErr_CheckSignals() != 0) {
+    if (check_python_signals()) {
         LOG_INF("Python exception raised");
         throw py::error_already_set();
     }
