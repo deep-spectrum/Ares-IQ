@@ -20,6 +20,7 @@
 #include <fcntl.h>
 #include <ares/logging/log.hpp>
 #include <pybind11/chrono.h>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
@@ -276,7 +277,7 @@ py::dict SmSFPDiagnostics::as_dict() {
                    py::none(), NV(temp), NV(voltage), NV(txPower), NV(rxPower));
 }
 
-#define _SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
+#define SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
 
 static void check_sm_status(SmStatus status, const std::string &caller) {
     if (status != smNoError) {
@@ -325,7 +326,7 @@ py::tuple SM::firmware_version() {
         not_open = true;
     }
 
-    check_sm_status(_SM_API_CALL_TRACE(
+    check_sm_status(SM_API_CALL_TRACE(
         smGetFirmwareVersion(fd, &major, &minor, &revision)));
 
     if (not_open) {
@@ -342,7 +343,7 @@ SmDiagnostics SM::diagnostic_info() const {
         throw std::runtime_error("Device not open");
     }
 
-    check_sm_status(_SM_API_CALL_TRACE(
+    check_sm_status(SM_API_CALL_TRACE(
         smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics)));
 
     return diagnostics;
@@ -394,7 +395,7 @@ double SM::network_speed_test(double duration) {
 
     LOG_INF("Conducting speed test for a duration of %lf seconds", duration);
 
-    check_sm_status(_SM_API_CALL_TRACE(
+    check_sm_status(SM_API_CALL_TRACE(
         smNetworkedSpeedTest(fd, duration, &bytes_per_second)));
 
     LOG_INF("Speed test result: %lf bytes per second", bytes_per_second);
@@ -413,7 +414,7 @@ SmSFPDiagnostics SM::network_diagnostic_info() const {
         throw std::runtime_error("Device must be a networked device");
     }
 
-    check_sm_status(_SM_API_CALL_TRACE(smGetSFPDiagnostics(
+    check_sm_status(SM_API_CALL_TRACE(smGetSFPDiagnostics(
         fd, &info.temp, &info.voltage, &info.txPower, &info.rxPower)));
 
     return info;
@@ -453,7 +454,7 @@ SMConfigs SM::get_configs() const { return _configs; }
 
 void SM::_log_mode() const {
     SmMode mode;
-    check_sm_status(_SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
+    check_sm_status(SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
 
     switch (mode) {
     case smModeIdle:
@@ -607,15 +608,15 @@ void SM::_configure(double center, double bw) {
 
     LOG_INF("Configuring the SM device");
 
-    check_sm_status(_SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
+    check_sm_status(SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
     check_sm_status(
-        _SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
+        SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
     check_sm_status(
-        _SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
-    check_sm_status(_SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
+        SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
+    check_sm_status(SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
     _configure_gps();
 
-    check_sm_status(_SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
+    check_sm_status(SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
     _acquire_gps_lock();
 }
 
@@ -627,10 +628,10 @@ void SM::_configure_gps() {
     _acquire_gps_lock();
 
     if (_configs.gps_timestamping) {
-        check_sm_status(_SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
+        check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
     } else {
         check_sm_status(
-            _SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
+            SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
     }
 
     _gps_configured = true;
@@ -720,7 +721,7 @@ void SM::_acquire_gps_lock() {
 
     LOG_INF("GPS lock acquired. Setting platform model.");
     check_sm_status(
-        _SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
+        SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
 
     timeout_s = (_configs.gps_lock_timeout != 0) ? (timeout_s - time_elapsed)
                                                  : INT64_C(0);
