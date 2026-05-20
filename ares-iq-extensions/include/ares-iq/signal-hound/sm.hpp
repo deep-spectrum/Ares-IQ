@@ -12,7 +12,7 @@
 
 #include <ares-iq/common.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
-#include <ares/queue.hpp>
+#include <ares/data-structures/queue.hpp>
 #include <complex>
 #include <functional>
 #include <pybind11/pybind11.h>

@@ -9,13 +9,11 @@
  */
 
 #include <ares-iq/common.hpp>
-#include <ares-iq/util.hpp>
+#include <ares/pyutil.hpp>
 #include <pybind11/chrono.h>
 #include <pybind11/functional.h>
 #include <pybind11/pybind11.h>
-
-#define STRINGIFY(x)       #x
-#define MACRO_STRINGIFY(x) STRINGIFY(x)
+#include <ares/util.h>
 
 namespace py = pybind11;
 
@@ -34,13 +32,13 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used()) {
 }
 
 StreamParameters::StreamParameters(const py::kwargs &kwargs) {
-    from_kwargs(kwargs, SP(center_frequency), SP(bandwidth),
+    ares::from_kwargs(kwargs, SP(center_frequency), SP(bandwidth),
                 SP(file_chunk_size), SP(duration), SP(save_directory),
                 SP(silent), SP(verbose), SP(stop_on_sample_loss), SP(done_cb),
                 SP(max_buffer_size), SP(stream_cb));
 }
 
 py::dict StreamParameters::as_dict() {
-    return to_dict(NV(center_frequency), NV(bandwidth), NV(file_chunk_size),
+    return ares::to_dict(NV(center_frequency), NV(bandwidth), NV(file_chunk_size),
                    NV(duration), NV(save_directory), NV(stop_on_sample_loss));
 }
