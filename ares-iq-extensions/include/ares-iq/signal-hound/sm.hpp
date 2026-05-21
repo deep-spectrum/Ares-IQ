@@ -356,7 +356,7 @@ class SM {
      * timestamps.
      */
     py::tuple capture_iq(double center, double bw, uint64_t capture_size,
-                         bool silent, bool verbose);
+                         bool silent, bool verbose); // todo
 
     /**
      * Retrieve the firmware version.
@@ -383,7 +383,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
+    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s); // todo
 
     /**
      * Run a network speed test.
@@ -419,7 +419,7 @@ class SM {
      * @param params The stream parameters.
      * @return Stream capture metadata.
      */
-    py::dict stream_iq_data(const StreamParameters &params);
+    py::dict stream_iq_data(const StreamParameters &params); // todo
 
     /**
      * .
@@ -441,8 +441,11 @@ class SM {
     bool _open = false;
     bool _gps_configured = false;
 
+    void _capture_iq_configure_released(double center, double bw);
     py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent);
+    void _capture_iq_released(std::vector<Capture> &data, uint64_t captures,
+                              uint64_t samples_per_capture, bool silent) const;
 
     SmStatus _open_networked_device();
     SmStatus _open_serial_device();

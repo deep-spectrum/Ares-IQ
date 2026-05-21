@@ -11,6 +11,7 @@
 
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares/logging/log.hpp>
 #include <ares/pyutil.hpp>
 #include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
@@ -18,7 +19,6 @@
 #include <cmath>
 #include <complex>
 #include <fcntl.h>
-#include <ares/logging/log.hpp>
 #include <pybind11/chrono.h>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <pybind11/functional.h>
@@ -212,16 +212,16 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
-                SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
-                SP(gps_model), SP(decimation), SP(software_filter),
-                SP(samples_per_capture));
+                      SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
+                      SP(gps_model), SP(decimation), SP(software_filter),
+                      SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
-    return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr), NV(port),
-                   NV(gps_timestamping), NV(gps_lock_timeout), NV(gps_model),
-                   NV(decimation), NV(software_filter),
-                   NV(samples_per_capture));
+    return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr),
+                         NV(port), NV(gps_timestamping), NV(gps_lock_timeout),
+                         NV(gps_model), NV(decimation), NV(software_filter),
+                         NV(samples_per_capture));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -274,7 +274,8 @@ float SmSFPDiagnostics::get_rx_power() const { return rxPower; }
 
 py::dict SmSFPDiagnostics::as_dict() {
     return ares::to_dict([](auto v) { return static_cast<int64_t>(v) == 0; },
-                   py::none(), NV(temp), NV(voltage), NV(txPower), NV(rxPower));
+                         py::none(), NV(temp), NV(voltage), NV(txPower),
+                         NV(rxPower));
 }
 
 #define SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
@@ -327,8 +328,8 @@ std::tuple<int, int, int> SM::firmware_version() {
         not_open = true;
     }
 
-    check_sm_status(SM_API_CALL_TRACE(
-        smGetFirmwareVersion(fd, &major, &minor, &revision)));
+    check_sm_status(
+        SM_API_CALL_TRACE(smGetFirmwareVersion(fd, &major, &minor, &revision)));
 
     if (not_open) {
         _close_device();
@@ -492,13 +493,18 @@ void SM::_log_mode() const {
     }
 }
 
-py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
-                          bool silent) {
+void SM::_capture_iq_configure_released(double center, double bw) {
+    py::gil_scoped_release release;
     if (!_open) {
         _open_device();
     }
 
     _configure(center, bw);
+}
+
+py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
+                          bool silent) {
+    _capture_iq_configure_released(center, bw);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
@@ -532,22 +538,28 @@ py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
         data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
     }
 
+    _capture_iq_released(data, captures, samples_per_capture, silent);
+
+    return py::make_tuple(data_array, capture_times, gps_array);
+}
+
+void SM::_capture_iq_released(std::vector<Capture> &data, uint64_t captures,
+                              uint64_t samples_per_capture, bool silent) const {
+    py::gil_scoped_release release;
     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
     LOG_INF("Starting data capture");
     progress.start();
-    for (auto &capture : data) {
-        smGetIQ(fd, capture.buf, static_cast<int>(samples_per_capture), nullptr,
-                0, capture.timestamp, smFalse, nullptr, nullptr);
-        smGetGPSInfo(fd, smFalse, nullptr, &capture.gps_info->sec_since_epoch,
-                     &capture.gps_info->latitude, &capture.gps_info->longitude,
-                     &capture.gps_info->altitude, nullptr, nullptr);
+    for (auto &[buf, timestamp, gps_info] : data) {
+        smGetIQ(fd, buf, static_cast<int>(samples_per_capture), nullptr, 0,
+                timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &gps_info->sec_since_epoch,
+                     &gps_info->latitude, &gps_info->longitude,
+                     &gps_info->altitude, nullptr, nullptr);
         progress.update();
     }
     progress.update();
     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
-
-    return py::make_tuple(data_array, capture_times, gps_array);
 }
 
 SmStatus SM::_open_networked_device() {
@@ -638,8 +650,7 @@ void SM::_configure_gps() {
     if (_configs.gps_timestamping) {
         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
     } else {
-        check_sm_status(
-            SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
+        check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
     }
 
     _gps_configured = true;
@@ -858,7 +869,7 @@ py::dict SM::_stream_iq_data(const StreamParameters &params) {
          chunk++) {
         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
                       sample_loss;
-        if (PyErr_CheckSignals() != 0) {
+        if (check_python_signals()) {
             LOG_INF("CTRL+C Received");
             memory_monitor.stop();
             capture_q.clear();

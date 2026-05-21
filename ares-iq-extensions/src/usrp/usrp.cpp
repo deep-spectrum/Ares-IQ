@@ -250,8 +250,8 @@ double USRP::gain() const {
 }
 
 USRPconfigs::USRPconfigs(const py::kwargs &kwargs) {
-    ares::from_kwargs(kwargs, SP(dev_args), SP(spc), SP(subdev), SP(ref), SP(rate),
-                SP(gain));
+    ares::from_kwargs(kwargs, SP(dev_args), SP(spc), SP(subdev), SP(ref),
+                      SP(rate), SP(gain));
 }
 
 void USRPconfigs::set_samples_per_capture(uint64_t spc_) {
