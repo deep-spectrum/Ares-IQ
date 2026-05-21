@@ -363,7 +363,7 @@ class SM {
      * @return A tuple representing the major, minor, and revision number of the
      * firmware version.
      */
-    py::tuple firmware_version();
+    std::tuple<int, int, int> firmware_version();
 
     /**
      * Retrieve diagnostic information from the Sm device. This requires the

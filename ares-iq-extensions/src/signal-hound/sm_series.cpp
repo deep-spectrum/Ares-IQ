@@ -317,7 +317,8 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
     return ret;
 }
 
-py::tuple SM::firmware_version() {
+std::tuple<int, int, int> SM::firmware_version() {
+    py::gil_scoped_release release;
     int major, minor, revision;
     bool not_open = false;
 
@@ -333,7 +334,7 @@ py::tuple SM::firmware_version() {
         _close_device();
     }
 
-    return py::make_tuple(major, minor, revision);
+    return std::make_tuple(major, minor, revision);
 }
 
 SmDiagnostics SM::diagnostic_info() const {
