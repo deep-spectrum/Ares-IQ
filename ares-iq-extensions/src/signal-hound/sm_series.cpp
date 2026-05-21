@@ -337,6 +337,7 @@ py::tuple SM::firmware_version() {
 }
 
 SmDiagnostics SM::diagnostic_info() const {
+    py::gil_scoped_release release;
     SmDiagnostics diagnostics;
 
     if (!_open) {
@@ -383,6 +384,7 @@ bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
 }
 
 double SM::network_speed_test(double duration) {
+    py::gil_scoped_release release;
     double bytes_per_second;
 
     if (!_is_networked()) {
@@ -404,6 +406,7 @@ double SM::network_speed_test(double duration) {
 }
 
 SmSFPDiagnostics SM::network_diagnostic_info() const {
+    py::gil_scoped_release release;
     SmSFPDiagnostics info{};
 
     if (!_open) {
@@ -421,12 +424,16 @@ SmSFPDiagnostics SM::network_diagnostic_info() const {
 }
 
 void SM::open() {
+    py::gil_scoped_release release;
     if (!_open) {
         _open_device();
     }
 }
 
-void SM::close() { _close_device(); }
+void SM::close() {
+    py::gil_scoped_release release;
+    _close_device();
+}
 
 py::dict SM::stream_iq_data(const StreamParameters &params) {
     if (params.verbose) {
