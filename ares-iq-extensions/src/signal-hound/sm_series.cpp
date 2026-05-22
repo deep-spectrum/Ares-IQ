@@ -294,7 +294,10 @@ SmNetworkConfig::SmNetworkConfig(const py::kwargs &kwargs) {
 
 SM::SM(const SMConfigs &configs) { _configs = configs; }
 
-SM::~SM() { _close_device(); }
+SM::~SM() {
+    // Don't want to release the GIL in destructors
+    close_released();
+}
 
 py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size, bool silent, bool verbose) {
     // Cannot release the lock here. The internal API needs to construct Python types
@@ -356,7 +359,7 @@ void SM::open() {
 
 void SM::close() {
     py::gil_scoped_release release;
-    _close_device();
+    close_released();
 }
 
 py::dict SM::stream_iq_data(const StreamParameters &params) {
@@ -413,7 +416,7 @@ SmDiagnostics SM::diagnostic_info_released() const {
     return diagnostics;
 }
 
-bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
+bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) const {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
@@ -449,7 +452,7 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
 double SM::network_speed_test_released(double duration) const {
     double bytes_per_s;
 
-    if (!_is_networked()) {
+    if (!is_networked()) {
         throw py::attribute_error("This is not a networked device");
     }
 
@@ -471,7 +474,7 @@ SmSFPDiagnostics SM::network_diagnostic_info_released() const {
         // todo: throw not open error
     }
 
-    if (!_is_networked()) {
+    if (!is_networked()) {
         throw std::runtime_error("Device must be a networked device");
     }
 
@@ -510,6 +513,31 @@ void SM::log_mode() const {
         LOG_ERR("Unknown mode");
         break;
     }
+}
+
+bool SM::check_python_signals() {
+    py::gil_scoped_acquire acquire;
+    return PyErr_CheckSignals() != 0;
+}
+
+bool SM::is_networked() const {
+    bool ret;
+
+    switch (_configs.device) {
+    case smDeviceTypeSM200A:
+    case smDeviceTypeSM200B:
+    case smDeviceTypeSM435B:
+        ret = false;
+        break;
+    case smDeviceTypeSM200C:
+    case smDeviceTypeSM435C:
+        ret = true;
+        break;
+    default:
+        throw py::value_error("Invalid device type");
+    }
+
+    return ret;
 }
 
 SmStatus SM::open_networked_device_released() {
@@ -564,6 +592,13 @@ void SM::open_released() {
     _open = true;
 
     log_mode();
+}
+
+void SM::close_released() {
+    if (_open) {
+        smCloseDevice(fd);
+        _open = false;
+    }
 }
 
 // void SM::_capture_iq_configure_released(double center, double bw) {
@@ -635,44 +670,6 @@ void SM::open_released() {
 //     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
 // }
 //
-// void SM::_open_device() {
-//     SmStatus status;
-//
-//     LOG_DBG("Attempting to open device");
-//
-//     switch (_configs.device) {
-//     case smDeviceTypeSM200A:
-//     case smDeviceTypeSM200B:
-//     case smDeviceTypeSM435B: {
-//         status = _open_serial_device();
-//         break;
-//     }
-//     case smDeviceTypeSM200C:
-//     case smDeviceTypeSM435C: {
-//         status = _open_networked_device();
-//         break;
-//     }
-//     default: {
-//         LOG_ERR("Invalid SM device type");
-//         throw std::invalid_argument("Invalid SM device");
-//     }
-//     }
-//
-//     if (status != smNoError) {
-//         throw std::runtime_error(smGetErrorString(status));
-//     }
-//     _open = true;
-//
-//     _log_mode();
-// }
-//
-// void SM::_close_device() {
-//     if (_open) {
-//         smCloseDevice(fd);
-//         _open = false;
-//     }
-// }
-//
 // void SM::_configure(double center, double bw) {
 //     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
 //
@@ -732,11 +729,6 @@ void SM::open_released() {
 //
 //     prev_state = state;
 //     count++;
-// }
-//
-// static bool check_python_signals() {
-//     py::gil_scoped_acquire acquire;
-//     return PyErr_CheckSignals() != 0;
 // }
 //
 // bool SM::_acquire_gps_lock(SmGPSState target_state) const {
@@ -816,26 +808,6 @@ void SM::open_released() {
 //     LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
 //             std::chrono::duration_cast<std::chrono::seconds>(end_time -
 //                                                              start_time));
-// }
-//
-// bool SM::_is_networked() const {
-//     bool ret;
-//
-//     switch (_configs.device) {
-//     case smDeviceTypeSM200A:
-//     case smDeviceTypeSM200B:
-//     case smDeviceTypeSM435B:
-//         ret = false;
-//         break;
-//     case smDeviceTypeSM200C:
-//     case smDeviceTypeSM435C:
-//         ret = true;
-//         break;
-//     default:
-//         throw py::value_error("Invalid device type");
-//     }
-//
-//     return ret;
 // }
 //
 // extern "C" {

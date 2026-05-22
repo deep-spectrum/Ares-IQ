@@ -437,15 +437,20 @@ class SM {
 
     std::tuple<int, int, int> firmware_version_released() const;
     SmDiagnostics diagnostic_info_released() const;
-    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
     double network_speed_test_released(double duration) const;
     SmSFPDiagnostics network_diagnostic_info_released() const;
 
     void log_mode() const;
+    static bool check_python_signals();
+    bool is_networked() const;
 
     SmStatus open_networked_device_released();
     SmStatus open_serial_device_released();
     void open_released();
+
+    void close_released();
+
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) const;
 
     struct Capture {
         complex_t *buf;
@@ -459,16 +464,11 @@ class SM {
     void _capture_iq_released(std::vector<Capture> &data, uint64_t captures,
                               uint64_t samples_per_capture, bool silent) const;
 
-    void _close_device();
-
     void _configure(double center, double bw);
 
-    bool _gps_sync(const SmGPSState &target_state, int64_t timeout_s);
     void _configure_gps();
     void _acquire_gps_lock();
     bool _acquire_gps_lock(SmGPSState target_state) const;
-
-    bool _is_networked() const;
 
     struct RawCapture {
         std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
