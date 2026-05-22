@@ -430,12 +430,6 @@ class SM {
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
-    struct Capture {
-        complex_t *buf;
-        int64_t *timestamp;
-        SmGpsInfo *gps_info;
-    };
-
     int fd = -1;
     SMConfigs _configs;
     bool _open = false;
@@ -447,16 +441,23 @@ class SM {
     double network_speed_test_released(double duration) const;
     SmSFPDiagnostics network_diagnostic_info_released() const;
 
+    void log_mode() const;
+
+    SmStatus open_networked_device_released();
+    SmStatus open_serial_device_released();
+    void open_released();
+
+    struct Capture {
+        complex_t *buf;
+        int64_t *timestamp;
+        SmGpsInfo *gps_info;
+    };
+
     void _capture_iq_configure_released(double center, double bw);
     py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent);
     void _capture_iq_released(std::vector<Capture> &data, uint64_t captures,
                               uint64_t samples_per_capture, bool silent) const;
-
-    SmStatus _open_networked_device();
-    SmStatus _open_serial_device();
-    void _open_device();
-    void _log_mode() const;
 
     void _close_device();
 

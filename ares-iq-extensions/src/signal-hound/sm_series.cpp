@@ -350,7 +350,7 @@ SmSFPDiagnostics SM::network_diagnostic_info() const {
 void SM::open() {
     py::gil_scoped_release release;
     if (!_open) {
-        _open_device();
+        open_released();
     }
 }
 
@@ -432,7 +432,7 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
     }
 
     if (!_open) {
-        _open_device();
+        // todo: throw
     }
 
     auto start_time = std::chrono::steady_clock::now();
@@ -480,39 +480,92 @@ SmSFPDiagnostics SM::network_diagnostic_info_released() const {
     return info;
 }
 
-//
-// void SM::_log_mode() const {
-//     SmMode mode;
-//     check_sm_status(SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
-//
-//     switch (mode) {
-//     case smModeIdle:
-//         LOG_INF("Current Mode: Idle");
-//         break;
-//     case smModeSweeping:
-//         LOG_INF("Current Mode: Sweeping");
-//         break;
-//     case smModeRealTime:
-//         LOG_INF("Current Mode: Realtime");
-//         break;
-//     case smModeIQStreaming:
-//         LOG_INF("Current Mode: IQ Streaming");
-//         break;
-//     case smModeIQSegmentedCapture:
-//         LOG_INF("Current Mode: IQ Segment Capture");
-//         break;
-//     case smModeIQSweepList:
-//         LOG_INF("Current Mode: IQ sweep list");
-//         break;
-//     case smModeAudio:
-//         LOG_INF("Current Mode: Audio");
-//         break;
-//     default:
-//         LOG_ERR("Unknown mode");
-//         break;
-//     }
-// }
-//
+void SM::log_mode() const {
+    SmMode mode;
+    check_sm_status(SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
+
+    switch (mode) {
+    case smModeIdle:
+        LOG_INF("Current Mode: Idle");
+        break;
+    case smModeSweeping:
+        LOG_INF("Current Mode: Sweeping");
+        break;
+    case smModeRealTime:
+        LOG_INF("Current Mode: Realtime");
+        break;
+    case smModeIQStreaming:
+        LOG_INF("Current Mode: IQ Streaming");
+        break;
+    case smModeIQSegmentedCapture:
+        LOG_INF("Current Mode: IQ Segment Capture");
+        break;
+    case smModeIQSweepList:
+        LOG_INF("Current Mode: IQ sweep list");
+        break;
+    case smModeAudio:
+        LOG_INF("Current Mode: Audio");
+        break;
+    default:
+        LOG_ERR("Unknown mode");
+        break;
+    }
+}
+
+SmStatus SM::open_networked_device_released() {
+    LOG_INF("Attempting to open networked device");
+    SmStatus status =
+        smOpenNetworkedDevice(&fd, _configs.host.c_str(),
+                              _configs.device_addr.c_str(), _configs.port);
+    return status;
+}
+
+SmStatus SM::open_serial_device_released() {
+    SmStatus status;
+
+    if (_configs.serial >= 0) {
+        LOG_INF("Attempting to open serial device with the given serial "
+                "number: 0x%X",
+                _configs.serial);
+        status = smOpenDeviceBySerial(&fd, _configs.serial);
+    } else {
+        status = smOpenDevice(&fd);
+    }
+
+    return status;
+}
+
+void SM::open_released() {
+    SmStatus status;
+
+    LOG_DBG("Attempting to open device");
+
+    switch (_configs.device) {
+    case smDeviceTypeSM200A:
+    case smDeviceTypeSM200B:
+    case smDeviceTypeSM435B: {
+        status = open_serial_device_released();
+        break;
+    }
+    case smDeviceTypeSM200C:
+    case smDeviceTypeSM435C: {
+        status = open_networked_device_released();
+        break;
+    }
+    default: {
+        LOG_ERR("Invalid SM device type");
+        throw std::invalid_argument("Invalid SM device");
+    }
+    }
+
+    if (status != smNoError) {
+        throw std::runtime_error(smGetErrorString(status));
+    }
+    _open = true;
+
+    log_mode();
+}
+
 // void SM::_capture_iq_configure_released(double center, double bw) {
 //     py::gil_scoped_release release;
 //     if (!_open) {
@@ -580,29 +633,6 @@ SmSFPDiagnostics SM::network_diagnostic_info_released() const {
 //     }
 //     progress.update();
 //     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
-// }
-//
-// SmStatus SM::_open_networked_device() {
-//     LOG_INF("Attempting to open networked device");
-//     SmStatus status =
-//         smOpenNetworkedDevice(&fd, _configs.host.c_str(),
-//                               _configs.device_addr.c_str(), _configs.port);
-//     return status;
-// }
-//
-// SmStatus SM::_open_serial_device() {
-//     SmStatus status;
-//
-//     if (_configs.serial >= 0) {
-//         LOG_INF("Attempting to open serial device with the given serial "
-//                 "number: 0x%X",
-//                 _configs.serial);
-//         status = smOpenDeviceBySerial(&fd, _configs.serial);
-//     } else {
-//         status = smOpenDevice(&fd);
-//     }
-//
-//     return status;
 // }
 //
 // void SM::_open_device() {
