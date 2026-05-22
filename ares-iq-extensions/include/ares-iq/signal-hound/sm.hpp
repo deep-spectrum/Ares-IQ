@@ -356,14 +356,14 @@ class SM {
      * timestamps.
      */
     py::tuple capture_iq(double center, double bw, uint64_t capture_size,
-                         bool silent, bool verbose); // todo
+                         bool silent, bool verbose);
 
     /**
      * Retrieve the firmware version.
      * @return A tuple representing the major, minor, and revision number of the
      * firmware version.
      */
-    std::tuple<int, int, int> firmware_version();
+    std::tuple<int, int, int> firmware_version() const;
 
     /**
      * Retrieve diagnostic information from the Sm device. This requires the
@@ -383,7 +383,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s); // todo
+    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
 
     /**
      * Run a network speed test.
@@ -394,7 +394,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    double network_speed_test(double duration);
+    double network_speed_test(double duration) const;
 
     /**
      * Retrieve the diagnostic information for the SFP+ port.
@@ -419,7 +419,7 @@ class SM {
      * @param params The stream parameters.
      * @return Stream capture metadata.
      */
-    py::dict stream_iq_data(const StreamParameters &params); // todo
+    py::dict stream_iq_data(const StreamParameters &params);
 
     /**
      * .
@@ -441,6 +441,12 @@ class SM {
     bool _open = false;
     bool _gps_configured = false;
 
+    std::tuple<int, int, int> firmware_version_released() const;
+    SmDiagnostics diagnostic_info_released() const;
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
+    double network_speed_test_released(double duration) const;
+    SmSFPDiagnostics network_diagnostic_info_released() const;
+
     void _capture_iq_configure_released(double center, double bw);
     py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
                           bool silent);
@@ -456,6 +462,7 @@ class SM {
 
     void _configure(double center, double bw);
 
+    bool _gps_sync(const SmGPSState &target_state, int64_t timeout_s);
     void _configure_gps();
     void _acquire_gps_lock();
     bool _acquire_gps_lock(SmGPSState target_state) const;

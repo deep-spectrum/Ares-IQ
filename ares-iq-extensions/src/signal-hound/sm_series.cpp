@@ -279,6 +279,7 @@ py::dict SmSFPDiagnostics::as_dict() {
 }
 
 #define SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
+#define SM_API_CALL(statement) check_sm_status(SM_API_CALL_TRACE(statement))
 
 static void check_sm_status(SmStatus status, const std::string &caller) {
     if (status != smNoError) {
@@ -295,9 +296,11 @@ SM::SM(const SMConfigs &configs) { _configs = configs; }
 
 SM::~SM() { _close_device(); }
 
-py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
-                         bool silent, bool verbose) {
+py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size, bool silent, bool verbose) {
+    // Cannot release the lock here. The internal API needs to construct Python types
     py::tuple ret;
+    std::exception_ptr exception = nullptr;
+
     if (verbose) {
         SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
     }
@@ -305,54 +308,112 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
     try {
         ret = _capture_iq(center, bw, capture_size, silent);
     } catch (...) {
-        if (verbose) {
-            RESTORE_LOG_LEVEL();
-        }
-        throw;
+        exception = std::current_exception();
     }
 
     if (verbose) {
         RESTORE_LOG_LEVEL();
     }
 
+    if (exception) {
+        std::rethrow_exception(exception);
+    }
+
     return ret;
 }
 
-std::tuple<int, int, int> SM::firmware_version() {
+std::tuple<int, int, int> SM::firmware_version() const {
     py::gil_scoped_release release;
-    int major, minor, revision;
-    bool not_open = false;
-
-    if (!_open) {
-        _open_device();
-        not_open = true;
-    }
-
-    check_sm_status(
-        SM_API_CALL_TRACE(smGetFirmwareVersion(fd, &major, &minor, &revision)));
-
-    if (not_open) {
-        _close_device();
-    }
-
-    return std::make_tuple(major, minor, revision);
+    return firmware_version_released();
 }
 
 SmDiagnostics SM::diagnostic_info() const {
     py::gil_scoped_release release;
+    return diagnostic_info_released();
+}
+
+bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
+    py::gil_scoped_release release;
+    return gps_sync_released(target_state, timeout_s);
+}
+
+double SM::network_speed_test(double duration) const {
+    py::gil_scoped_release release;
+    return network_speed_test_released(duration);
+}
+
+SmSFPDiagnostics SM::network_diagnostic_info() const {
+    py::gil_scoped_release release;
+    return network_diagnostic_info_released();
+}
+
+void SM::open() {
+    py::gil_scoped_release release;
+    if (!_open) {
+        _open_device();
+    }
+}
+
+void SM::close() {
+    py::gil_scoped_release release;
+    _close_device();
+}
+
+py::dict SM::stream_iq_data(const StreamParameters &params) {
+    // Cannot release the lock here. The internal API needs to construct Python types
+    py::dict ret;
+    std::exception_ptr eptr = nullptr;
+
+    if (params.verbose) {
+        SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
+    }
+
+    try {
+        ret = _stream_iq_data(params);
+    } catch (...) {
+        eptr = std::current_exception();
+    }
+
+    if (params.verbose) {
+        RESTORE_LOG_LEVEL();
+    }
+
+    if (eptr) {
+        std::rethrow_exception(eptr);
+    }
+
+    return ret;
+}
+
+SMConfigs SM::get_configs() const {
+    return _configs;
+}
+
+std::tuple<int, int, int> SM::firmware_version_released() const {
+    int major, minor, revision;
+
+    if (!_open) {
+        // todo: throw not open error
+    }
+
+    SM_API_CALL(smGetFirmwareVersion(fd, &major, &minor, &revision));
+
+    return std::make_tuple(major, minor, revision);
+}
+
+SmDiagnostics SM::diagnostic_info_released() const {
     SmDiagnostics diagnostics;
 
     if (!_open) {
-        throw std::runtime_error("Device not open");
+        // todo: throw not open error
     }
 
-    check_sm_status(SM_API_CALL_TRACE(
-        smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics)));
+    SM_API_CALL(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics));
 
     return diagnostics;
 }
 
-bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
+bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
@@ -385,638 +446,597 @@ bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
     return locked;
 }
 
-double SM::network_speed_test(double duration) {
-    py::gil_scoped_release release;
-    double bytes_per_second;
+double SM::network_speed_test_released(double duration) const {
+    double bytes_per_s;
 
     if (!_is_networked()) {
         throw py::attribute_error("This is not a networked device");
     }
 
     if (!_open) {
-        _open_device();
+        // todo: throw not open error
     }
 
     LOG_INF("Conducting speed test for a duration of %lf seconds", duration);
+    SM_API_CALL(smNetworkedSpeedTest(fd, duration, &bytes_per_s));
+    LOG_INF("Speed test result: %lf bytes per second", bytes_per_s);
 
-    check_sm_status(SM_API_CALL_TRACE(
-        smNetworkedSpeedTest(fd, duration, &bytes_per_second)));
-
-    LOG_INF("Speed test result: %lf bytes per second", bytes_per_second);
-
-    return bytes_per_second;
+    return bytes_per_s;
 }
 
-SmSFPDiagnostics SM::network_diagnostic_info() const {
-    py::gil_scoped_release release;
+SmSFPDiagnostics SM::network_diagnostic_info_released() const {
     SmSFPDiagnostics info{};
 
-    if (!_open) {
-        throw std::runtime_error("Device not open");
+    if (_open) {
+        // todo: throw not open error
     }
 
     if (!_is_networked()) {
         throw std::runtime_error("Device must be a networked device");
     }
 
-    check_sm_status(SM_API_CALL_TRACE(smGetSFPDiagnostics(
-        fd, &info.temp, &info.voltage, &info.txPower, &info.rxPower)));
+    SM_API_CALL(smGetSFPDiagnostics(fd, &info.temp, &info.voltage, &info.txPower, &info.rxPower));
 
     return info;
 }
 
-void SM::open() {
-    py::gil_scoped_release release;
-    if (!_open) {
-        _open_device();
-    }
-}
-
-void SM::close() {
-    py::gil_scoped_release release;
-    _close_device();
-}
-
-py::dict SM::stream_iq_data(const StreamParameters &params) {
-    if (params.verbose) {
-        SAVE_LOG_LEVEL_AND_OVERRIDE(LOG_LEVEL_INFO);
-    }
-
-    py::dict ret;
-    try {
-        ret = _stream_iq_data(params);
-    } catch (...) {
-        if (params.verbose) {
-            RESTORE_LOG_LEVEL();
-        }
-        throw;
-    }
-
-    if (params.verbose) {
-        RESTORE_LOG_LEVEL();
-    }
-
-    return ret;
-}
-
-SMConfigs SM::get_configs() const { return _configs; }
-
-void SM::_log_mode() const {
-    SmMode mode;
-    check_sm_status(SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
-
-    switch (mode) {
-    case smModeIdle:
-        LOG_INF("Current Mode: Idle");
-        break;
-    case smModeSweeping:
-        LOG_INF("Current Mode: Sweeping");
-        break;
-    case smModeRealTime:
-        LOG_INF("Current Mode: Realtime");
-        break;
-    case smModeIQStreaming:
-        LOG_INF("Current Mode: IQ Streaming");
-        break;
-    case smModeIQSegmentedCapture:
-        LOG_INF("Current Mode: IQ Segment Capture");
-        break;
-    case smModeIQSweepList:
-        LOG_INF("Current Mode: IQ sweep list");
-        break;
-    case smModeAudio:
-        LOG_INF("Current Mode: Audio");
-        break;
-    default:
-        LOG_ERR("Unknown mode");
-        break;
-    }
-}
-
-void SM::_capture_iq_configure_released(double center, double bw) {
-    py::gil_scoped_release release;
-    if (!_open) {
-        _open_device();
-    }
-
-    _configure(center, bw);
-}
-
-py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
-                          bool silent) {
-    _capture_iq_configure_released(center, bw);
-
-    uint64_t samples_per_capture = _configs.samples_per_capture;
-    uint64_t bytes_per_capture =
-        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
-        sizeof(Capture::timestamp);
-    uint64_t captures = capture_size / bytes_per_capture;
-
-    std::vector<Capture> data(captures);
-
-    py::array_t<complex_t> data_array({captures, samples_per_capture});
-    py::buffer_info data_buf_info = data_array.request(true);
-
-    py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
-    py::buffer_info time_buf_info = capture_times.request(true);
-
-    py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
-    py::buffer_info gps_buf_info = gps_array.request(true);
-
-    LOG_DBG("Collecting %lu captures", captures);
-    LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
-    LOG_DBG("Timestamp data size: %ld bytes",
-            capture_times.size() * capture_times.itemsize());
-    LOG_DBG("Total size: %ld bytes",
-            (data_array.size() * data_array.itemsize()) +
-                (capture_times.size() * capture_times.itemsize()));
-
-    for (size_t i = 0; i < captures; i++) {
-        data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
-                      (i * samples_per_capture);
-        data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
-        data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
-    }
-
-    _capture_iq_released(data, captures, samples_per_capture, silent);
-
-    return py::make_tuple(data_array, capture_times, gps_array);
-}
-
-void SM::_capture_iq_released(std::vector<Capture> &data, uint64_t captures,
-                              uint64_t samples_per_capture, bool silent) const {
-    py::gil_scoped_release release;
-    CaptureProgress::Progress progress(captures, samples_per_capture, silent);
-
-    LOG_INF("Starting data capture");
-    progress.start();
-    for (auto &[buf, timestamp, gps_info] : data) {
-        smGetIQ(fd, buf, static_cast<int>(samples_per_capture), nullptr, 0,
-                timestamp, smFalse, nullptr, nullptr);
-        smGetGPSInfo(fd, smFalse, nullptr, &gps_info->sec_since_epoch,
-                     &gps_info->latitude, &gps_info->longitude,
-                     &gps_info->altitude, nullptr, nullptr);
-        progress.update();
-    }
-    progress.update();
-    LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
-}
-
-SmStatus SM::_open_networked_device() {
-    LOG_INF("Attempting to open networked device");
-    SmStatus status =
-        smOpenNetworkedDevice(&fd, _configs.host.c_str(),
-                              _configs.device_addr.c_str(), _configs.port);
-    return status;
-}
-
-SmStatus SM::_open_serial_device() {
-    SmStatus status;
-
-    if (_configs.serial >= 0) {
-        LOG_INF("Attempting to open serial device with the given serial "
-                "number: 0x%X",
-                _configs.serial);
-        status = smOpenDeviceBySerial(&fd, _configs.serial);
-    } else {
-        status = smOpenDevice(&fd);
-    }
-
-    return status;
-}
-
-void SM::_open_device() {
-    SmStatus status;
-
-    LOG_DBG("Attempting to open device");
-
-    switch (_configs.device) {
-    case smDeviceTypeSM200A:
-    case smDeviceTypeSM200B:
-    case smDeviceTypeSM435B: {
-        status = _open_serial_device();
-        break;
-    }
-    case smDeviceTypeSM200C:
-    case smDeviceTypeSM435C: {
-        status = _open_networked_device();
-        break;
-    }
-    default: {
-        LOG_ERR("Invalid SM device type");
-        throw std::invalid_argument("Invalid SM device");
-    }
-    }
-
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
-    }
-    _open = true;
-
-    _log_mode();
-}
-
-void SM::_close_device() {
-    if (_open) {
-        smCloseDevice(fd);
-        _open = false;
-    }
-}
-
-void SM::_configure(double center, double bw) {
-    SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
-
-    LOG_INF("Configuring the SM device");
-
-    check_sm_status(SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
-    check_sm_status(
-        SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
-    check_sm_status(
-        SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
-    check_sm_status(SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
-    _configure_gps();
-
-    check_sm_status(SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
-    _acquire_gps_lock();
-}
-
-void SM::_configure_gps() {
-    if (_gps_configured) {
-        return;
-    }
-
-    _acquire_gps_lock();
-
-    if (_configs.gps_timestamping) {
-        check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
-    } else {
-        check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
-    }
-
-    _gps_configured = true;
-}
-
-static void log_gps_state(SmGPSState state) {
-    static SmGPSState prev_state = smGPSStateNotPresent;
-    static int count = 0;
-
-    if (state == prev_state && count != 0) {
-        count = (count + 1) % 10;
-        return;
-    }
-
-    switch (state) {
-    case smGPSStateNotPresent:
-        LOG_DBG("Current GPS state: Not Present");
-        break;
-    case smGPSStateLocked:
-        LOG_DBG("Current GPS state: Locked");
-        break;
-    case smGPSStateDisciplined:
-        LOG_DBG("Current GPS state: Disciplined");
-        break;
-    default:
-        LOG_ERR("Invalid GPS state");
-        break;
-    }
-
-    prev_state = state;
-    count++;
-}
-
-static bool check_python_signals() {
-    py::gil_scoped_acquire acquire;
-    return PyErr_CheckSignals() != 0;
-}
-
-bool SM::_acquire_gps_lock(SmGPSState target_state) const {
-    SmGPSState state;
-    bool locked;
-    SmStatus status;
-
-    status = smGetGPSState(fd, &state);
-    log_gps_state(state);
-
-    if (check_python_signals()) {
-        LOG_INF("Python exception raised");
-        throw py::error_already_set();
-    }
-
-    if (status != smNoError) {
-        throw std::runtime_error(smGetErrorString(status));
-    }
-
-    locked = state >= target_state;
-
-    if (!locked) {
-        std::this_thread::sleep_for(std::chrono::seconds(1));
-    }
-
-    return locked;
-}
-
-void SM::_acquire_gps_lock() {
-    bool locked;
-    long time_elapsed;
-    int64_t timeout_s = _configs.gps_lock_timeout;
-
-    if (!_configs.gps_timestamping) {
-        return;
-    }
-
-    LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
-
-    auto start_time = std::chrono::steady_clock::now();
-    locked = gps_sync(smGPSStateLocked, _configs.gps_lock_timeout);
-    auto end_time = std::chrono::steady_clock::now();
-
-    time_elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time)
-            .count();
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to acquire a GPS lock");
-    }
-
-    LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
-
-    _log_mode();
-
-    LOG_INF("GPS lock acquired. Setting platform model.");
-    check_sm_status(
-        SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
-
-    timeout_s = (_configs.gps_lock_timeout != 0) ? (timeout_s - time_elapsed)
-                                                 : INT64_C(0);
-    locked = gps_sync(smGPSStateDisciplined, timeout_s);
-
-    LOG_DBG("Time elapsed to discipline the oscillator: %ld s",
-            std::chrono::duration_cast<std::chrono::seconds>(
-                std::chrono::steady_clock::now() - start_time)
-                .count());
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to acquire a GPS lock");
-    }
-
-    end_time = std::chrono::steady_clock::now();
-
-    LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
-            std::chrono::duration_cast<std::chrono::seconds>(end_time -
-                                                             start_time));
-}
-
-bool SM::_is_networked() const {
-    bool ret;
-
-    switch (_configs.device) {
-    case smDeviceTypeSM200A:
-    case smDeviceTypeSM200B:
-    case smDeviceTypeSM435B:
-        ret = false;
-        break;
-    case smDeviceTypeSM200C:
-    case smDeviceTypeSM435C:
-        ret = true;
-        break;
-    default:
-        throw py::value_error("Invalid device type");
-    }
-
-    return ret;
-}
-
-extern "C" {
-#include <sys/stat.h>
-#include <unistd.h>
-
-static int open_fd(const char *file, bool direct) {
-    if (direct) {
-        return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
-                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-    }
-    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
-                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-}
-
-static int close_fd(int fd) { return close(fd); }
-}
-
-static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
-
-bool SM::_capture_iq_data(uint64_t captures,
-                          ares::queue<std::unique_ptr<RawCapture>> &queue,
-                          int32_t chunk) const {
-    int sample_loss;
-    bool sample_loss_ = false;
-    uint32_t samples_per_capture = _configs.samples_per_capture;
-
-    for (size_t i = 0; i < captures; i++) {
-        auto capture = std::make_unique<RawCapture>();
-        capture->buf.resize(samples_per_capture * 2);
-
-        (void)smGetIQ(fd, capture->buf.data(),
-                      static_cast<int>(samples_per_capture), nullptr, 0,
-                      &capture->timestamp, smFalse, &sample_loss, nullptr);
-        (void)smGetGPSInfo(
-            fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
-            &capture->gps_info.latitude, &capture->gps_info.longitude,
-            &capture->gps_info.altitude, nullptr, nullptr);
-        capture->chunk_id = chunk;
-        queue.put(std::move(capture));
-        if (sample_loss == SM_TRUE) {
-            LOG_WRN("SM API dropping samples");
-            sample_loss_ = true;
-        }
-    }
-    return sample_loss_;
-}
-
-py::dict SM::_stream_iq_data(const StreamParameters &params) {
-    bool sample_loss = false;
-    if (!_open) {
-        _open_device();
-    }
-
-    _configure(params.center_frequency, params.bandwidth);
-
-    uint64_t samples_per_capture = _configs.samples_per_capture;
-    uint64_t bytes_per_capture =
-        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
-        sizeof(Capture::timestamp);
-    uint64_t captures_per_chunk = params.file_chunk_size / bytes_per_capture;
-
-    LOG_DBG("Page size: %u", PAGE_SIZE);
-    LOG_DBG("Queue size limit: %lu bytes", params.max_buffer_size);
-
-    RecordingMetadata metadata;
-    ares::queue<std::unique_ptr<RawCapture>> capture_q;
-    std::thread consumer([this, &params, &metadata, &capture_q]() {
-        _stream_iq_data(params, metadata, capture_q);
-    });
-
-    CaptureProgress::MemoryMonitor memory_monitor(
-        bytes_per_capture, [&capture_q]() { return capture_q.size(); },
-        params.max_buffer_size, params.silent);
-    auto now = std::chrono::steady_clock::now;
-    memory_monitor.start();
-    auto start = now();
-    for (int32_t chunk = 0;
-         (now() - start) < params.duration && !metadata.save_failed &&
-         !memory_monitor.out_of_memory();
-         chunk++) {
-        sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
-                      sample_loss;
-        if (check_python_signals()) {
-            LOG_INF("CTRL+C Received");
-            memory_monitor.stop();
-            capture_q.clear();
-            capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
-            consumer.join();
-            throw py::error_already_set();
-        }
-        if (params.stop_on_sample_loss && sample_loss) {
-            LOG_ERR("Stopping prematurely due to sample loss");
-            break;
-        }
-    }
-    memory_monitor.stop(true);
-
-    LOG_INF("Data collected");
-    capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
-    consumer.join();
-
-    capture_q.clear();
-
-    if (metadata.save_failed) {
-        throw std::runtime_error("Operation failed");
-    }
-
-    params.done_cb();
-
-    py::dict ret;
-    py::dict diagnostics;
-
-    diagnostics["save_duration"] = metadata.write_duration;
-    diagnostics["resource_exhaustion"] = memory_monitor.out_of_memory();
-    ret["captures"] = metadata.total_captures;
-    ret["samples_per_capture"] = _configs.samples_per_capture;
-    ret["captures_per_chunk"] = captures_per_chunk;
-    ret["diagnostics"] = diagnostics;
-    ret["sample_loss"] = sample_loss;
-
-    return ret;
-}
-
-constexpr double ns_per_sec = 1e9;
-void SM::_stream_iq_data(
-    const StreamParameters &params, RecordingMetadata &metadata,
-    ares::queue<std::unique_ptr<RawCapture>> &queue) const {
-    uint64_t entries_written = 0;
-    int32_t current_chunk = -1;
-    std::vector<uint8_t> buffer;
-    int iq_fd = -1, ts_fd = -1;
-
-    ts_fd = _open_fd(ts_fd, params.save_directory, false, 0);
-    if (ts_fd < 0) {
-        metadata.save_failed = true;
-        return;
-    }
-
-    buffer.reserve(_configs.samples_per_capture * 2 * 10);
-
-    auto start = std::chrono::steady_clock::now();
-    while (true) {
-        auto write_data = queue.get();
-
-        if (write_data == nullptr) {
-            _flush_chunk(iq_fd, buffer);
-            close_fd(iq_fd);
-            break;
-        }
-
-        if (current_chunk != write_data->chunk_id) {
-            _flush_chunk(iq_fd, buffer);
-            iq_fd = _open_fd(iq_fd, params.save_directory, true,
-                             write_data->chunk_id);
-            current_chunk = write_data->chunk_id;
-            if (iq_fd < 0) {
-                metadata.save_failed = true;
-                break;
-            }
-        }
-
-        const size_t num_bytes = write_data->buf.size() * sizeof(float);
-        const uint8_t *data =
-            reinterpret_cast<uint8_t *>(write_data->buf.data());
-        buffer.insert(buffer.end(), data, data + num_bytes);
-        double timestamp =
-            static_cast<double>(write_data->timestamp) / ns_per_sec;
-
-        if (buffer.size() >= PAGE_SIZE) {
-            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(iq_fd, buffer.data(), size);
-            if (bytes_written < 0) {
-                LOG_ERR("write: %s", strerror(errno));
-                continue;
-            }
-            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
-        }
-
-        ssize_t written = write(ts_fd, &timestamp, sizeof(double));
-        if (written < 0) {
-            LOG_ERR("write: %s", strerror(errno));
-        }
-
-        entries_written += 1;
-    }
-    auto stop = std::chrono::steady_clock::now();
-    close_fd(ts_fd);
-
-    LOG_DBG("%lu bytes dropped", buffer.size());
-    LOG_DBG("Entries written: %lu", entries_written);
-
-    metadata.total_captures = entries_written;
-    metadata.write_duration = stop - start;
-}
-
-void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
-    if (!buffer.empty()) {
-        assert(iq_fd > 0);
-        size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
-        buffer.resize(new_size);
-        ssize_t err = write(iq_fd, buffer.data(), buffer.size());
-        if (err < 0) {
-            LOG_ERR("write: %s", strerror(errno));
-        } else {
-            buffer.erase(buffer.begin(), buffer.begin() + err);
-        }
-    }
-}
-
-int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
-                 int32_t chunk) {
-    std::stringstream oss;
-    if (old_fd > 0) {
-        close_fd(old_fd);
-    }
-
-    if (iq) {
-        oss << save_dir << "/"
-            << "iq" << chunk << ".c8";
-    } else {
-        oss << save_dir << "/"
-            << "ts.f8";
-    }
-
-    int new_fd = open_fd(oss.str().c_str(), iq);
-    if (new_fd < 0) {
-        LOG_ERR("open: %s", strerror(errno));
-    }
-    return new_fd;
-}
+//
+// void SM::_log_mode() const {
+//     SmMode mode;
+//     check_sm_status(SM_API_CALL_TRACE(smGetCurrentMode(fd, &mode)));
+//
+//     switch (mode) {
+//     case smModeIdle:
+//         LOG_INF("Current Mode: Idle");
+//         break;
+//     case smModeSweeping:
+//         LOG_INF("Current Mode: Sweeping");
+//         break;
+//     case smModeRealTime:
+//         LOG_INF("Current Mode: Realtime");
+//         break;
+//     case smModeIQStreaming:
+//         LOG_INF("Current Mode: IQ Streaming");
+//         break;
+//     case smModeIQSegmentedCapture:
+//         LOG_INF("Current Mode: IQ Segment Capture");
+//         break;
+//     case smModeIQSweepList:
+//         LOG_INF("Current Mode: IQ sweep list");
+//         break;
+//     case smModeAudio:
+//         LOG_INF("Current Mode: Audio");
+//         break;
+//     default:
+//         LOG_ERR("Unknown mode");
+//         break;
+//     }
+// }
+//
+// void SM::_capture_iq_configure_released(double center, double bw) {
+//     py::gil_scoped_release release;
+//     if (!_open) {
+//         _open_device();
+//     }
+//
+//     _configure(center, bw);
+// }
+//
+// py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
+//                           bool silent) {
+//     _capture_iq_configure_released(center, bw);
+//
+//     uint64_t samples_per_capture = _configs.samples_per_capture;
+//     uint64_t bytes_per_capture =
+//         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+//         sizeof(Capture::timestamp);
+//     uint64_t captures = capture_size / bytes_per_capture;
+//
+//     std::vector<Capture> data(captures);
+//
+//     py::array_t<complex_t> data_array({captures, samples_per_capture});
+//     py::buffer_info data_buf_info = data_array.request(true);
+//
+//     py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
+//     py::buffer_info time_buf_info = capture_times.request(true);
+//
+//     py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
+//     py::buffer_info gps_buf_info = gps_array.request(true);
+//
+//     LOG_DBG("Collecting %lu captures", captures);
+//     LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
+//     LOG_DBG("Timestamp data size: %ld bytes",
+//             capture_times.size() * capture_times.itemsize());
+//     LOG_DBG("Total size: %ld bytes",
+//             (data_array.size() * data_array.itemsize()) +
+//                 (capture_times.size() * capture_times.itemsize()));
+//
+//     for (size_t i = 0; i < captures; i++) {
+//         data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
+//                       (i * samples_per_capture);
+//         data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
+//         data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
+//     }
+//
+//     _capture_iq_released(data, captures, samples_per_capture, silent);
+//
+//     return py::make_tuple(data_array, capture_times, gps_array);
+// }
+//
+// void SM::_capture_iq_released(std::vector<Capture> &data, uint64_t captures,
+//                               uint64_t samples_per_capture, bool silent) const {
+//     py::gil_scoped_release release;
+//     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
+//
+//     LOG_INF("Starting data capture");
+//     progress.start();
+//     for (auto &[buf, timestamp, gps_info] : data) {
+//         smGetIQ(fd, buf, static_cast<int>(samples_per_capture), nullptr, 0,
+//                 timestamp, smFalse, nullptr, nullptr);
+//         smGetGPSInfo(fd, smFalse, nullptr, &gps_info->sec_since_epoch,
+//                      &gps_info->latitude, &gps_info->longitude,
+//                      &gps_info->altitude, nullptr, nullptr);
+//         progress.update();
+//     }
+//     progress.update();
+//     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
+// }
+//
+// SmStatus SM::_open_networked_device() {
+//     LOG_INF("Attempting to open networked device");
+//     SmStatus status =
+//         smOpenNetworkedDevice(&fd, _configs.host.c_str(),
+//                               _configs.device_addr.c_str(), _configs.port);
+//     return status;
+// }
+//
+// SmStatus SM::_open_serial_device() {
+//     SmStatus status;
+//
+//     if (_configs.serial >= 0) {
+//         LOG_INF("Attempting to open serial device with the given serial "
+//                 "number: 0x%X",
+//                 _configs.serial);
+//         status = smOpenDeviceBySerial(&fd, _configs.serial);
+//     } else {
+//         status = smOpenDevice(&fd);
+//     }
+//
+//     return status;
+// }
+//
+// void SM::_open_device() {
+//     SmStatus status;
+//
+//     LOG_DBG("Attempting to open device");
+//
+//     switch (_configs.device) {
+//     case smDeviceTypeSM200A:
+//     case smDeviceTypeSM200B:
+//     case smDeviceTypeSM435B: {
+//         status = _open_serial_device();
+//         break;
+//     }
+//     case smDeviceTypeSM200C:
+//     case smDeviceTypeSM435C: {
+//         status = _open_networked_device();
+//         break;
+//     }
+//     default: {
+//         LOG_ERR("Invalid SM device type");
+//         throw std::invalid_argument("Invalid SM device");
+//     }
+//     }
+//
+//     if (status != smNoError) {
+//         throw std::runtime_error(smGetErrorString(status));
+//     }
+//     _open = true;
+//
+//     _log_mode();
+// }
+//
+// void SM::_close_device() {
+//     if (_open) {
+//         smCloseDevice(fd);
+//         _open = false;
+//     }
+// }
+//
+// void SM::_configure(double center, double bw) {
+//     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
+//
+//     LOG_INF("Configuring the SM device");
+//
+//     check_sm_status(SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
+//     check_sm_status(
+//         SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
+//     check_sm_status(
+//         SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
+//     check_sm_status(SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
+//     _configure_gps();
+//
+//     check_sm_status(SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
+//     _acquire_gps_lock();
+// }
+//
+// void SM::_configure_gps() {
+//     if (_gps_configured) {
+//         return;
+//     }
+//
+//     _acquire_gps_lock();
+//
+//     if (_configs.gps_timestamping) {
+//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
+//     } else {
+//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
+//     }
+//
+//     _gps_configured = true;
+// }
+//
+// static void log_gps_state(SmGPSState state) {
+//     static SmGPSState prev_state = smGPSStateNotPresent;
+//     static int count = 0;
+//
+//     if (state == prev_state && count != 0) {
+//         count = (count + 1) % 10;
+//         return;
+//     }
+//
+//     switch (state) {
+//     case smGPSStateNotPresent:
+//         LOG_DBG("Current GPS state: Not Present");
+//         break;
+//     case smGPSStateLocked:
+//         LOG_DBG("Current GPS state: Locked");
+//         break;
+//     case smGPSStateDisciplined:
+//         LOG_DBG("Current GPS state: Disciplined");
+//         break;
+//     default:
+//         LOG_ERR("Invalid GPS state");
+//         break;
+//     }
+//
+//     prev_state = state;
+//     count++;
+// }
+//
+// static bool check_python_signals() {
+//     py::gil_scoped_acquire acquire;
+//     return PyErr_CheckSignals() != 0;
+// }
+//
+// bool SM::_acquire_gps_lock(SmGPSState target_state) const {
+//     SmGPSState state;
+//     bool locked;
+//     SmStatus status;
+//
+//     status = smGetGPSState(fd, &state);
+//     log_gps_state(state);
+//
+//     if (check_python_signals()) {
+//         LOG_INF("Python exception raised");
+//         throw py::error_already_set();
+//     }
+//
+//     if (status != smNoError) {
+//         throw std::runtime_error(smGetErrorString(status));
+//     }
+//
+//     locked = state >= target_state;
+//
+//     if (!locked) {
+//         std::this_thread::sleep_for(std::chrono::seconds(1));
+//     }
+//
+//     return locked;
+// }
+//
+// void SM::_acquire_gps_lock() {
+//     bool locked;
+//     long time_elapsed;
+//     int64_t timeout_s = _configs.gps_lock_timeout;
+//
+//     if (!_configs.gps_timestamping) {
+//         return;
+//     }
+//
+//     LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
+//
+//     auto start_time = std::chrono::steady_clock::now();
+//     locked = _gps_sync(smGPSStateLocked, _configs.gps_lock_timeout);
+//     auto end_time = std::chrono::steady_clock::now();
+//
+//     time_elapsed =
+//         std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time)
+//             .count();
+//
+//     if (!locked) {
+//         LOG_ERR("GPS lock timed out");
+//         throw std::runtime_error("Unable to acquire a GPS lock");
+//     }
+//
+//     LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
+//
+//     _log_mode();
+//
+//     LOG_INF("GPS lock acquired. Setting platform model.");
+//     check_sm_status(
+//         SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
+//
+//     timeout_s = (_configs.gps_lock_timeout != 0) ? (timeout_s - time_elapsed)
+//                                                  : INT64_C(0);
+//     locked = _gps_sync(smGPSStateDisciplined, timeout_s);
+//
+//     LOG_DBG("Time elapsed to discipline the oscillator: %ld s",
+//             std::chrono::duration_cast<std::chrono::seconds>(
+//                 std::chrono::steady_clock::now() - start_time)
+//                 .count());
+//
+//     if (!locked) {
+//         LOG_ERR("GPS lock timed out");
+//         throw std::runtime_error("Unable to acquire a GPS lock");
+//     }
+//
+//     end_time = std::chrono::steady_clock::now();
+//
+//     LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
+//             std::chrono::duration_cast<std::chrono::seconds>(end_time -
+//                                                              start_time));
+// }
+//
+// bool SM::_is_networked() const {
+//     bool ret;
+//
+//     switch (_configs.device) {
+//     case smDeviceTypeSM200A:
+//     case smDeviceTypeSM200B:
+//     case smDeviceTypeSM435B:
+//         ret = false;
+//         break;
+//     case smDeviceTypeSM200C:
+//     case smDeviceTypeSM435C:
+//         ret = true;
+//         break;
+//     default:
+//         throw py::value_error("Invalid device type");
+//     }
+//
+//     return ret;
+// }
+//
+// extern "C" {
+// #include <sys/stat.h>
+// #include <unistd.h>
+//
+// static int open_fd(const char *file, bool direct) {
+//     if (direct) {
+//         return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
+//                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+//     }
+//     return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+//                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+// }
+//
+// static int close_fd(int fd) { return close(fd); }
+// }
+//
+// static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+//
+// bool SM::_capture_iq_data(uint64_t captures,
+//                           ares::queue<std::unique_ptr<RawCapture>> &queue,
+//                           int32_t chunk) const {
+//     int sample_loss;
+//     bool sample_loss_ = false;
+//     uint32_t samples_per_capture = _configs.samples_per_capture;
+//
+//     for (size_t i = 0; i < captures; i++) {
+//         auto capture = std::make_unique<RawCapture>();
+//         capture->buf.resize(samples_per_capture * 2);
+//
+//         (void)smGetIQ(fd, capture->buf.data(),
+//                       static_cast<int>(samples_per_capture), nullptr, 0,
+//                       &capture->timestamp, smFalse, &sample_loss, nullptr);
+//         (void)smGetGPSInfo(
+//             fd, smFalse, nullptr, &capture->gps_info.sec_since_epoch,
+//             &capture->gps_info.latitude, &capture->gps_info.longitude,
+//             &capture->gps_info.altitude, nullptr, nullptr);
+//         capture->chunk_id = chunk;
+//         queue.put(std::move(capture));
+//         if (sample_loss == SM_TRUE) {
+//             LOG_WRN("SM API dropping samples");
+//             sample_loss_ = true;
+//         }
+//     }
+//     return sample_loss_;
+// }
+//
+// py::dict SM::_stream_iq_data(const StreamParameters &params) {
+//     bool sample_loss = false;
+//     if (!_open) {
+//         _open_device();
+//     }
+//
+//     _configure(params.center_frequency, params.bandwidth);
+//
+//     uint64_t samples_per_capture = _configs.samples_per_capture;
+//     uint64_t bytes_per_capture =
+//         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+//         sizeof(Capture::timestamp);
+//     uint64_t captures_per_chunk = params.file_chunk_size / bytes_per_capture;
+//
+//     LOG_DBG("Page size: %u", PAGE_SIZE);
+//     LOG_DBG("Queue size limit: %lu bytes", params.max_buffer_size);
+//
+//     RecordingMetadata metadata;
+//     ares::queue<std::unique_ptr<RawCapture>> capture_q;
+//     std::thread consumer([this, &params, &metadata, &capture_q]() {
+//         _stream_iq_data(params, metadata, capture_q);
+//     });
+//
+//     CaptureProgress::MemoryMonitor memory_monitor(
+//         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
+//         params.max_buffer_size, params.silent);
+//     auto now = std::chrono::steady_clock::now;
+//     memory_monitor.start();
+//     auto start = now();
+//     for (int32_t chunk = 0;
+//          (now() - start) < params.duration && !metadata.save_failed &&
+//          !memory_monitor.out_of_memory();
+//          chunk++) {
+//         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
+//                       sample_loss;
+//         if (check_python_signals()) {
+//             LOG_INF("CTRL+C Received");
+//             memory_monitor.stop();
+//             capture_q.clear();
+//             capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+//             consumer.join();
+//             throw py::error_already_set();
+//         }
+//         if (params.stop_on_sample_loss && sample_loss) {
+//             LOG_ERR("Stopping prematurely due to sample loss");
+//             break;
+//         }
+//     }
+//     memory_monitor.stop(true);
+//
+//     LOG_INF("Data collected");
+//     capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+//     consumer.join();
+//
+//     capture_q.clear();
+//
+//     if (metadata.save_failed) {
+//         throw std::runtime_error("Operation failed");
+//     }
+//
+//     params.done_cb();
+//
+//     py::dict ret;
+//     py::dict diagnostics;
+//
+//     diagnostics["save_duration"] = metadata.write_duration;
+//     diagnostics["resource_exhaustion"] = memory_monitor.out_of_memory();
+//     ret["captures"] = metadata.total_captures;
+//     ret["samples_per_capture"] = _configs.samples_per_capture;
+//     ret["captures_per_chunk"] = captures_per_chunk;
+//     ret["diagnostics"] = diagnostics;
+//     ret["sample_loss"] = sample_loss;
+//
+//     return ret;
+// }
+//
+// constexpr double ns_per_sec = 1e9;
+// void SM::_stream_iq_data(
+//     const StreamParameters &params, RecordingMetadata &metadata,
+//     ares::queue<std::unique_ptr<RawCapture>> &queue) const {
+//     uint64_t entries_written = 0;
+//     int32_t current_chunk = -1;
+//     std::vector<uint8_t> buffer;
+//     int iq_fd = -1, ts_fd = -1;
+//
+//     ts_fd = _open_fd(ts_fd, params.save_directory, false, 0);
+//     if (ts_fd < 0) {
+//         metadata.save_failed = true;
+//         return;
+//     }
+//
+//     buffer.reserve(_configs.samples_per_capture * 2 * 10);
+//
+//     auto start = std::chrono::steady_clock::now();
+//     while (true) {
+//         auto write_data = queue.get();
+//
+//         if (write_data == nullptr) {
+//             _flush_chunk(iq_fd, buffer);
+//             close_fd(iq_fd);
+//             break;
+//         }
+//
+//         if (current_chunk != write_data->chunk_id) {
+//             _flush_chunk(iq_fd, buffer);
+//             iq_fd = _open_fd(iq_fd, params.save_directory, true,
+//                              write_data->chunk_id);
+//             current_chunk = write_data->chunk_id;
+//             if (iq_fd < 0) {
+//                 metadata.save_failed = true;
+//                 break;
+//             }
+//         }
+//
+//         const size_t num_bytes = write_data->buf.size() * sizeof(float);
+//         const uint8_t *data =
+//             reinterpret_cast<uint8_t *>(write_data->buf.data());
+//         buffer.insert(buffer.end(), data, data + num_bytes);
+//         double timestamp =
+//             static_cast<double>(write_data->timestamp) / ns_per_sec;
+//
+//         if (buffer.size() >= PAGE_SIZE) {
+//             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
+//             ssize_t bytes_written = write(iq_fd, buffer.data(), size);
+//             if (bytes_written < 0) {
+//                 LOG_ERR("write: %s", strerror(errno));
+//                 continue;
+//             }
+//             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+//         }
+//
+//         ssize_t written = write(ts_fd, &timestamp, sizeof(double));
+//         if (written < 0) {
+//             LOG_ERR("write: %s", strerror(errno));
+//         }
+//
+//         entries_written += 1;
+//     }
+//     auto stop = std::chrono::steady_clock::now();
+//     close_fd(ts_fd);
+//
+//     LOG_DBG("%lu bytes dropped", buffer.size());
+//     LOG_DBG("Entries written: %lu", entries_written);
+//
+//     metadata.total_captures = entries_written;
+//     metadata.write_duration = stop - start;
+// }
+//
+// void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
+//     if (!buffer.empty()) {
+//         assert(iq_fd > 0);
+//         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
+//         buffer.resize(new_size);
+//         ssize_t err = write(iq_fd, buffer.data(), buffer.size());
+//         if (err < 0) {
+//             LOG_ERR("write: %s", strerror(errno));
+//         } else {
+//             buffer.erase(buffer.begin(), buffer.begin() + err);
+//         }
+//     }
+// }
+//
+// int SM::_open_fd(int old_fd, const std::string &save_dir, bool iq,
+//                  int32_t chunk) {
+//     std::stringstream oss;
+//     if (old_fd > 0) {
+//         close_fd(old_fd);
+//     }
+//
+//     if (iq) {
+//         oss << save_dir << "/"
+//             << "iq" << chunk << ".c8";
+//     } else {
+//         oss << save_dir << "/"
+//             << "ts.f8";
+//     }
+//
+//     int new_fd = open_fd(oss.str().c_str(), iq);
+//     if (new_fd < 0) {
+//         LOG_ERR("open: %s", strerror(errno));
+//     }
+//     return new_fd;
+// }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);
