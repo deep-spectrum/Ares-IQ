@@ -309,7 +309,7 @@ py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size, bool s
     }
 
     try {
-        ret = _capture_iq(center, bw, capture_size, silent);
+        ret = capture_iq_internal(center, bw, capture_size, silent);
     } catch (...) {
         exception = std::current_exception();
     }
@@ -447,6 +447,94 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) co
     } while (!locked && (!timeout || time_elapsed < timeout_s));
 
     return locked;
+}
+
+void SM::capture_iq_configure_released(double center, double bw) {
+    if (!_open) {
+        // todo: throw
+    }
+
+    SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
+    LOG_INF("Configuring the SM device");
+
+    SM_API_CALL(smSetIQCenterFreq(fd, center));
+    SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
+    SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
+    SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
+
+    // todo: gps
+
+    SM_API_CALL(smConfigure(fd, smModeIQStreaming));
+
+    // todo: acquire lock?
+}
+
+void SM::capture_iq_configure(double center, double bw) {
+    py::gil_scoped_release release;
+    capture_iq_configure_released(center, bw);
+}
+
+void SM::capture_iq_internal_released(std::vector<Capture> &data, uint64_t captures, uint64_t samples_per_capture,
+                                      bool silent) const {
+    CaptureProgress::Progress progress(captures, samples_per_capture, silent);
+
+    LOG_INF("Starting data capture");
+    progress.start();
+    for (auto &[buf, timestamp, gps_info] : data) {
+        smGetIQ(fd, buf, static_cast<int>(samples_per_capture), nullptr, 0,
+                timestamp, smFalse, nullptr, nullptr);
+        smGetGPSInfo(fd, smFalse, nullptr, &gps_info->sec_since_epoch,
+                     &gps_info->latitude, &gps_info->longitude,
+                     &gps_info->altitude, nullptr, nullptr);
+        progress.update();
+    }
+    progress.update();
+    LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
+}
+
+void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures, uint64_t samples_per_capture, bool silent) const {
+    py::gil_scoped_release release;
+    capture_iq_internal_released(data, captures, samples_per_capture, silent);
+}
+
+py::tuple SM::capture_iq_internal(double center, double bw, uint64_t capture_size, bool silent) {
+    capture_iq_configure(center, bw);
+
+    uint64_t samples_per_capture = _configs.samples_per_capture;
+    uint64_t bytes_per_capture =
+        (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
+        sizeof(Capture::timestamp);
+    uint64_t captures = capture_size / bytes_per_capture;
+
+    std::vector<Capture> data(captures);
+
+    py::array_t<complex_t> data_array({captures, samples_per_capture});
+    py::buffer_info data_buf_info = data_array.request(true);
+
+    py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
+    py::buffer_info time_buf_info = capture_times.request(true);
+
+    py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
+    py::buffer_info gps_buf_info = gps_array.request(true);
+
+    LOG_DBG("Collecting %lu captures", captures);
+    LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
+    LOG_DBG("Timestamp data size: %ld bytes",
+            capture_times.size() * capture_times.itemsize());
+    LOG_DBG("Total size: %ld bytes",
+            (data_array.size() * data_array.itemsize()) +
+                (capture_times.size() * capture_times.itemsize()));
+
+    for (size_t i = 0; i < captures; i++) {
+        data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
+                      (i * samples_per_capture);
+        data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
+        data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
+    }
+
+    capture_iq_internal(data, captures, samples_per_capture, silent);
+
+    return py::make_tuple(data_array, capture_times, gps_array);
 }
 
 double SM::network_speed_test_released(double duration) const {
@@ -601,91 +689,6 @@ void SM::close_released() {
     }
 }
 
-// void SM::_capture_iq_configure_released(double center, double bw) {
-//     py::gil_scoped_release release;
-//     if (!_open) {
-//         _open_device();
-//     }
-//
-//     _configure(center, bw);
-// }
-//
-// py::tuple SM::_capture_iq(double center, double bw, uint64_t capture_size,
-//                           bool silent) {
-//     _capture_iq_configure_released(center, bw);
-//
-//     uint64_t samples_per_capture = _configs.samples_per_capture;
-//     uint64_t bytes_per_capture =
-//         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
-//         sizeof(Capture::timestamp);
-//     uint64_t captures = capture_size / bytes_per_capture;
-//
-//     std::vector<Capture> data(captures);
-//
-//     py::array_t<complex_t> data_array({captures, samples_per_capture});
-//     py::buffer_info data_buf_info = data_array.request(true);
-//
-//     py::array_t<int64_t> capture_times(static_cast<ssize_t>(captures));
-//     py::buffer_info time_buf_info = capture_times.request(true);
-//
-//     py::array_t<SmGpsInfo> gps_array(static_cast<ssize_t>(captures));
-//     py::buffer_info gps_buf_info = gps_array.request(true);
-//
-//     LOG_DBG("Collecting %lu captures", captures);
-//     LOG_DBG("Data size: %ld bytes", data_array.size() * data_array.itemsize());
-//     LOG_DBG("Timestamp data size: %ld bytes",
-//             capture_times.size() * capture_times.itemsize());
-//     LOG_DBG("Total size: %ld bytes",
-//             (data_array.size() * data_array.itemsize()) +
-//                 (capture_times.size() * capture_times.itemsize()));
-//
-//     for (size_t i = 0; i < captures; i++) {
-//         data[i].buf = static_cast<complex_t *>(data_buf_info.ptr) +
-//                       (i * samples_per_capture);
-//         data[i].timestamp = static_cast<int64_t *>(time_buf_info.ptr) + i;
-//         data[i].gps_info = static_cast<SmGpsInfo *>(gps_buf_info.ptr) + i;
-//     }
-//
-//     _capture_iq_released(data, captures, samples_per_capture, silent);
-//
-//     return py::make_tuple(data_array, capture_times, gps_array);
-// }
-//
-// void SM::_capture_iq_released(std::vector<Capture> &data, uint64_t captures,
-//                               uint64_t samples_per_capture, bool silent) const {
-//     py::gil_scoped_release release;
-//     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
-//
-//     LOG_INF("Starting data capture");
-//     progress.start();
-//     for (auto &[buf, timestamp, gps_info] : data) {
-//         smGetIQ(fd, buf, static_cast<int>(samples_per_capture), nullptr, 0,
-//                 timestamp, smFalse, nullptr, nullptr);
-//         smGetGPSInfo(fd, smFalse, nullptr, &gps_info->sec_since_epoch,
-//                      &gps_info->latitude, &gps_info->longitude,
-//                      &gps_info->altitude, nullptr, nullptr);
-//         progress.update();
-//     }
-//     progress.update();
-//     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
-// }
-//
-// void SM::_configure(double center, double bw) {
-//     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
-//
-//     LOG_INF("Configuring the SM device");
-//
-//     check_sm_status(SM_API_CALL_TRACE(smSetIQCenterFreq(fd, center)));
-//     check_sm_status(
-//         SM_API_CALL_TRACE(smSetIQSampleRate(fd, _configs.decimation)));
-//     check_sm_status(
-//         SM_API_CALL_TRACE(smSetIQBandwidth(fd, enable_sw_filter, bw)));
-//     check_sm_status(SM_API_CALL_TRACE(smSetIQDataType(fd, smDataType32fc)));
-//     _configure_gps();
-//
-//     check_sm_status(SM_API_CALL_TRACE(smConfigure(fd, smModeIQStreaming)));
-//     _acquire_gps_lock();
-// }
 //
 // void SM::_configure_gps() {
 //     if (_gps_configured) {

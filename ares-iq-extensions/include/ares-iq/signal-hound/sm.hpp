@@ -458,13 +458,14 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void _capture_iq_configure_released(double center, double bw);
-    py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
-                          bool silent);
-    void _capture_iq_released(std::vector<Capture> &data, uint64_t captures,
+    void capture_iq_configure_released(double center, double bw);
+    void capture_iq_configure(double center, double bw);
+    void capture_iq_internal_released(std::vector<Capture> &data, uint64_t captures,
                               uint64_t samples_per_capture, bool silent) const;
-
-    void _configure(double center, double bw);
+    void capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
+                              uint64_t samples_per_capture, bool silent) const;
+    py::tuple capture_iq_internal(double center, double bw, uint64_t capture_size,
+                          bool silent);
 
     void _configure_gps();
     void _acquire_gps_lock();
