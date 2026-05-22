@@ -279,7 +279,7 @@ py::dict SmSFPDiagnostics::as_dict() {
 }
 
 #define SM_API_CALL_TRACE(api_call_) api_call_, #api_call_
-#define SM_API_CALL(statement) check_sm_status(SM_API_CALL_TRACE(statement))
+#define SM_API_CALL(statement)       check_sm_status(SM_API_CALL_TRACE(statement))
 
 static void check_sm_status(SmStatus status, const std::string &caller) {
     if (status != smNoError) {
@@ -299,8 +299,10 @@ SM::~SM() {
     close_released();
 }
 
-py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size, bool silent, bool verbose) {
-    // Cannot release the lock here. The internal API needs to construct Python types
+py::tuple SM::capture_iq(double center, double bw, uint64_t capture_size,
+                         bool silent, bool verbose) {
+    // Cannot release the lock here. The internal API needs to construct Python
+    // types
     py::tuple ret;
     std::exception_ptr exception = nullptr;
 
@@ -363,7 +365,8 @@ void SM::close() {
 }
 
 py::dict SM::stream_iq_data(const StreamParameters &params) {
-    // Cannot release the lock here. The internal API needs to construct Python types
+    // Cannot release the lock here. The internal API needs to construct Python
+    // types
     py::dict ret;
     std::exception_ptr eptr = nullptr;
 
@@ -388,9 +391,7 @@ py::dict SM::stream_iq_data(const StreamParameters &params) {
     return ret;
 }
 
-SMConfigs SM::get_configs() const {
-    return _configs;
-}
+SMConfigs SM::get_configs() const { return _configs; }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
@@ -416,7 +417,8 @@ SmDiagnostics SM::diagnostic_info_released() const {
     return diagnostics;
 }
 
-bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) const {
+bool SM::gps_sync_released(const SmGPSState &target_state,
+                           int64_t timeout_s) const {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
@@ -449,7 +451,7 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) co
     return locked;
 }
 
-void SM::capture_iq_configure_released(double center, double bw) {
+void SM::capture_iq_configure_released(double center, double bw) const {
     if (!_open) {
         // todo: throw
     }
@@ -469,12 +471,14 @@ void SM::capture_iq_configure_released(double center, double bw) {
     // todo: acquire lock?
 }
 
-void SM::capture_iq_configure(double center, double bw) {
+void SM::capture_iq_configure(double center, double bw) const {
     py::gil_scoped_release release;
     capture_iq_configure_released(center, bw);
 }
 
-void SM::capture_iq_internal_released(std::vector<Capture> &data, uint64_t captures, uint64_t samples_per_capture,
+void SM::capture_iq_internal_released(std::vector<Capture> &data,
+                                      uint64_t captures,
+                                      uint64_t samples_per_capture,
                                       bool silent) const {
     CaptureProgress::Progress progress(captures, samples_per_capture, silent);
 
@@ -492,12 +496,14 @@ void SM::capture_iq_internal_released(std::vector<Capture> &data, uint64_t captu
     LOG_DBG("Data collection duration: %ld ms", progress.duration_ms());
 }
 
-void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures, uint64_t samples_per_capture, bool silent) const {
+void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
+                             uint64_t samples_per_capture, bool silent) const {
     py::gil_scoped_release release;
     capture_iq_internal_released(data, captures, samples_per_capture, silent);
 }
 
-py::tuple SM::capture_iq_internal(double center, double bw, uint64_t capture_size, bool silent) {
+py::tuple SM::capture_iq_internal(double center, double bw,
+                                  uint64_t capture_size, bool silent) const {
     capture_iq_configure(center, bw);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
@@ -566,7 +572,8 @@ SmSFPDiagnostics SM::network_diagnostic_info_released() const {
         throw std::runtime_error("Device must be a networked device");
     }
 
-    SM_API_CALL(smGetSFPDiagnostics(fd, &info.temp, &info.voltage, &info.txPower, &info.rxPower));
+    SM_API_CALL(smGetSFPDiagnostics(fd, &info.temp, &info.voltage,
+                                    &info.txPower, &info.rxPower));
 
     return info;
 }
@@ -698,9 +705,11 @@ void SM::close_released() {
 //     _acquire_gps_lock();
 //
 //     if (_configs.gps_timestamping) {
-//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smTrue)));
+//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd,
+//         smTrue)));
 //     } else {
-//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd, smFalse)));
+//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd,
+//         smFalse)));
 //     }
 //
 //     _gps_configured = true;
@@ -776,7 +785,8 @@ void SM::close_released() {
 //     auto end_time = std::chrono::steady_clock::now();
 //
 //     time_elapsed =
-//         std::chrono::duration_cast<std::chrono::seconds>(end_time - start_time)
+//         std::chrono::duration_cast<std::chrono::seconds>(end_time -
+//         start_time)
 //             .count();
 //
 //     if (!locked) {
@@ -820,7 +830,8 @@ void SM::close_released() {
 // static int open_fd(const char *file, bool direct) {
 //     if (direct) {
 //         return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
-//                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+//                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH |
+//                     S_IWOTH);
 //     }
 //     return open(file, O_WRONLY | O_CREAT | O_TRUNC,
 //                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
@@ -892,7 +903,8 @@ void SM::close_released() {
 //          (now() - start) < params.duration && !metadata.save_failed &&
 //          !memory_monitor.out_of_memory();
 //          chunk++) {
-//         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk) ||
+//         sample_loss = _capture_iq_data(captures_per_chunk, capture_q, chunk)
+//         ||
 //                       sample_loss;
 //         if (check_python_signals()) {
 //             LOG_INF("CTRL+C Received");
@@ -1010,10 +1022,9 @@ void SM::close_released() {
 // void SM::_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
 //     if (!buffer.empty()) {
 //         assert(iq_fd > 0);
-//         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
-//         buffer.resize(new_size);
-//         ssize_t err = write(iq_fd, buffer.data(), buffer.size());
-//         if (err < 0) {
+//         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) *
+//         PAGE_SIZE; buffer.resize(new_size); ssize_t err = write(iq_fd,
+//         buffer.data(), buffer.size()); if (err < 0) {
 //             LOG_ERR("write: %s", strerror(errno));
 //         } else {
 //             buffer.erase(buffer.begin(), buffer.begin() + err);

@@ -450,7 +450,8 @@ class SM {
 
     void close_released();
 
-    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) const;
+    bool gps_sync_released(const SmGPSState &target_state,
+                           int64_t timeout_s) const;
 
     struct Capture {
         complex_t *buf;
@@ -458,14 +459,16 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void capture_iq_configure_released(double center, double bw);
-    void capture_iq_configure(double center, double bw);
-    void capture_iq_internal_released(std::vector<Capture> &data, uint64_t captures,
-                              uint64_t samples_per_capture, bool silent) const;
+    void capture_iq_configure_released(double center, double bw) const;
+    void capture_iq_configure(double center, double bw) const;
+    void capture_iq_internal_released(std::vector<Capture> &data,
+                                      uint64_t captures,
+                                      uint64_t samples_per_capture,
+                                      bool silent) const;
     void capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
-                              uint64_t samples_per_capture, bool silent) const;
-    py::tuple capture_iq_internal(double center, double bw, uint64_t capture_size,
-                          bool silent);
+                             uint64_t samples_per_capture, bool silent) const;
+    py::tuple capture_iq_internal(double center, double bw,
+                                  uint64_t capture_size, bool silent) const;
 
     void _configure_gps();
     void _acquire_gps_lock();
