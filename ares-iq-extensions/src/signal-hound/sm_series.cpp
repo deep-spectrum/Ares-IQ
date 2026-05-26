@@ -25,6 +25,7 @@
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <source_location>
 #include <stdexcept>
 #include <thread>
 #include <vector>
@@ -1007,7 +1008,10 @@ void SM::stream_iq_data_to_disk(
             size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
             ssize_t bytes_written = write(iq_fd, buffer.data(), size);
             if (bytes_written < 0) {
-                LOG_ERR("write: %s", strerror(errno));
+                LOG_ERR("%s:%u write: %s",
+                        std::source_location::current().file_name(),
+                        std::source_location::current().line(),
+                        strerror(errno));
                 continue;
             }
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
@@ -1015,7 +1019,9 @@ void SM::stream_iq_data_to_disk(
 
         ssize_t written = write(ts_fd, &timestamp, sizeof(double));
         if (written < 0) {
-            LOG_ERR("write: %s", strerror(errno));
+            LOG_ERR("%s:%u write: %s",
+                    std::source_location::current().file_name(),
+                    std::source_location::current().line(), strerror(errno));
         }
 
         entries_written += 1;
@@ -1037,7 +1043,9 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
         buffer.resize(new_size);
         ssize_t err = write(iq_fd, buffer.data(), buffer.size());
         if (err < 0) {
-            LOG_ERR("write: %s", strerror(errno));
+            LOG_ERR("%s:%u write: %s",
+                    std::source_location::current().file_name(),
+                    std::source_location::current().line(), strerror(errno));
         } else {
             buffer.erase(buffer.begin(), buffer.begin() + err);
         }
