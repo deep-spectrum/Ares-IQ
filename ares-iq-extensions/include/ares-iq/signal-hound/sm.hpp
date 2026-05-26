@@ -293,6 +293,11 @@ struct SmGpsInfo {
      * zero.
      */
     double altitude = 0.0;
+
+    /**
+     * Flag indicating that the GPS data has been updated.
+     */
+    SmBool updated = smFalse;
 };
 
 /**
@@ -488,17 +493,25 @@ class SM {
         volatile bool signal_received = false;
     };
 
-    bool
-    _stream_iq_data_capture(uint64_t captures,
-                            ares::queue<std::unique_ptr<RawCapture>> &queue,
-                            int32_t chunk) const;
-    py::dict _stream_iq_data(const StreamParameters &params);
-    void _stream_iq_data(const StreamParameters &params,
-                         RecordingMetadata &metadata,
-                         ares::queue<std::unique_ptr<RawCapture>> &queue) const;
-    static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
-    static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
-                        int32_t chunk);
+    bool stream_iq_data_capture_released(
+        uint64_t captures, ares::queue<std::unique_ptr<RawCapture>> &queue,
+        int32_t chunk) const;
+    void stream_iq_data_capture_released(const StreamParameters &params,
+                                         uint64_t &captures_per_chunk,
+                                         RecordingMetadata &metadata, bool &oom,
+                                         bool &sample_loss) const;
+    void stream_iq_data_capture(const StreamParameters &params,
+                                uint64_t &captures_per_chunk,
+                                RecordingMetadata &metadata, bool &oom,
+                                bool &sample_loss) const;
+
+    py::dict stream_iq_data_internal(const StreamParameters &params);
+    void stream_iq_data_to_disk(
+        const StreamParameters &params, RecordingMetadata &metadata,
+        ares::queue<std::unique_ptr<RawCapture>> &queue) const;
+    static void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
+    static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
+                                 bool iq, int32_t chunk);
 };
 
 /**
