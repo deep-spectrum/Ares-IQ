@@ -227,6 +227,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
+
+    py::register_exception<SmException>(m, "SmException");
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
@@ -303,7 +305,7 @@ py::dict SmSFPDiagnostics::as_dict() {
 static void check_sm_status(SmStatus status, const std::string &caller) {
     if (status != smNoError) {
         LOG_ERR("%s failed", caller.c_str());
-        throw std::runtime_error(smGetErrorString(status));
+        throw SmException(smGetErrorString(status));
     }
 }
 
@@ -356,7 +358,7 @@ SmDiagnostics SM::diagnostic_info() const {
     return diagnostic_info_released();
 }
 
-bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
+bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) const {
     py::gil_scoped_release release;
     return gps_sync_released(target_state, timeout_s);
 }
@@ -416,7 +418,7 @@ std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
     if (!_open) {
-        // todo: throw not open error
+        throw SmException(SmException::NOT_OPEN);
     }
 
     SM_API_CALL(smGetFirmwareVersion(fd, &major, &minor, &revision));
@@ -428,7 +430,7 @@ SmDiagnostics SM::diagnostic_info_released() const {
     SmDiagnostics diagnostics;
 
     if (!_open) {
-        // todo: throw not open error
+        throw SmException(SmException::NOT_OPEN);
     }
 
     SM_API_CALL(smGetFullDeviceDiagnostics(fd, &diagnostics.diagnostics));
@@ -456,7 +458,7 @@ bool SM::gps_sync_released(const SmGPSState &target_state,
     }
 
     if (!_open) {
-        // todo: throw
+        throw SmException(SmException::NOT_OPEN);
     }
 
     auto start_time = std::chrono::steady_clock::now();
@@ -578,7 +580,7 @@ void SM::acquire_gps_lock_released() const {
 
 void SM::capture_iq_configure_released(double center, double bw) {
     if (!_open) {
-        // todo: throw
+        throw SmException(SmException::NOT_OPEN);
     }
 
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
@@ -622,7 +624,7 @@ void SM::capture_iq_internal_released(std::vector<Capture> &data,
 }
 
 void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
-                             uint64_t samples_per_capture, bool silent) {
+                             uint64_t samples_per_capture, bool silent) const {
     py::gil_scoped_release release;
     capture_iq_internal_released(data, captures, samples_per_capture, silent);
 }
@@ -676,7 +678,7 @@ double SM::network_speed_test_released(double duration) const {
     }
 
     if (!_open) {
-        // todo: throw not open error
+        throw SmException(SmException::NOT_OPEN);
     }
 
     LOG_INF("Conducting speed test for a duration of %lf seconds", duration);
@@ -690,7 +692,7 @@ SmSFPDiagnostics SM::network_diagnostic_info_released() const {
     SmSFPDiagnostics info{};
 
     if (_open) {
-        // todo: throw not open error
+        throw SmException(SmException::NOT_OPEN);
     }
 
     if (!is_networked()) {
@@ -924,7 +926,7 @@ void SM::stream_iq_data_capture(const StreamParameters &params,
 
 py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     if (!_open) {
-        // todo: throw error
+        throw SmException(SmException::NOT_OPEN);
     }
 
     capture_iq_configure(params.center_frequency, params.bandwidth);
@@ -1056,6 +1058,23 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
     }
     return new_fd;
 }
+
+SmException::SmException(SmExceptionType type) : _type(type) {
+    switch (type) {
+    case NOT_OPEN: {
+        _msg = "Not open";
+        break;
+    }
+    default: {
+        _msg = "Unknown";
+        break;
+    }
+    }
+}
+
+SmException::SmException(const char *msg) : _msg(msg), _type(UNKNOWN) {}
+
+const char *SmException::what() const noexcept { return _msg.c_str(); }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);

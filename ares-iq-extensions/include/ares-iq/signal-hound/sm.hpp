@@ -14,6 +14,7 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
 
@@ -388,7 +389,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
+    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s) const;
 
     /**
      * Run a network speed test.
@@ -475,7 +476,7 @@ class SM {
                                       uint64_t samples_per_capture,
                                       bool silent) const;
     void capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
-                             uint64_t samples_per_capture, bool silent);
+                             uint64_t samples_per_capture, bool silent) const;
     py::tuple capture_iq_internal(double center, double bw,
                                   uint64_t capture_size, bool silent);
 
@@ -512,6 +513,24 @@ class SM {
     static void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk);
+};
+
+class SmException : std::exception {
+  public:
+    enum SmExceptionType {
+        NOT_OPEN,
+
+        UNKNOWN,
+    };
+
+    explicit SmException(SmExceptionType type);
+    explicit SmException(const char *msg);
+
+    const char *what() const noexcept override;
+
+  private:
+    SmExceptionType _type;
+    std::string _msg;
 };
 
 /**
