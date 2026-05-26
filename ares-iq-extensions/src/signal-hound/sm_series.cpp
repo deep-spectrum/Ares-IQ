@@ -865,6 +865,7 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
     LOG_DBG("Queue size limit: %lu bytes", params.max_buffer_size);
+    LOG_DBG("Stream duration: %ld s", std::chrono::duration_cast<std::chrono::seconds>(params.duration));
 
     ares::queue<std::unique_ptr<RawCapture>> capture_q;
     std::thread consumer([this, &params, &metadata, &capture_q]() {
