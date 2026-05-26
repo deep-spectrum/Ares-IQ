@@ -1,7 +1,7 @@
 from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfigs, _SmDevice, _SM, get_device_list, \
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
-    sm_api_version
+    sm_api_version, _SmException
 from ares_iq_ext import _StreamParameters
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
@@ -155,6 +155,11 @@ class SmGpsInfo:
     altitude: float
 
 
+class SmException(Exception):
+    def __init__(self, *args):
+        super().__init__(*args)
+
+
 class SM(ABC):
     """Base class for SM platforms"""
 
@@ -180,7 +185,10 @@ class SM(ABC):
                                   host=configs.host,
                                   device_addr=configs.device_addr,
                                   port=configs.port)
-        self._dev = _SM(configs_)
+        try:
+            self._dev = _SM(configs_)
+        except _SmException as e:
+            raise SmException(e)
         self._gps_stamping = configs_.gps_timestamping
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
@@ -201,7 +209,10 @@ class SM(ABC):
         Notes:
             This will automatically open a connection if there is no open connection.
         """
-        iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
+        try:
+            iq_data, timestamps, gps_info = self._dev.capture_iq(center, bw, capture_size, silent, verbose)
+        except _SmException as e:
+            raise SmException(e)
 
         iq_data_ = [IQData() for _ in timestamps]
         for data, ts, gps, iq in zip(iq_data, timestamps, gps_info, iq_data_):
@@ -245,7 +256,10 @@ class SM(ABC):
         Notes:
             This will automatically open a connection if there is no open connection.
         """
-        locked = self._dev.gps_sync(target_lock_state.value, timeout)
+        try:
+            locked = self._dev.gps_sync(target_lock_state.value, timeout)
+        except _SmException as e:
+            raise SmException(e)
         if not locked:
             raise TimeoutError("Unable to acquire GPS lock")
 
@@ -253,13 +267,19 @@ class SM(ABC):
         """
         Open a connection to the SM device, if one is not already open.
         """
-        self._dev.open()
+        try:
+            self._dev.open()
+        except _SmException as e:
+            raise SmException(e)
 
     def close(self):
         """
         Close a connection to the SM device, if one is open.
         """
-        self._dev.close()
+        try:
+            self._dev.close()
+        except _SmException as e:
+            raise SmException(e)
 
     def __enter__(self):
         self.open()
@@ -341,7 +361,10 @@ class SM(ABC):
             max_buffer_size=_ram_usage_limit
         )
 
-        meta = self._dev.stream_iq(params)
+        try:
+            meta = self._dev.stream_iq(params)
+        except _SmException as e:
+            raise SmException(e)
         meta["parameters"] = params.as_dict()
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
@@ -376,10 +399,16 @@ class NetworkedSM(SM, ABC):
         Returns:
             The amount of bytes/second recorded by the speed test.
         """
-        return self._dev.network_speed_test(duration)
+        try:
+            return self._dev.network_speed_test(duration)
+        except _SmException as e:
+            raise SmException(e)
 
     def sfp_diagnostics(self) -> SmSFPDiagnostics:
-        data = self._dev.network_diagnostic_info()
+        try:
+            data = self._dev.network_diagnostic_info()
+        except _SmException as e:
+            raise SmException(e)
         return SmSFPDiagnostics(data.temp, data.voltage, data.tx_power, data.rx_power)
 
 

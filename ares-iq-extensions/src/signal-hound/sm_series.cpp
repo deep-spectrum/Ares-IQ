@@ -228,7 +228,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
 
-    py::register_exception<SmException>(m, "SmException");
+    py::register_exception<SmException>(m, "_SmException");
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
