@@ -34,6 +34,24 @@ using namespace std::chrono_literals;
 
 LOG_MODULE_REGISTER(sm_logger);
 
+extern "C" {
+#include <sys/stat.h>
+#include <unistd.h>
+
+static int open_fd(const char *file, bool direct) {
+    if (direct) {
+        return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
+                    S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+    }
+    return open(file, O_WRONLY | O_CREAT | O_TRUNC,
+                S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
+}
+
+static int close_fd(int fd) { return close(fd); }
+}
+
+static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     py::native_enum<SmDeviceType>(m, "SmDeviceType", "enum.IntEnum")
         .value("SM200A", smDeviceTypeSM200A)
@@ -442,7 +460,8 @@ bool SM::gps_sync_released(const SmGPSState &target_state,
 
     auto start_time = std::chrono::steady_clock::now();
     do {
-        locked = _acquire_gps_lock(target_state);
+        locked = acquire_gps_lock_target_state_released(target_state);
+        std::this_thread::sleep_for(1s);
         time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
                            std::chrono::steady_clock::now() - start_time)
                            .count();
@@ -451,7 +470,112 @@ bool SM::gps_sync_released(const SmGPSState &target_state,
     return locked;
 }
 
-void SM::capture_iq_configure_released(double center, double bw) const {
+void SM::gps_configure_released() {
+    if (_gps_configured) {
+        return;
+    }
+
+    acquire_gps_lock_released();
+
+    SmBool enabled = (_configs.gps_timestamping) ? smTrue : smFalse;
+    LOG_DBG("GPS Timestamping: %s", (enabled == smTrue) ? "On" : "Off");
+    SM_API_CALL(smSetGPSTimebaseUpdate(fd, enabled));
+
+    _gps_configured = true;
+}
+
+void SM::log_gps_state(SmGPSState state) {
+    static SmGPSState prev_state = smGPSStateNotPresent;
+    static int count = 0;
+
+    if (state == prev_state && count != 0) {
+        count = (count + 1) % 10;
+        return;
+    }
+
+    switch (state) {
+    case smGPSStateNotPresent:
+        LOG_DBG("Current GPS state: Not Present");
+        break;
+    case smGPSStateLocked:
+        LOG_DBG("Current GPS state: Locked");
+        break;
+    case smGPSStateDisciplined:
+        LOG_DBG("Current GPS state: Disciplined");
+        break;
+    default:
+        LOG_ERR("Invalid GPS state");
+        break;
+    }
+
+    prev_state = state;
+    count++;
+}
+
+bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) const {
+    SmGPSState state;
+
+    SM_API_CALL(smGetGPSState(fd, &state));
+    log_gps_state(state);
+
+    if (check_python_signals()) {
+        LOG_INF("Python exception raised");
+        throw py::error_already_set();
+    }
+
+    return state >= target_state;
+}
+
+void SM::acquire_gps_lock_released() const {
+    bool locked;
+    long time_elapsed;
+    int64_t timeout_s = _configs.gps_lock_timeout;
+
+    if (!_configs.gps_timestamping) {
+        return;
+    }
+
+    LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
+
+    auto now = std::chrono::steady_clock::now;
+    auto start_init = now();
+    locked = gps_sync_released(smGPSStateLocked, timeout_s);
+    auto stop = now();
+
+    if (!locked) {
+        LOG_ERR("GPS lock timed out");
+        throw std::runtime_error("Unable to acquire a GPS lock");
+    }
+
+    time_elapsed =
+        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init)
+            .count();
+    LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
+
+    log_mode();
+
+    LOG_INF("GPS lock acquired. Setting platform model.");
+    SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
+
+    auto start = now();
+    locked = gps_sync_released(smGPSStateLocked, timeout_s);
+    stop = now();
+
+    if (!locked) {
+        LOG_ERR("GPS lock timed out");
+        throw std::runtime_error("Unable to GPS discipline the oscillator");
+    }
+
+    time_elapsed =
+        std::chrono::duration_cast<std::chrono::seconds>(stop - start).count();
+    LOG_DBG("Time elapsed to discipline the oscillator: %ld s", time_elapsed);
+
+    LOG_INF(
+        "Successfully acquired a GPS lock! Time taken: %d seconds",
+        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init));
+}
+
+void SM::capture_iq_configure_released(double center, double bw) {
     if (!_open) {
         // todo: throw
     }
@@ -464,14 +588,14 @@ void SM::capture_iq_configure_released(double center, double bw) const {
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
-    // todo: gps
+    gps_configure_released();
 
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
 
     // todo: acquire lock?
 }
 
-void SM::capture_iq_configure(double center, double bw) const {
+void SM::capture_iq_configure(double center, double bw) {
     py::gil_scoped_release release;
     capture_iq_configure_released(center, bw);
 }
@@ -497,13 +621,13 @@ void SM::capture_iq_internal_released(std::vector<Capture> &data,
 }
 
 void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
-                             uint64_t samples_per_capture, bool silent) const {
+                             uint64_t samples_per_capture, bool silent) {
     py::gil_scoped_release release;
     capture_iq_internal_released(data, captures, samples_per_capture, silent);
 }
 
 py::tuple SM::capture_iq_internal(double center, double bw,
-                                  uint64_t capture_size, bool silent) const {
+                                  uint64_t capture_size, bool silent) {
     capture_iq_configure(center, bw);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
@@ -696,151 +820,6 @@ void SM::close_released() {
     }
 }
 
-//
-// void SM::_configure_gps() {
-//     if (_gps_configured) {
-//         return;
-//     }
-//
-//     _acquire_gps_lock();
-//
-//     if (_configs.gps_timestamping) {
-//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd,
-//         smTrue)));
-//     } else {
-//         check_sm_status(SM_API_CALL_TRACE(smSetGPSTimebaseUpdate(fd,
-//         smFalse)));
-//     }
-//
-//     _gps_configured = true;
-// }
-//
-// static void log_gps_state(SmGPSState state) {
-//     static SmGPSState prev_state = smGPSStateNotPresent;
-//     static int count = 0;
-//
-//     if (state == prev_state && count != 0) {
-//         count = (count + 1) % 10;
-//         return;
-//     }
-//
-//     switch (state) {
-//     case smGPSStateNotPresent:
-//         LOG_DBG("Current GPS state: Not Present");
-//         break;
-//     case smGPSStateLocked:
-//         LOG_DBG("Current GPS state: Locked");
-//         break;
-//     case smGPSStateDisciplined:
-//         LOG_DBG("Current GPS state: Disciplined");
-//         break;
-//     default:
-//         LOG_ERR("Invalid GPS state");
-//         break;
-//     }
-//
-//     prev_state = state;
-//     count++;
-// }
-//
-// bool SM::_acquire_gps_lock(SmGPSState target_state) const {
-//     SmGPSState state;
-//     bool locked;
-//     SmStatus status;
-//
-//     status = smGetGPSState(fd, &state);
-//     log_gps_state(state);
-//
-//     if (check_python_signals()) {
-//         LOG_INF("Python exception raised");
-//         throw py::error_already_set();
-//     }
-//
-//     if (status != smNoError) {
-//         throw std::runtime_error(smGetErrorString(status));
-//     }
-//
-//     locked = state >= target_state;
-//
-//     if (!locked) {
-//         std::this_thread::sleep_for(std::chrono::seconds(1));
-//     }
-//
-//     return locked;
-// }
-//
-// void SM::_acquire_gps_lock() {
-//     bool locked;
-//     long time_elapsed;
-//     int64_t timeout_s = _configs.gps_lock_timeout;
-//
-//     if (!_configs.gps_timestamping) {
-//         return;
-//     }
-//
-//     LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
-//
-//     auto start_time = std::chrono::steady_clock::now();
-//     locked = _gps_sync(smGPSStateLocked, _configs.gps_lock_timeout);
-//     auto end_time = std::chrono::steady_clock::now();
-//
-//     time_elapsed =
-//         std::chrono::duration_cast<std::chrono::seconds>(end_time -
-//         start_time)
-//             .count();
-//
-//     if (!locked) {
-//         LOG_ERR("GPS lock timed out");
-//         throw std::runtime_error("Unable to acquire a GPS lock");
-//     }
-//
-//     LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
-//
-//     _log_mode();
-//
-//     LOG_INF("GPS lock acquired. Setting platform model.");
-//     check_sm_status(
-//         SM_API_CALL_TRACE(smSetGPSPlatformModel(fd, _configs.gps_model)));
-//
-//     timeout_s = (_configs.gps_lock_timeout != 0) ? (timeout_s - time_elapsed)
-//                                                  : INT64_C(0);
-//     locked = _gps_sync(smGPSStateDisciplined, timeout_s);
-//
-//     LOG_DBG("Time elapsed to discipline the oscillator: %ld s",
-//             std::chrono::duration_cast<std::chrono::seconds>(
-//                 std::chrono::steady_clock::now() - start_time)
-//                 .count());
-//
-//     if (!locked) {
-//         LOG_ERR("GPS lock timed out");
-//         throw std::runtime_error("Unable to acquire a GPS lock");
-//     }
-//
-//     end_time = std::chrono::steady_clock::now();
-//
-//     LOG_INF("Successfully acquired a GPS lock! Time taken: %d seconds",
-//             std::chrono::duration_cast<std::chrono::seconds>(end_time -
-//                                                              start_time));
-// }
-//
-// extern "C" {
-// #include <sys/stat.h>
-// #include <unistd.h>
-//
-// static int open_fd(const char *file, bool direct) {
-//     if (direct) {
-//         return open(file, O_WRONLY | O_CREAT | O_TRUNC | O_DIRECT,
-//                     S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH |
-//                     S_IWOTH);
-//     }
-//     return open(file, O_WRONLY | O_CREAT | O_TRUNC,
-//                 S_IRUSR | S_IWUSR | S_IRGRP | S_IWGRP | S_IROTH | S_IWOTH);
-// }
-//
-// static int close_fd(int fd) { return close(fd); }
-// }
-//
-// static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 //
 // bool SM::_capture_iq_data(uint64_t captures,
 //                           ares::queue<std::unique_ptr<RawCapture>> &queue,

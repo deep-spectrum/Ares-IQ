@@ -452,6 +452,10 @@ class SM {
 
     bool gps_sync_released(const SmGPSState &target_state,
                            int64_t timeout_s) const;
+    void gps_configure_released();
+    static void log_gps_state(SmGPSState state);
+    bool acquire_gps_lock_target_state_released(SmGPSState target_state) const;
+    void acquire_gps_lock_released() const;
 
     struct Capture {
         complex_t *buf;
@@ -459,20 +463,16 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void capture_iq_configure_released(double center, double bw) const;
-    void capture_iq_configure(double center, double bw) const;
+    void capture_iq_configure_released(double center, double bw);
+    void capture_iq_configure(double center, double bw);
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,
                                       bool silent) const;
     void capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
-                             uint64_t samples_per_capture, bool silent) const;
+                             uint64_t samples_per_capture, bool silent);
     py::tuple capture_iq_internal(double center, double bw,
-                                  uint64_t capture_size, bool silent) const;
-
-    void _configure_gps();
-    void _acquire_gps_lock();
-    bool _acquire_gps_lock(SmGPSState target_state) const;
+                                  uint64_t capture_size, bool silent);
 
     struct RawCapture {
         std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
@@ -488,9 +488,10 @@ class SM {
         volatile bool signal_received = false;
     };
 
-    bool _capture_iq_data(uint64_t captures,
-                          ares::queue<std::unique_ptr<RawCapture>> &queue,
-                          int32_t chunk) const;
+    bool
+    _stream_iq_data_capture(uint64_t captures,
+                            ares::queue<std::unique_ptr<RawCapture>> &queue,
+                            int32_t chunk) const;
     py::dict _stream_iq_data(const StreamParameters &params);
     void _stream_iq_data(const StreamParameters &params,
                          RecordingMetadata &metadata,
