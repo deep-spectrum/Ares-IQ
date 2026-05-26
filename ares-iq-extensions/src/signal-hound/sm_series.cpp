@@ -691,7 +691,7 @@ double SM::network_speed_test_released(double duration) const {
 SmSFPDiagnostics SM::network_diagnostic_info_released() const {
     SmSFPDiagnostics info{};
 
-    if (_open) {
+    if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
 
@@ -865,7 +865,8 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 
     LOG_DBG("Page size: %u", PAGE_SIZE);
     LOG_DBG("Queue size limit: %lu bytes", params.max_buffer_size);
-    LOG_DBG("Stream duration: %ld s", std::chrono::duration_cast<std::chrono::seconds>(params.duration));
+    LOG_DBG("Stream duration: %ld s",
+            std::chrono::duration_cast<std::chrono::seconds>(params.duration));
 
     ares::queue<std::unique_ptr<RawCapture>> capture_q;
     std::thread consumer([this, &params, &metadata, &capture_q]() {
@@ -880,8 +881,9 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
     memory_monitor.start();
     auto start = now();
     for (int32_t chunk = 0;
-         std::chrono::duration_cast<std::chrono::milliseconds>(now() - start) < params.duration && !metadata.save_failed &&
-         memory_monitor.out_of_memory();
+         std::chrono::duration_cast<std::chrono::milliseconds>(now() - start) <
+             params.duration &&
+         !metadata.save_failed && !memory_monitor.out_of_memory();
          chunk++) {
         sample_loss = stream_iq_data_capture_released(captures_per_chunk,
                                                       capture_q, chunk) ||
@@ -900,7 +902,10 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
             break;
         }
     }
-    LOG_DBG("Loop Conditions: (Duration: %d), (Save_failed: %d), (OOM: %d)", std::chrono::duration_cast<std::chrono::milliseconds>(now() - start) < params.duration, !metadata.save_failed, memory_monitor.out_of_memory());
+    LOG_DBG("Loop Conditions: (Duration: %d), (Save_failed: %d), (OOM: %d)",
+            std::chrono::duration_cast<std::chrono::milliseconds>(
+                now() - start) < params.duration,
+            !metadata.save_failed, !memory_monitor.out_of_memory());
 
     memory_monitor.stop(true);
 
