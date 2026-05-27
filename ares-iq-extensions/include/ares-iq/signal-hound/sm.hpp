@@ -495,23 +495,29 @@ class SM {
         volatile bool signal_received = false;
     };
 
+    struct StreamDiagnostics {
+        size_t padding_written = 0;
+        size_t data_bytes_written = 0;
+    };
+    StreamDiagnostics _stream_diagnostics;
+
     bool stream_iq_data_capture_released(
         uint64_t captures, ares::queue<std::unique_ptr<RawCapture>> &queue,
         int32_t chunk) const;
     void stream_iq_data_capture_released(const StreamParameters &params,
                                          uint64_t &captures_per_chunk,
                                          RecordingMetadata &metadata, bool &oom,
-                                         bool &sample_loss) const;
+                                         bool &sample_loss);
     void stream_iq_data_capture(const StreamParameters &params,
                                 uint64_t &captures_per_chunk,
                                 RecordingMetadata &metadata, bool &oom,
-                                bool &sample_loss) const;
+                                bool &sample_loss);
 
     py::dict stream_iq_data_internal(const StreamParameters &params);
     void stream_iq_data_to_disk(
         const StreamParameters &params, RecordingMetadata &metadata,
-        ares::queue<std::unique_ptr<RawCapture>> &queue) const;
-    static void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer);
+        ares::queue<std::unique_ptr<RawCapture>> &queue);
+    void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk);
 };

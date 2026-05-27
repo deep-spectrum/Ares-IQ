@@ -831,7 +831,6 @@ bool SM::stream_iq_data_capture_released(
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
-    SmBool purge = chunk == 0 ? smTrue : smFalse;
 
     for (size_t i = 0; i < captures; i++) {
         auto capture = std::make_unique<RawCapture>();
@@ -839,7 +838,7 @@ bool SM::stream_iq_data_capture_released(
 
         (void)smGetIQ(fd, capture->buf.data(),
                       static_cast<int>(samples_per_capture), nullptr, 0,
-                      &capture->timestamp, purge, &sample_loss, nullptr);
+                      &capture->timestamp, smFalse, &sample_loss, nullptr);
         (void)smGetGPSInfo(fd, smFalse, &capture->gps_info.updated,
                            &capture->gps_info.sec_since_epoch,
                            &capture->gps_info.latitude,
@@ -859,7 +858,7 @@ bool SM::stream_iq_data_capture_released(
 void SM::stream_iq_data_capture_released(const StreamParameters &params,
                                          uint64_t &captures_per_chunk,
                                          RecordingMetadata &metadata, bool &oom,
-                                         bool &sample_loss) const {
+                                         bool &sample_loss) {
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
@@ -928,7 +927,7 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 void SM::stream_iq_data_capture(const StreamParameters &params,
                                 uint64_t &captures_per_chunk,
                                 RecordingMetadata &metadata, bool &oom,
-                                bool &sample_loss) const {
+                                bool &sample_loss) {
     py::gil_scoped_release release;
     stream_iq_data_capture_released(params, captures_per_chunk, metadata, oom,
                                     sample_loss);
@@ -964,7 +963,7 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
 
 void SM::stream_iq_data_to_disk(
     const StreamParameters &params, RecordingMetadata &metadata,
-    ares::queue<std::unique_ptr<RawCapture>> &queue) const {
+    ares::queue<std::unique_ptr<RawCapture>> &queue) {
     uint64_t entries_written = 0;
     int32_t current_chunk = -1;
     std::vector<uint8_t, PageAllocator<uint8_t>> buffer;
@@ -1016,6 +1015,7 @@ void SM::stream_iq_data_to_disk(
                         strerror(errno));
                 continue;
             }
+            _stream_diagnostics.data_bytes_written += bytes_written;
             buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
         }
 
@@ -1036,12 +1036,16 @@ void SM::stream_iq_data_to_disk(
 
     metadata.total_captures = entries_written;
     metadata.write_duration = stop - start;
+
+    double speed = (static_cast<double>(_stream_diagnostics.data_bytes_written) / static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(metadata.write_duration).count())) / 1e6;
+    LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
 void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer) {
     if (!buffer.empty()) {
         assert(iq_fd > 0);
-        size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
+        size_t old_size = buffer.size();
+        size_t new_size = (((old_size - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
         ssize_t err = write(iq_fd, buffer.data(), buffer.size());
         if (err < 0) {
@@ -1050,6 +1054,8 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uin
                     std::source_location::current().line(), strerror(errno));
         } else {
             buffer.erase(buffer.begin(), buffer.begin() + err);
+            _stream_diagnostics.data_bytes_written += old_size;
+            _stream_diagnostics.padding_written += (err - old_size);
         }
     }
 }
