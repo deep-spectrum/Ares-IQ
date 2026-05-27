@@ -831,6 +831,7 @@ bool SM::stream_iq_data_capture_released(
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
+    SmBool purge = chunk == 0 ? smTrue : smFalse;
 
     for (size_t i = 0; i < captures; i++) {
         auto capture = std::make_unique<RawCapture>();
@@ -838,7 +839,7 @@ bool SM::stream_iq_data_capture_released(
 
         (void)smGetIQ(fd, capture->buf.data(),
                       static_cast<int>(samples_per_capture), nullptr, 0,
-                      &capture->timestamp, smFalse, &sample_loss, nullptr);
+                      &capture->timestamp, purge, &sample_loss, nullptr);
         (void)smGetGPSInfo(fd, smFalse, &capture->gps_info.updated,
                            &capture->gps_info.sec_since_epoch,
                            &capture->gps_info.latitude,
