@@ -56,7 +56,7 @@ python_module(_core src/core.cpp
 )
 python_module(_sh_sm_series src/signal-hound/sm_series.cpp
 		DESTINATION ${PACKAGE_NAME}/signal_hound
-		DEPENDENCIES capture_progress logging ares_data_structures
-		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures
+		DEPENDENCIES capture_progress logging ares_data_structures ares_allocators
+		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures ares_allocators
 		INSTALL_LIBS ${SM_API_LIBS}
 )

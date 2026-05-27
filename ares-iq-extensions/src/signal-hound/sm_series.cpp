@@ -29,6 +29,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <ares/allocators/page_allocator.hpp>
 
 namespace py = pybind11;
 using namespace std::chrono_literals;
@@ -51,7 +52,7 @@ static int open_fd(const char *file, bool direct) {
 static int close_fd(int fd) { return close(fd); }
 }
 
-static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+//static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 constexpr double ns_per_sec = 1e9;
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
@@ -965,7 +966,7 @@ void SM::stream_iq_data_to_disk(
     ares::queue<std::unique_ptr<RawCapture>> &queue) const {
     uint64_t entries_written = 0;
     int32_t current_chunk = -1;
-    std::vector<uint8_t> buffer;
+    std::vector<uint8_t, PageAllocator<uint8_t>> buffer;
     int iq_fd = -1, ts_fd = -1;
 
     ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0);
@@ -1036,7 +1037,7 @@ void SM::stream_iq_data_to_disk(
     metadata.write_duration = stop - start;
 }
 
-void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
+void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer) {
     if (!buffer.empty()) {
         assert(iq_fd > 0);
         size_t new_size = (((buffer.size() - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
