@@ -21,6 +21,7 @@
 #include <fcntl.h>
 #include <pybind11/chrono.h>
 // ReSharper disable once CppUnusedIncludeDirective
+#include <ares/allocators/page_allocator.hpp>
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
@@ -29,7 +30,6 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <ares/allocators/page_allocator.hpp>
 
 namespace py = pybind11;
 using namespace std::chrono_literals;
@@ -52,7 +52,7 @@ static int open_fd(const char *file, bool direct) {
 static int close_fd(int fd) { return close(fd); }
 }
 
-//static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
+// static const size_t PAGE_SIZE = sysconf(_SC_PAGESIZE);
 constexpr double ns_per_sec = 1e9;
 
 PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
@@ -879,13 +879,13 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
         params.max_buffer_size, params.silent);
 
+    int64_t chunk;
     auto now = std::chrono::steady_clock::now;
     memory_monitor.start();
     auto start = now();
-    for (int32_t chunk = 0;
-         std::chrono::duration_cast<std::chrono::milliseconds>(now() - start) <
-             params.duration &&
-         !metadata.save_failed && !memory_monitor.out_of_memory();
+    for (chunk = 0; std::chrono::duration_cast<std::chrono::milliseconds>(
+                        now() - start) < params.duration &&
+                    !metadata.save_failed && !memory_monitor.out_of_memory();
          chunk++) {
         sample_loss = stream_iq_data_capture_released(captures_per_chunk,
                                                       capture_q, chunk) ||
@@ -904,14 +904,21 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
             break;
         }
     }
-    LOG_DBG("Loop Conditions: (Duration: %d), (Save_failed: %d), (OOM: %d)",
-            std::chrono::duration_cast<std::chrono::milliseconds>(
-                now() - start) < params.duration,
-            !metadata.save_failed, !memory_monitor.out_of_memory());
+
+    auto duration = now() - start;
+    uint64_t total_bytes_collected =
+        bytes_per_capture * captures_per_chunk * chunk;
+    double duration_sec = std::chrono::duration<double>(duration).count();
+    double bytes_per_second =
+        ((static_cast<double>(total_bytes_collected) / duration_sec) / 1024.) /
+        1e3;
+    LOG_INF("Data collected");
+    LOG_INF("%lu bytes captured in %f seconds", total_bytes_collected,
+            duration_sec);
+    LOG_INF("Capture speed: %f MB/s", bytes_per_second);
 
     memory_monitor.stop(true);
 
-    LOG_INF("Data collected");
     capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
     consumer.join();
 
@@ -1037,11 +1044,17 @@ void SM::stream_iq_data_to_disk(
     metadata.total_captures = entries_written;
     metadata.write_duration = stop - start;
 
-    double speed = (static_cast<double>(_stream_diagnostics.data_bytes_written) / static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(metadata.write_duration).count())) / 1e6;
+    double speed =
+        (static_cast<double>(_stream_diagnostics.data_bytes_written) /
+         static_cast<double>(std::chrono::duration_cast<std::chrono::seconds>(
+                                 metadata.write_duration)
+                                 .count())) /
+        1e6;
     LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
-void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer) {
+void SM::stream_iq_flush_chunk(
+    int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer) {
     if (!buffer.empty()) {
         assert(iq_fd > 0);
         size_t old_size = buffer.size();
