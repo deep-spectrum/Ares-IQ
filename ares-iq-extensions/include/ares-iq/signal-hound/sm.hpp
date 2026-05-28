@@ -14,8 +14,8 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <ares/allocators/page_allocator.hpp>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
 
