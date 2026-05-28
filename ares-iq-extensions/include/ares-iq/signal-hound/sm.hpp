@@ -390,7 +390,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s) const;
+    bool gps_sync(const SmGPSState &target_state, int64_t timeout_s);
 
     /**
      * Run a network speed test.
@@ -441,6 +441,7 @@ class SM {
     SMConfigs _configs;
     bool _open = false;
     bool _gps_configured = false;
+    std::exception_ptr py_exception = nullptr;
 
     std::tuple<int, int, int> firmware_version_released() const;
     SmDiagnostics diagnostic_info_released() const;
@@ -448,7 +449,7 @@ class SM {
     SmSFPDiagnostics network_diagnostic_info_released() const;
 
     void log_mode() const;
-    static bool check_python_signals();
+    bool check_python_signals();
     bool is_networked() const;
 
     SmStatus open_networked_device_released();
@@ -457,12 +458,11 @@ class SM {
 
     void close_released();
 
-    bool gps_sync_released(const SmGPSState &target_state,
-                           int64_t timeout_s) const;
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
     void gps_configure_released();
     static void log_gps_state(SmGPSState state);
-    bool acquire_gps_lock_target_state_released(SmGPSState target_state) const;
-    void acquire_gps_lock_released() const;
+    bool acquire_gps_lock_target_state_released(SmGPSState target_state);
+    void acquire_gps_lock_released();
 
     struct Capture {
         complex_t *buf;

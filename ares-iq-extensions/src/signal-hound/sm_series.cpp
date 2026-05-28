@@ -11,6 +11,7 @@
 
 #include <ares-iq/signal-hound/sm.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares/allocators/page_allocator.hpp>
 #include <ares/logging/log.hpp>
 #include <ares/pyutil.hpp>
 #include <capture-progress/monitor.hpp>
@@ -21,7 +22,6 @@
 #include <fcntl.h>
 #include <pybind11/chrono.h>
 // ReSharper disable once CppUnusedIncludeDirective
-#include <ares/allocators/page_allocator.hpp>
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
@@ -360,7 +360,7 @@ SmDiagnostics SM::diagnostic_info() const {
     return diagnostic_info_released();
 }
 
-bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) const {
+bool SM::gps_sync(const SmGPSState &target_state, int64_t timeout_s) {
     py::gil_scoped_release release;
     return gps_sync_released(target_state, timeout_s);
 }
@@ -440,8 +440,7 @@ SmDiagnostics SM::diagnostic_info_released() const {
     return diagnostics;
 }
 
-bool SM::gps_sync_released(const SmGPSState &target_state,
-                           int64_t timeout_s) const {
+bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
@@ -517,7 +516,7 @@ void SM::log_gps_state(SmGPSState state) {
     count++;
 }
 
-bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) const {
+bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) {
     SmGPSState state;
 
     SM_API_CALL(smGetGPSState(fd, &state));
@@ -525,13 +524,13 @@ bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) const {
 
     if (check_python_signals()) {
         LOG_INF("Python exception raised");
-        throw py::error_already_set();
+        std::rethrow_exception(py_exception);
     }
 
     return state >= target_state;
 }
 
-void SM::acquire_gps_lock_released() const {
+void SM::acquire_gps_lock_released() {
     bool locked;
     long time_elapsed;
     int64_t timeout_s = _configs.gps_lock_timeout;
@@ -741,7 +740,14 @@ void SM::log_mode() const {
 
 bool SM::check_python_signals() {
     py::gil_scoped_acquire acquire;
-    return PyErr_CheckSignals() != 0;
+    bool ret = false;
+
+    if (PyErr_CheckSignals() != 0) {
+        py_exception = std::make_exception_ptr(py::error_already_set());
+        ret = true;
+    }
+
+    return ret;
 }
 
 bool SM::is_networked() const {
@@ -897,7 +903,7 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
             capture_q.clear();
             capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
             consumer.join();
-            throw py::error_already_set();
+            std::rethrow_exception(py_exception);
         }
         if (params.stop_on_sample_loss && sample_loss) {
             LOG_ERR("Stopping prematurely due to sample loss");
