@@ -14,6 +14,8 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
+#include <ares/allocators/page_allocator.hpp>
+// ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
 
@@ -293,6 +295,11 @@ struct SmGpsInfo {
      * zero.
      */
     double altitude = 0.0;
+
+    /**
+     * Flag indicating that the GPS data has been updated.
+     */
+    SmBool updated = smFalse;
 };
 
 /**
@@ -363,7 +370,7 @@ class SM {
      * @return A tuple representing the major, minor, and revision number of the
      * firmware version.
      */
-    py::tuple firmware_version();
+    std::tuple<int, int, int> firmware_version() const;
 
     /**
      * Retrieve diagnostic information from the Sm device. This requires the
@@ -394,7 +401,7 @@ class SM {
      * @note If a connection to the device is not already open, then
      * this will open the device.
      */
-    double network_speed_test(double duration);
+    double network_speed_test(double duration) const;
 
     /**
      * Retrieve the diagnostic information for the SFP+ port.
@@ -430,34 +437,49 @@ class SM {
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
+    int fd = -1;
+    SMConfigs _configs;
+    bool _open = false;
+    bool _gps_configured = false;
+    std::exception_ptr py_exception = nullptr;
+
+    std::tuple<int, int, int> firmware_version_released() const;
+    SmDiagnostics diagnostic_info_released() const;
+    double network_speed_test_released(double duration) const;
+    SmSFPDiagnostics network_diagnostic_info_released() const;
+
+    void log_mode() const;
+    bool check_python_signals();
+    bool is_networked() const;
+
+    SmStatus open_networked_device_released();
+    SmStatus open_serial_device_released();
+    void open_released();
+
+    void close_released();
+
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
+    void gps_configure_released();
+    static void log_gps_state(SmGPSState state);
+    bool acquire_gps_lock_target_state_released(SmGPSState target_state);
+    void acquire_gps_lock_released();
+
     struct Capture {
         complex_t *buf;
         int64_t *timestamp;
         SmGpsInfo *gps_info;
     };
 
-    int fd = -1;
-    SMConfigs _configs;
-    bool _open = false;
-    bool _gps_configured = false;
-
-    py::tuple _capture_iq(double center, double bw, uint64_t capture_size,
-                          bool silent);
-
-    SmStatus _open_networked_device();
-    SmStatus _open_serial_device();
-    void _open_device();
-    void _log_mode() const;
-
-    void _close_device();
-
-    void _configure(double center, double bw);
-
-    void _configure_gps();
-    void _acquire_gps_lock();
-    bool _acquire_gps_lock(SmGPSState target_state) const;
-
-    bool _is_networked() const;
+    void capture_iq_configure_released(double center, double bw);
+    void capture_iq_configure(double center, double bw);
+    void capture_iq_internal_released(std::vector<Capture> &data,
+                                      uint64_t captures,
+                                      uint64_t samples_per_capture,
+                                      bool silent) const;
+    void capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
+                             uint64_t samples_per_capture, bool silent) const;
+    py::tuple capture_iq_internal(double center, double bw,
+                                  uint64_t capture_size, bool silent);
 
     struct RawCapture {
         std::vector<SH_COMPLEX_TEMPLATE_TYPE> buf;
@@ -473,16 +495,52 @@ class SM {
         volatile bool signal_received = false;
     };
 
-    bool _capture_iq_data(uint64_t captures,
-                          ares::queue<std::unique_ptr<RawCapture>> &queue,
-                          int32_t chunk) const;
-    py::dict _stream_iq_data(const StreamParameters &params);
-    void _stream_iq_data(const StreamParameters &params,
-                         RecordingMetadata &metadata,
-                         ares::queue<std::unique_ptr<RawCapture>> &queue) const;
-    static void _flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
-    static int _open_fd(int old_fd, const std::string &save_dir, bool iq,
-                        int32_t chunk);
+    struct StreamDiagnostics {
+        size_t padding_written = 0;
+        size_t data_bytes_written = 0;
+    };
+    StreamDiagnostics _stream_diagnostics;
+
+    bool stream_iq_data_capture_released(
+        uint64_t captures, ares::queue<std::unique_ptr<RawCapture>> &queue,
+        int32_t chunk) const;
+    void stream_iq_data_capture_released(const StreamParameters &params,
+                                         uint64_t &captures_per_chunk,
+                                         RecordingMetadata &metadata, bool &oom,
+                                         bool &sample_loss);
+    void stream_iq_data_capture(const StreamParameters &params,
+                                uint64_t &captures_per_chunk,
+                                RecordingMetadata &metadata, bool &oom,
+                                bool &sample_loss);
+
+    py::dict stream_iq_data_internal(const StreamParameters &params);
+    void
+    stream_iq_data_to_disk(const StreamParameters &params,
+                           RecordingMetadata &metadata,
+                           ares::queue<std::unique_ptr<RawCapture>> &queue);
+    void
+    stream_iq_flush_chunk(int iq_fd,
+                          std::vector<uint8_t, PageAllocator<uint8_t>> &buffer);
+    static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
+                                 bool iq, int32_t chunk);
+};
+
+class SmException : std::exception {
+  public:
+    enum SmExceptionType {
+        NOT_OPEN,
+
+        UNKNOWN,
+    };
+
+    explicit SmException(SmExceptionType type);
+    explicit SmException(const char *msg);
+
+    const char *what() const noexcept override;
+
+  private:
+    SmExceptionType _type;
+    std::string _msg;
 };
 
 /**

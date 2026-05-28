@@ -3,7 +3,7 @@ project(${SKBUILD_PROJECT_NAME}
         VERSION ${SKBUILD_PROJECT_VERSION}
         LANGUAGES CXX)
 
-set(CMAKE_CXX_STANDARD 17 CACHE STRING "C++ version selection")  # or 11, 14, 17, 20
+set(CMAKE_CXX_STANDARD 20 CACHE STRING "C++ version selection")  # or 11, 14, 17, 20
 set(CMAKE_CXX_STANDARD_REQUIRED ON)  # optional, ensure standard is supported
 set(CMAKE_CXX_EXTENSIONS OFF)  # optional, keep compiler extensions off
 
@@ -56,7 +56,7 @@ python_module(_core src/core.cpp
 )
 python_module(_sh_sm_series src/signal-hound/sm_series.cpp
 		DESTINATION ${PACKAGE_NAME}/signal_hound
-		DEPENDENCIES capture_progress logging ares_data_structures
-		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures
+		DEPENDENCIES capture_progress logging ares_data_structures ares_allocators
+		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures ares_allocators
 		INSTALL_LIBS ${SM_API_LIBS}
 )
