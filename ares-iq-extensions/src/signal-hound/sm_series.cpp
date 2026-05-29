@@ -979,7 +979,7 @@ void SM::stream_iq_data_to_disk(
     ares::queue<std::unique_ptr<RawCapture>> &queue) {
     uint64_t entries_written = 0;
     int32_t current_chunk = -1;
-    std::vector<uint8_t, PageAllocator<uint8_t>> buffer;
+    std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
 
     ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0);
@@ -1059,8 +1059,7 @@ void SM::stream_iq_data_to_disk(
     LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
-void SM::stream_iq_flush_chunk(
-    int iq_fd, std::vector<uint8_t, PageAllocator<uint8_t>> &buffer) {
+void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
     if (!buffer.empty()) {
         assert(iq_fd > 0);
         size_t old_size = buffer.size();
