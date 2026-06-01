@@ -87,7 +87,7 @@ struct SMConfigs {
     /**
      * The number of samples per a capture.
      */
-    uint32_t samples_per_capture = 500000;
+    uint32_t samples_per_capture = 524288;
 
     /**
      * Retrieve the dictionary representation of the configurations.
