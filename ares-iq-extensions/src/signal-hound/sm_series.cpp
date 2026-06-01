@@ -30,6 +30,7 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
+#include <ares/mntpoint/mntpoint.hpp>
 
 namespace py = pybind11;
 using namespace std::chrono_literals;
@@ -981,6 +982,8 @@ void SM::stream_iq_data_to_disk(
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
+    bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
+    LOG_DBG("IQ direct access: %d", iq_direct_access);
 
     ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0);
     if (ts_fd < 0) {
@@ -1002,7 +1005,7 @@ void SM::stream_iq_data_to_disk(
 
         if (current_chunk != write_data->chunk_id) {
             stream_iq_flush_chunk(iq_fd, buffer);
-            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
+            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, iq_direct_access,
                                       write_data->chunk_id);
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
@@ -1056,6 +1059,8 @@ void SM::stream_iq_data_to_disk(
                                  metadata.write_duration)
                                  .count())) /
         1e6;
+    LOG_DBG("Bytes captured: %lu bytes", _stream_diagnostics.data_bytes_written);
+    LOG_DBG("Padding added: %lu bytes", _stream_diagnostics.padding_written);
     LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
