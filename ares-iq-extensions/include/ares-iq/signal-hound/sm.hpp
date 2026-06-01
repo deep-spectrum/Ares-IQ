@@ -14,7 +14,6 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
-#include <ares/allocators/page_allocator.hpp>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
@@ -88,7 +87,7 @@ struct SMConfigs {
     /**
      * The number of samples per a capture.
      */
-    uint32_t samples_per_capture = 500000;
+    uint32_t samples_per_capture = 524288;
 
     /**
      * Retrieve the dictionary representation of the configurations.
@@ -518,9 +517,7 @@ class SM {
     stream_iq_data_to_disk(const StreamParameters &params,
                            RecordingMetadata &metadata,
                            ares::queue<std::unique_ptr<RawCapture>> &queue);
-    void
-    stream_iq_flush_chunk(int iq_fd,
-                          std::vector<uint8_t, PageAllocator<uint8_t>> &buffer);
+    void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk);
 };

@@ -133,7 +133,7 @@ class SMConfigs(ConfigBase):
                             metadata={"min": 1, "max": SM_MAX_IQ_DECIMATION},
                             validator=[validators.instance_of(int), validate_bounds, power_of_two])
     software_filter: bool = False
-    samples_per_capture: int = field(default=500000, metadata={"min": 1},
+    samples_per_capture: int = field(default=524288, metadata={"min": 1},
                                      validator=[validators.instance_of(int), validate_bounds])
     host: str = HOST_ADDR_ANY
     device_addr: str = DEFAULT_DEV_ADDR
