@@ -115,8 +115,6 @@ class SMConfigs(ConfigBase):
     Device configuration for SM series devices.
 
     Attributes:
-        gps_timestamping: Generate GPS disciplined timestamps.
-        gps_lock_timeout: Number number of seconds to wait for a GPS lock.
         gps_model: The GPS model to use.
         decimation: The downsampling factor. Must be a power of 2 between 1 and SM_MAX_IQ_DECIMATION.
         software_filter: Enable software filtering. Ignored on networked SM devices.
@@ -125,9 +123,6 @@ class SMConfigs(ConfigBase):
         device_addr: The device address of the SM device.
         port: The port for the SM device.
     """
-    gps_timestamping: bool = False
-    gps_lock_timeout: int = field(default=0, metadata={"min": 0},
-                                  validator=[validators.instance_of(int), validate_bounds])
     gps_model: SmGpsPlatformModel = field(default=SmGpsPlatformModel.STATIONARY, converter=_convert_sm_gps)
     decimation: int = field(default=1,
                             metadata={"min": 1, "max": SM_MAX_IQ_DECIMATION},
@@ -177,8 +172,6 @@ class SM(ABC):
         else:
             configs_ = _SmConfigs(device=model,
                                   serial=serial,
-                                  gps_timestamping=configs.gps_timestamping,
-                                  gps_lock_timeout=configs.gps_lock_timeout,
                                   gps_model=configs.gps_model,
                                   decimation=configs.decimation,
                                   software_filter=configs.software_filter,
