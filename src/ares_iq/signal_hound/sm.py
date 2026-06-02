@@ -183,7 +183,7 @@ class SM(ABC):
             self._dev = _SM(configs_)
         except _SmException as e:
             raise SmException(e)
-        self._gps_stamping = configs_.gps_timestamping
+        self._gps_stamping = False
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
@@ -377,6 +377,7 @@ class SM(ABC):
             self._dev.enable_gps_timestamping(enable, wait_disciplined, lock_timeout)
         except _SmException as e:
             raise SmException(e)
+        self._gps_stamping = enable
 
     def abort_measurement(self):
         try:
