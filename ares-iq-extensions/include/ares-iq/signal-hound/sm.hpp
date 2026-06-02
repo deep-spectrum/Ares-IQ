@@ -62,15 +62,17 @@ struct SMConfigs {
      */
     uint16_t port = SM_DEFAULT_PORT;
 
-    /**
-     * Use GPS timestamping.
-     */
-    bool gps_timestamping = false;
-    /**
-     * The maximum number of seconds to wait for a GPS lock in seconds. 0
-     * seconds represents no timeout.
-     */
-    int32_t gps_lock_timeout = 0;
+    // /**
+    //  * Use GPS timestamping.
+    //  */
+    // bool gps_timestamping = false;
+    //
+    // /**
+    //  * The maximum number of seconds to wait for a GPS lock in seconds. 0
+    //  * seconds represents no timeout.
+    //  */
+    // int32_t gps_lock_timeout = 0;
+
     /**
      * The GPS platform model to use.
      */
@@ -80,10 +82,12 @@ struct SMConfigs {
      * The downsampling factor. Must be a power of 2.
      */
     uint16_t decimation = 1;
+
     /**
      * Enable the software filter.
      */
     bool software_filter = false;
+
     /**
      * The number of samples per a capture.
      */
@@ -435,6 +439,8 @@ class SM {
 
     SmGpsInfo get_gps_info(bool refresh) const;
 
+    void enable_gps_timestamping(bool enable, bool wait_disciplined, int64_t lock_timeout);
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -459,11 +465,14 @@ class SM {
 
     void close_released();
 
-    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
-    void gps_configure_released();
-    static void log_gps_state(SmGPSState state);
-    bool acquire_gps_lock_target_state_released(SmGPSState target_state);
-    void acquire_gps_lock_released();
+    // bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
+    // void gps_configure_released();
+    // static void log_gps_state(SmGPSState state);
+    // bool acquire_gps_lock_target_state_released(SmGPSState target_state);
+    // void acquire_gps_lock_released();
+
+    void enable_gps_timestamping_released(bool enable, bool wait_disciplined, int64_t lock_timeout);
+
     SmGpsInfo get_gps_info_released(bool refresh) const;
 
     struct Capture {
@@ -472,8 +481,8 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void capture_iq_configure_released(double center, double bw);
-    void capture_iq_configure(double center, double bw);
+    void capture_iq_configure_released(double center, double bw) const;
+    void capture_iq_configure(double center, double bw) const;
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,
@@ -529,6 +538,7 @@ class SmException : std::exception {
   public:
     enum SmExceptionType {
         NOT_OPEN,
+        NOT_IDLE,
 
         UNKNOWN,
     };

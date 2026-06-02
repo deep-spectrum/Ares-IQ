@@ -427,6 +427,11 @@ SmGpsInfo SM::get_gps_info(bool refresh) const {
     return get_gps_info_released(refresh);
 }
 
+void SM::enable_gps_timestamping(bool enable, bool wait_disciplined, int64_t lock_timeout) {
+    py::gil_scoped_release release;
+    enable_gps_timestamping_released(enable, wait_disciplined, lock_timeout);
+}
+
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
@@ -590,6 +595,36 @@ void SM::acquire_gps_lock_released() {
         std::chrono::duration_cast<std::chrono::seconds>(stop - start_init));
 }
 
+void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined, int64_t lock_timeout) {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SmMode mode;
+    SM_API_CALL(smGetCurrentMode(fd, &mode));
+
+    if (mode != smModeIdle) {
+        throw SmException(SmException::NOT_IDLE);
+    }
+
+    if (!enable) {
+        SM_API_CALL(smSetGPSTimebaseUpdate(fd, smFalse));
+        return;
+    }
+
+    SM_API_CALL(smSetGPSTimebaseUpdate(fd, smTrue));
+
+    if (!_gps_configured) {
+        // gps_sync_released(smGPSStateLocked, lock_timeout); // todo:
+        SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
+        _gps_configured = true;
+    }
+
+    if (wait_disciplined) {
+        // gps_sync_released(smGPSStateDisciplined, lock_timeout); // todo:
+    }
+}
+
 SmGpsInfo SM::get_gps_info_released(bool refresh) const {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
@@ -605,7 +640,7 @@ SmGpsInfo SM::get_gps_info_released(bool refresh) const {
     return ret;
 }
 
-void SM::capture_iq_configure_released(double center, double bw) {
+void SM::capture_iq_configure_released(double center, double bw) const {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
@@ -617,15 +652,10 @@ void SM::capture_iq_configure_released(double center, double bw) {
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
-
-    gps_configure_released();
-
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
-
-    // todo: acquire lock?
 }
 
-void SM::capture_iq_configure(double center, double bw) {
+void SM::capture_iq_configure(double center, double bw) const {
     py::gil_scoped_release release;
     capture_iq_configure_released(center, bw);
 }
@@ -1136,6 +1166,10 @@ SmException::SmException(SmExceptionType type) : _type(type) {
     switch (type) {
     case NOT_OPEN: {
         _msg = "Not open";
+        break;
+    }
+        case NOT_IDLE: {
+        _msg = "Device must be idle to perform operation";
         break;
     }
     default: {
