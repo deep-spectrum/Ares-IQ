@@ -185,7 +185,10 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                       "not locked, this value will be set to zero.")
         .def_readonly("altitude", &SmGpsInfo::altitude,
                       "Altitude in meters. If the GPS is not locked, "
-                      "this value will be set to zero.");
+                      "this value will be set to zero.")
+        .def_readonly(
+            "updated", &SmGpsInfo::updated,
+            "True if the NMEA data has been updated since the last user call.");
 
     PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude,
                          altitude);

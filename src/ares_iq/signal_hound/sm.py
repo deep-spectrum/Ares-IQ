@@ -370,6 +370,13 @@ class SM(ABC):
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         self._save_stream_iq_meta(meta, save_directory)
 
+    def get_gps_info(self, refresh: bool = False):
+        try:
+            gps_info = self._dev.get_gps_info(refresh)
+        except _SmException as e:
+            raise SmException(e)
+        return gps_info
+
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
