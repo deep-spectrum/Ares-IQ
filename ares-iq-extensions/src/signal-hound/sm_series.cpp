@@ -571,13 +571,13 @@ void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined,
     }
 
     if (!enable) {
-        LOG_DBG("Disabling GPS timestamping");
+        LOG_INF("Disabling GPS timestamping");
         SM_API_CALL(smSetGPSTimebaseUpdate(fd, smFalse));
         _gps_timestamps = false;
         return;
     }
 
-    LOG_DBG("Enabling GPS timestamping");
+    LOG_INF("Enabling GPS timestamping");
     SM_API_CALL(smSetGPSTimebaseUpdate(fd, smTrue));
     _gps_timestamps = true;
 
@@ -590,7 +590,7 @@ void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined,
     }
 
     if (wait_disciplined) {
-        LOG_DBG("Waiting for GPS disciplined timebase");
+        LOG_INF("Waiting for GPS disciplined timebase");
         gps_sync_released_throw_no_lock(smGPSStateDisciplined, lock_timeout);
     }
 }
@@ -626,7 +626,9 @@ void SM::wait_until_gps_epoch_released(int64_t start_time) {
         return;
     }
 
-    // todo: this is wrong. Not accounting for roll over
+    LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
+
+    // todo: this might be wrong. Not accounting for roll over
     while ((gps_time < start_time) &&
            (py_error = check_python_signals()) == false) {
         smGetGPSInfo(fd, smTrue, nullptr, &gps_time, nullptr, nullptr, nullptr,
@@ -651,7 +653,9 @@ void SM::capture_iq_configure_released(double center, double bw,
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
+
     wait_until_gps_epoch_released(start_time);
+
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
 }
 
