@@ -379,6 +379,18 @@ class SM(ABC):
         return SmGpsInfo(gps_info.sec_since_epoch, gps_info.latitude, gps_info.longitude, gps_info.altitude,
                          gps_info.updated)
 
+    def enable_gps_timestamping(self, enable: bool, wait_disciplined: bool = True, lock_timeout: int = 0):
+        try:
+            self._dev.enable_gps_timestamping(enable, wait_disciplined, lock_timeout)
+        except _SmException as e:
+            raise SmException(e)
+
+    def abort_measurement(self):
+        try:
+            self._dev.abort_measurement()
+        except _SmException as e:
+            raise SmException(e)
+
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
