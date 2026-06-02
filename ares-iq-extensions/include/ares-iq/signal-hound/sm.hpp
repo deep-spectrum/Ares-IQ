@@ -439,7 +439,10 @@ class SM {
 
     SmGpsInfo get_gps_info(bool refresh) const;
 
-    void enable_gps_timestamping(bool enable, bool wait_disciplined, int64_t lock_timeout);
+    void enable_gps_timestamping(bool enable, bool wait_disciplined,
+                                 int64_t lock_timeout);
+
+    void abort_measurements() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -465,15 +468,17 @@ class SM {
 
     void close_released();
 
-    // bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
-    // void gps_configure_released();
-    // static void log_gps_state(SmGPSState state);
-    // bool acquire_gps_lock_target_state_released(SmGPSState target_state);
-    // void acquire_gps_lock_released();
-
-    void enable_gps_timestamping_released(bool enable, bool wait_disciplined, int64_t lock_timeout);
-
     SmGpsInfo get_gps_info_released(bool refresh) const;
+
+    static void log_gps_state(SmGPSState state);
+    bool acquire_gps_lock_target_state_released(SmGPSState target_state);
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout);
+    void gps_sync_released_throw_no_lock(const SmGPSState &target_state,
+                                         int64_t timeout);
+    void enable_gps_timestamping_released(bool enable, bool wait_disciplined,
+                                          int64_t lock_timeout);
+
+    void abort_measurements_released() const;
 
     struct Capture {
         complex_t *buf;
@@ -539,6 +544,7 @@ class SmException : std::exception {
     enum SmExceptionType {
         NOT_OPEN,
         NOT_IDLE,
+        NO_GPS_LOCK,
 
         UNKNOWN,
     };

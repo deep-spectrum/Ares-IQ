@@ -98,10 +98,6 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                        "one device with this IP is connected to the host "
                        "interface, the behavior is undefined.")
         .def_readwrite("port", &SMConfigs::port, "Target device port")
-        .def_readwrite("gps_timestamping", &SMConfigs::gps_timestamping,
-                       "Use GPS timestamping")
-        .def_readwrite("gps_lock_timeout", &SMConfigs::gps_lock_timeout,
-                       "Amount of time in seconds to wait for a GPS lock")
         .def_readwrite("gps_model", &SMConfigs::gps_model,
                        "The GPS model to use")
         .def_readwrite("decimation", &SMConfigs::decimation,
@@ -241,16 +237,14 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
-                      SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
-                      SP(gps_model), SP(decimation), SP(software_filter),
-                      SP(samples_per_capture));
+                      SP(port), SP(gps_model), SP(decimation),
+                      SP(software_filter), SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
     return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr),
-                         NV(port), NV(gps_timestamping), NV(gps_lock_timeout),
-                         NV(gps_model), NV(decimation), NV(software_filter),
-                         NV(samples_per_capture));
+                         NV(port), NV(gps_model), NV(decimation),
+                         NV(software_filter), NV(samples_per_capture));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -427,9 +421,15 @@ SmGpsInfo SM::get_gps_info(bool refresh) const {
     return get_gps_info_released(refresh);
 }
 
-void SM::enable_gps_timestamping(bool enable, bool wait_disciplined, int64_t lock_timeout) {
+void SM::enable_gps_timestamping(bool enable, bool wait_disciplined,
+                                 int64_t lock_timeout) {
     py::gil_scoped_release release;
     enable_gps_timestamping_released(enable, wait_disciplined, lock_timeout);
+}
+
+void SM::abort_measurements() const {
+    py::gil_scoped_release release;
+    abort_measurements_released();
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
@@ -460,11 +460,6 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
-    if (!_configs.gps_timestamping) {
-        throw py::attribute_error(
-            "GPS timestamping disabled in the configurations");
-    }
-
     if (target_state == smGPSStateNotPresent) {
         throw std::invalid_argument(
             "NOT_PRESENT is an invalid state to sync to.");
@@ -478,30 +473,38 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
         throw SmException(SmException::NOT_OPEN);
     }
 
-    auto start_time = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now;
+    auto start_time = now();
     do {
         locked = acquire_gps_lock_target_state_released(target_state);
-        std::this_thread::sleep_for(1s);
-        time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                           std::chrono::steady_clock::now() - start_time)
-                           .count();
+        if (!locked) {
+            std::this_thread::sleep_for(1s);
+        }
+        time_elapsed =
+            std::chrono::duration_cast<std::chrono::seconds>(now() - start_time)
+                .count();
     } while (!locked && (!timeout || time_elapsed < timeout_s));
 
     return locked;
 }
 
-void SM::gps_configure_released() {
-    if (_gps_configured) {
-        return;
+void SM::gps_sync_released_throw_no_lock(const SmGPSState &target_state,
+                                         int64_t timeout) {
+    auto now = std::chrono::steady_clock::now;
+    auto start = now();
+    bool locked = gps_sync_released(target_state, timeout);
+    auto end = now();
+
+    if (!locked) {
+        throw SmException(SmException::NO_GPS_LOCK);
     }
 
-    acquire_gps_lock_released();
-
-    SmBool enabled = (_configs.gps_timestamping) ? smTrue : smFalse;
-    LOG_DBG("GPS Timestamping: %s", (enabled == smTrue) ? "On" : "Off");
-    SM_API_CALL(smSetGPSTimebaseUpdate(fd, enabled));
-
-    _gps_configured = true;
+    long time_elapsed =
+        std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+    LOG_INF("Time taken to %s: %ld seconds",
+            target_state == smGPSStateLocked ? "acquire GPS lock"
+                                             : "GPS discipline oscillator",
+            time_elapsed);
 }
 
 void SM::log_gps_state(SmGPSState state) {
@@ -546,83 +549,50 @@ bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) {
     return state >= target_state;
 }
 
-void SM::acquire_gps_lock_released() {
-    bool locked;
-    long time_elapsed;
-    int64_t timeout_s = _configs.gps_lock_timeout;
-
-    if (!_configs.gps_timestamping) {
-        return;
-    }
-
-    LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
-
-    auto now = std::chrono::steady_clock::now;
-    auto start_init = now();
-    locked = gps_sync_released(smGPSStateLocked, timeout_s);
-    auto stop = now();
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to acquire a GPS lock");
-    }
-
-    time_elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init)
-            .count();
-    LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
-
-    log_mode();
-
-    LOG_INF("GPS lock acquired. Setting platform model.");
-    SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
-
-    auto start = now();
-    locked = gps_sync_released(smGPSStateLocked, timeout_s);
-    stop = now();
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to GPS discipline the oscillator");
-    }
-
-    time_elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start).count();
-    LOG_DBG("Time elapsed to discipline the oscillator: %ld s", time_elapsed);
-
-    LOG_INF(
-        "Successfully acquired a GPS lock! Time taken: %d seconds",
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init));
-}
-
-void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined, int64_t lock_timeout) {
+void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined,
+                                          int64_t lock_timeout) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
 
     SmMode mode;
     SM_API_CALL(smGetCurrentMode(fd, &mode));
+    log_mode();
 
     if (mode != smModeIdle) {
+        LOG_ERR("Device must be idle");
         throw SmException(SmException::NOT_IDLE);
     }
 
     if (!enable) {
+        LOG_DBG("Disabling GPS timestamping");
         SM_API_CALL(smSetGPSTimebaseUpdate(fd, smFalse));
         return;
     }
 
+    LOG_DBG("Enabling GPS timestamping");
     SM_API_CALL(smSetGPSTimebaseUpdate(fd, smTrue));
 
     if (!_gps_configured) {
-        // gps_sync_released(smGPSStateLocked, lock_timeout); // todo:
+        LOG_INF("Waiting for GPS lock");
+        gps_sync_released_throw_no_lock(smGPSStateLocked, lock_timeout);
+        LOG_INF("Setting GPS Platform model");
         SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
         _gps_configured = true;
     }
 
     if (wait_disciplined) {
-        // gps_sync_released(smGPSStateDisciplined, lock_timeout); // todo:
+        LOG_DBG("Waiting for GPS disciplined timebase");
+        gps_sync_released_throw_no_lock(smGPSStateDisciplined, lock_timeout);
     }
+}
+
+void SM::abort_measurements_released() const {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SM_API_CALL(smAbort(fd));
 }
 
 SmGpsInfo SM::get_gps_info_released(bool refresh) const {
@@ -1168,8 +1138,12 @@ SmException::SmException(SmExceptionType type) : _type(type) {
         _msg = "Not open";
         break;
     }
-        case NOT_IDLE: {
+    case NOT_IDLE: {
         _msg = "Device must be idle to perform operation";
+        break;
+    }
+    case NO_GPS_LOCK: {
+        _msg = "Unable to acquire GPS lock within the timeout";
         break;
     }
     default: {
