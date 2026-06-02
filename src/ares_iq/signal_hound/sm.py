@@ -311,7 +311,7 @@ class SM(ABC):
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
                   stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
-                  ram_usage_limit: int | None = 0):
+                  ram_usage_limit: int | None = 0, gps_start_time: int = 0):
         """Stream I/Q data to disk.
 
         Args:
@@ -328,6 +328,7 @@ class SM(ABC):
             ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
                              lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
                              recommended that this parameter be on the magnitude of GB.
+            gps_start_time:
         """
         save_directory = self._create_save_directory(save_directory)
 
@@ -352,7 +353,8 @@ class SM(ABC):
             verbose=verbose,
             stop_sample_loss=stop_sample_loss,
             done_cb=done,
-            max_buffer_size=_ram_usage_limit
+            max_buffer_size=_ram_usage_limit,
+            start_time_gps_epoch=gps_start_time,
         )
 
         try:
