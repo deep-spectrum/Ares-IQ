@@ -532,7 +532,7 @@ class SM {
     void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
                                bool direct);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
-                                 bool iq, int32_t chunk);
+                                 bool iq, int32_t chunk, bool direct);
 };
 
 class SmException : std::exception {

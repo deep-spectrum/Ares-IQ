@@ -1057,7 +1057,7 @@ void SM::stream_iq_data_to_disk(
     bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
     LOG_DBG("IQ direct access: %d", iq_direct_access);
 
-    ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0);
+    ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0, false);
     if (ts_fd < 0) {
         metadata.save_failed = true;
         return;
@@ -1077,8 +1077,8 @@ void SM::stream_iq_data_to_disk(
 
         if (current_chunk != write_data->chunk_id) {
             stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
-            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory,
-                                      iq_direct_access, write_data->chunk_id);
+            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
+                                      write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
                 metadata.save_failed = true;
@@ -1184,7 +1184,7 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
 }
 
 int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
-                          int32_t chunk) {
+                          int32_t chunk, bool direct) {
     std::stringstream oss;
     if (old_fd > 0) {
         LOG_DBG("Closing old IQ fd");
@@ -1199,7 +1199,7 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
             << "ts.f8";
     }
 
-    int new_fd = open_fd(oss.str().c_str(), iq);
+    int new_fd = open_fd(oss.str().c_str(), direct);
     if (new_fd < 0) {
         LOG_ERR("open: %s", strerror(errno));
     } else {
