@@ -1143,7 +1143,6 @@ int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
         bytes_written = write(iq_fd, data.data(), data.size());
     }
 
-    LOG_DBG("write returned %lld", bytes_written);
     if (bytes_written < 0) {
         LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
                 std::source_location::current().line(), strerror(errno));
@@ -1171,8 +1170,6 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
         err = write(iq_fd, buffer.data(), buffer.size());
     }
 
-    LOG_DBG("flush write returned %lld", err);
-
     if (err < 0) {
         LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
                 std::source_location::current().line(), strerror(errno));
@@ -1187,7 +1184,6 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
                           int32_t chunk, bool direct) {
     std::stringstream oss;
     if (old_fd > 0) {
-        LOG_DBG("Closing old IQ fd");
         close_fd(old_fd);
     }
 
@@ -1202,8 +1198,6 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
     int new_fd = open_fd(oss.str().c_str(), direct);
     if (new_fd < 0) {
         LOG_ERR("open: %s", strerror(errno));
-    } else {
-        LOG_DBG("Opened %s with fd %d", oss.str().c_str(), new_fd);
     }
 
     return new_fd;
