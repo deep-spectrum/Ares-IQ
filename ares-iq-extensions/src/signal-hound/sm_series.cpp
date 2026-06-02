@@ -206,7 +206,13 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file")
         .def("get_configs", &SM::get_configs, "Retrieve SM configurations")
         .def("get_gps_info", &SM::get_gps_info, py::arg("refresh"),
-             "Retrieve current GPS info");
+             "Retrieve current GPS info")
+        .def("enable_gps_timestamping", &SM::enable_gps_timestamping,
+             py::arg("enable"), py::arg("wait_disciplined"),
+             py::arg("lock_timeout"), "Enable/Disable GPS timestamping")
+        .def("abort_measurement", &SM::abort_measurements,
+             "Stop SM measurements and transition the device back into IDLE "
+             "mode");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
