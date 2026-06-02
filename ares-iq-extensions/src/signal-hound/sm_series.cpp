@@ -13,6 +13,7 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/allocators/page_allocator.hpp>
 #include <ares/logging/log.hpp>
+#include <ares/mntpoint/mntpoint.hpp>
 #include <ares/pyutil.hpp>
 #include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
@@ -30,7 +31,6 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <ares/mntpoint/mntpoint.hpp>
 
 namespace py = pybind11;
 using namespace std::chrono_literals;
@@ -205,7 +205,9 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("open", &SM::open, "Open SM device")
         .def("close", &SM::close, "Close SM device")
         .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file")
-        .def("get_configs", &SM::get_configs, "Retrieve SM configurations");
+        .def("get_configs", &SM::get_configs, "Retrieve SM configurations")
+        .def("get_gps_info", &SM::get_gps_info, py::arg("refresh"),
+             "Retrieve current GPS info");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -417,6 +419,11 @@ py::dict SM::stream_iq_data(const StreamParameters &params) {
 
 SMConfigs SM::get_configs() const { return _configs; }
 
+SmGpsInfo SM::get_gps_info(bool refresh) const {
+    py::gil_scoped_release release;
+    return get_gps_info_released(refresh);
+}
+
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
@@ -578,6 +585,21 @@ void SM::acquire_gps_lock_released() {
     LOG_INF(
         "Successfully acquired a GPS lock! Time taken: %d seconds",
         std::chrono::duration_cast<std::chrono::seconds>(stop - start_init));
+}
+
+SmGpsInfo SM::get_gps_info_released(bool refresh) const {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SmGpsInfo ret;
+    SmBool updated, refresh_ = refresh ? smTrue : smFalse;
+    SM_API_CALL(smGetGPSInfo(fd, refresh_, &updated, &ret.sec_since_epoch,
+                             &ret.latitude, &ret.longitude, &ret.altitude,
+                             nullptr, nullptr));
+    ret.updated = updated == smTrue;
+
+    return ret;
 }
 
 void SM::capture_iq_configure_released(double center, double bw) {
@@ -838,6 +860,7 @@ bool SM::stream_iq_data_capture_released(
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
+    SmBool updated;
 
     for (size_t i = 0; i < captures; i++) {
         auto capture = std::make_unique<RawCapture>();
@@ -846,11 +869,11 @@ bool SM::stream_iq_data_capture_released(
         (void)smGetIQ(fd, capture->buf.data(),
                       static_cast<int>(samples_per_capture), nullptr, 0,
                       &capture->timestamp, smFalse, &sample_loss, nullptr);
-        (void)smGetGPSInfo(fd, smFalse, &capture->gps_info.updated,
-                           &capture->gps_info.sec_since_epoch,
-                           &capture->gps_info.latitude,
-                           &capture->gps_info.longitude,
-                           &capture->gps_info.altitude, nullptr, nullptr);
+        (void)smGetGPSInfo(
+            fd, smFalse, &updated, &capture->gps_info.sec_since_epoch,
+            &capture->gps_info.latitude, &capture->gps_info.longitude,
+            &capture->gps_info.altitude, nullptr, nullptr);
+        capture->gps_info.updated = updated == smTrue;
         capture->chunk_id = chunk;
         queue.put(std::move(capture));
         if (sample_loss == SM_TRUE) {
@@ -1005,8 +1028,8 @@ void SM::stream_iq_data_to_disk(
 
         if (current_chunk != write_data->chunk_id) {
             stream_iq_flush_chunk(iq_fd, buffer);
-            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, iq_direct_access,
-                                      write_data->chunk_id);
+            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory,
+                                      iq_direct_access, write_data->chunk_id);
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
                 metadata.save_failed = true;
@@ -1059,7 +1082,8 @@ void SM::stream_iq_data_to_disk(
                                  metadata.write_duration)
                                  .count())) /
         1e6;
-    LOG_DBG("Bytes captured: %lu bytes", _stream_diagnostics.data_bytes_written);
+    LOG_DBG("Bytes captured: %lu bytes",
+            _stream_diagnostics.data_bytes_written);
     LOG_DBG("Padding added: %lu bytes", _stream_diagnostics.padding_written);
     LOG_INF("Data saved at ~%f MB/s", speed);
 }

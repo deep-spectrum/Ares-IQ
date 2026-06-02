@@ -298,7 +298,7 @@ struct SmGpsInfo {
     /**
      * Flag indicating that the GPS data has been updated.
      */
-    SmBool updated = smFalse;
+    bool updated = false;
 };
 
 /**
@@ -433,6 +433,8 @@ class SM {
      */
     SMConfigs get_configs() const;
 
+    SmGpsInfo get_gps_info(bool refresh) const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -462,6 +464,7 @@ class SM {
     static void log_gps_state(SmGPSState state);
     bool acquire_gps_lock_target_state_released(SmGPSState target_state);
     void acquire_gps_lock_released();
+    SmGpsInfo get_gps_info_released(bool refresh) const;
 
     struct Capture {
         complex_t *buf;
