@@ -153,6 +153,7 @@ class SmGpsInfo:
     latitude: float
     longitude: float
     altitude: float
+    updated: bool = False
 
 
 class SmException(Exception):
@@ -370,12 +371,13 @@ class SM(ABC):
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         self._save_stream_iq_meta(meta, save_directory)
 
-    def get_gps_info(self, refresh: bool = False):
+    def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
         try:
             gps_info = self._dev.get_gps_info(refresh)
         except _SmException as e:
             raise SmException(e)
-        return gps_info
+        return SmGpsInfo(gps_info.sec_since_epoch, gps_info.latitude, gps_info.longitude, gps_info.altitude,
+                         gps_info.updated)
 
 
 @dataclass(frozen=True)
