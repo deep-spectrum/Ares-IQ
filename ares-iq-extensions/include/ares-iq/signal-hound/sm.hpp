@@ -501,6 +501,7 @@ class SM {
         uint64_t total_captures = 0;
         volatile bool save_failed = false;
         volatile bool signal_received = false;
+        std::vector<SmGpsInfo> gps_updates;
     };
 
     struct StreamDiagnostics {

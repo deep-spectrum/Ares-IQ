@@ -1019,8 +1019,13 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     RecordingMetadata metadata;
     uint64_t captures_per_chunk;
 
+    _stream_diagnostics.data_bytes_written = 0;
+    _stream_diagnostics.padding_written = 0;
+
     stream_iq_data_capture(params, captures_per_chunk, metadata, oom,
                            sample_loss);
+
+    LOG_DBG("GPS Metadata vector size: %u", metadata.gps_updates.size());
 
     py::dict ret;
     py::dict diagnostics;
@@ -1104,6 +1109,9 @@ void SM::stream_iq_data_to_disk(
         }
 
         entries_written += 1;
+        if (write_data->gps_info.updated) {
+            metadata.gps_updates.emplace_back(write_data->gps_info);
+        }
     }
     auto stop = std::chrono::steady_clock::now();
     close_fd(ts_fd);
