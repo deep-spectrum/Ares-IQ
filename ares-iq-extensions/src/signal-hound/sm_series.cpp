@@ -1028,7 +1028,9 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     LOG_DBG("GPS Metadata vector size: %u", metadata.gps_updates.size());
 
     for (auto &i : metadata.gps_updates) {
-        LOG_DBG("Time %lld, Lat: %f, Long: %f, Alt: %f, Updated: %d", i.sec_since_epoch, i.latitude, i.longitude, i.altitude, i.updated);
+        LOG_DBG("Time %lld, Lat: %f, Long: %f, Alt: %f, Updated: %d",
+                i.sec_since_epoch, i.latitude, i.longitude, i.altitude,
+                i.updated);
     }
 
     py::dict ret;
@@ -1068,13 +1070,13 @@ void SM::stream_iq_data_to_disk(
         auto write_data = queue.get();
 
         if (write_data == nullptr) {
-            stream_iq_flush_chunk(iq_fd, buffer);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
             close_fd(iq_fd);
             break;
         }
 
         if (current_chunk != write_data->chunk_id) {
-            stream_iq_flush_chunk(iq_fd, buffer);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
             iq_fd = stream_iq_open_fd(iq_fd, params.save_directory,
                                       iq_direct_access, write_data->chunk_id);
             current_chunk = write_data->chunk_id;
@@ -1091,18 +1093,9 @@ void SM::stream_iq_data_to_disk(
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
 
-        if (buffer.size() >= PAGE_SIZE) {
-            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(iq_fd, buffer.data(), size);
-            if (bytes_written < 0) {
-                LOG_ERR("%s:%u write: %s",
-                        std::source_location::current().file_name(),
-                        std::source_location::current().line(),
-                        strerror(errno));
-                continue;
-            }
-            _stream_diagnostics.data_bytes_written += bytes_written;
-            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access);
+        if (ret < 0) {
+            continue;
         }
 
         ssize_t written = write(ts_fd, &timestamp, sizeof(double));
@@ -1138,22 +1131,52 @@ void SM::stream_iq_data_to_disk(
     LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
-void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
-    if (!buffer.empty()) {
+int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
+                                bool direct) {
+    int ret = 0;
+    ssize_t bytes_written;
+
+    if (direct && data.size() >= PAGE_SIZE) {
+        size_t size = (data.size() / PAGE_SIZE) * PAGE_SIZE;
+        bytes_written = write(iq_fd, data.data(), size);
+    } else {
+        bytes_written = write(iq_fd, data.data(), data.size());
+    }
+
+    if (bytes_written < 0) {
+        LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
+                std::source_location::current().line(), strerror(errno));
+        ret = bytes_written;
+    } else {
+        data.erase(data.begin(), data.begin() + bytes_written);
+    }
+
+    _stream_diagnostics.data_bytes_written += bytes_written;
+
+    return ret;
+}
+
+void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
+                               bool direct) {
+    ssize_t err = 0;
+    size_t old_size = buffer.size();
+
+    if (!buffer.empty() && direct) {
         assert(iq_fd > 0);
-        size_t old_size = buffer.size();
         size_t new_size = (((old_size - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
-        ssize_t err = write(iq_fd, buffer.data(), buffer.size());
-        if (err < 0) {
-            LOG_ERR("%s:%u write: %s",
-                    std::source_location::current().file_name(),
-                    std::source_location::current().line(), strerror(errno));
-        } else {
-            buffer.erase(buffer.begin(), buffer.begin() + err);
-            _stream_diagnostics.data_bytes_written += old_size;
-            _stream_diagnostics.padding_written += (err - old_size);
-        }
+        err = write(iq_fd, buffer.data(), buffer.size());
+    } else if (!buffer.empty()) {
+        err = write(iq_fd, buffer.data(), buffer.size());
+    }
+
+    if (err < 0) {
+        LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
+                std::source_location::current().line(), strerror(errno));
+    } else {
+        buffer.erase(buffer.begin(), buffer.begin() + err);
+        _stream_diagnostics.data_bytes_written += old_size;
+        _stream_diagnostics.padding_written += (err - old_size);
     }
 }
 
