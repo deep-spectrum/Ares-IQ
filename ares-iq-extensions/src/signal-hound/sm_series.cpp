@@ -1027,6 +1027,10 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
 
     LOG_DBG("GPS Metadata vector size: %u", metadata.gps_updates.size());
 
+    for (auto &i : metadata.gps_updates) {
+        LOG_DBG("Time %lld, Lat: %f, Long: %f, Alt: %f, Updated: %d", i.sec_since_epoch, i.latitude, i.longitude, i.altitude, i.updated);
+    }
+
     py::dict ret;
     py::dict diagnostics;
 
