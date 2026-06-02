@@ -62,17 +62,6 @@ struct SMConfigs {
      */
     uint16_t port = SM_DEFAULT_PORT;
 
-    // /**
-    //  * Use GPS timestamping.
-    //  */
-    // bool gps_timestamping = false;
-    //
-    // /**
-    //  * The maximum number of seconds to wait for a GPS lock in seconds. 0
-    //  * seconds represents no timeout.
-    //  */
-    // int32_t gps_lock_timeout = 0;
-
     /**
      * The GPS platform model to use.
      */
@@ -451,6 +440,7 @@ class SM {
     SMConfigs _configs;
     bool _open = false;
     bool _gps_configured = false;
+    bool _gps_timestamps = false;
     std::exception_ptr py_exception = nullptr;
 
     std::tuple<int, int, int> firmware_version_released() const;
@@ -486,8 +476,10 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void capture_iq_configure_released(double center, double bw) const;
-    void capture_iq_configure(double center, double bw) const;
+    void wait_until_gps_epoch_released(int64_t start_time);
+    void capture_iq_configure_released(double center, double bw,
+                                       int64_t start_time);
+    void capture_iq_configure(double center, double bw, int64_t start_time);
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,

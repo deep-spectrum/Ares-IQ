@@ -573,11 +573,13 @@ void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined,
     if (!enable) {
         LOG_DBG("Disabling GPS timestamping");
         SM_API_CALL(smSetGPSTimebaseUpdate(fd, smFalse));
+        _gps_timestamps = false;
         return;
     }
 
     LOG_DBG("Enabling GPS timestamping");
     SM_API_CALL(smSetGPSTimebaseUpdate(fd, smTrue));
+    _gps_timestamps = true;
 
     if (!_gps_configured) {
         LOG_INF("Waiting for GPS lock");
@@ -616,7 +618,28 @@ SmGpsInfo SM::get_gps_info_released(bool refresh) const {
     return ret;
 }
 
-void SM::capture_iq_configure_released(double center, double bw) const {
+void SM::wait_until_gps_epoch_released(int64_t start_time) {
+    int64_t gps_time = INT64_C(0);
+    bool py_error = false;
+
+    if (!_gps_timestamps) {
+        return;
+    }
+
+    // todo: this is wrong. Not accounting for roll over
+    while ((gps_time < start_time) &&
+           (py_error = check_python_signals()) == false) {
+        smGetGPSInfo(fd, smTrue, nullptr, &gps_time, nullptr, nullptr, nullptr,
+                     nullptr, nullptr);
+    }
+
+    if (py_error) {
+        std::rethrow_exception(py_exception);
+    }
+}
+
+void SM::capture_iq_configure_released(double center, double bw,
+                                       int64_t start_time) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
@@ -628,12 +651,13 @@ void SM::capture_iq_configure_released(double center, double bw) const {
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
+    wait_until_gps_epoch_released(start_time);
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
 }
 
-void SM::capture_iq_configure(double center, double bw) const {
+void SM::capture_iq_configure(double center, double bw, int64_t start_time) {
     py::gil_scoped_release release;
-    capture_iq_configure_released(center, bw);
+    capture_iq_configure_released(center, bw, start_time);
 }
 
 void SM::capture_iq_internal_released(std::vector<Capture> &data,
@@ -664,7 +688,7 @@ void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
 
 py::tuple SM::capture_iq_internal(double center, double bw,
                                   uint64_t capture_size, bool silent) {
-    capture_iq_configure(center, bw);
+    capture_iq_configure(center, bw, 0);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
@@ -918,6 +942,9 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
         params.max_buffer_size, params.silent);
 
+    capture_iq_configure_released(params.center_frequency, params.bandwidth,
+                                  params.start_time_gps_epoch);
+
     int64_t chunk;
     auto now = std::chrono::steady_clock::now;
     memory_monitor.start();
@@ -983,8 +1010,6 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
-
-    capture_iq_configure(params.center_frequency, params.bandwidth);
 
     bool sample_loss, oom;
     RecordingMetadata metadata;

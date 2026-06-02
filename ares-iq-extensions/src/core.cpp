@@ -35,7 +35,8 @@ StreamParameters::StreamParameters(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(center_frequency), SP(bandwidth),
                       SP(file_chunk_size), SP(duration), SP(save_directory),
                       SP(silent), SP(verbose), SP(stop_on_sample_loss),
-                      SP(done_cb), SP(max_buffer_size), SP(stream_cb));
+                      SP(done_cb), SP(max_buffer_size), SP(stream_cb),
+                      SP(start_time_gps_epoch));
 }
 
 py::dict StreamParameters::as_dict() {
