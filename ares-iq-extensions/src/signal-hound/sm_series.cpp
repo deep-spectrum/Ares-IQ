@@ -1027,16 +1027,9 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     stream_iq_data_capture(params, captures_per_chunk, metadata, oom,
                            sample_loss);
 
-    LOG_DBG("GPS Metadata vector size: %u", metadata.gps_updates.size());
-
-    for (auto &i : metadata.gps_updates) {
-        LOG_DBG("Time %lld, Lat: %f, Long: %f, Alt: %f, Updated: %d",
-                i.sec_since_epoch, i.latitude, i.longitude, i.altitude,
-                i.updated);
-    }
-
     py::dict ret;
     py::dict diagnostics;
+    py::list gps_data;
 
     diagnostics["save_duration"] = metadata.write_duration;
     diagnostics["resource_exhaustion"] = oom;
@@ -1045,6 +1038,19 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     ret["captures_per_chunk"] = captures_per_chunk;
     ret["diagnostics"] = diagnostics;
     ret["sample_loss"] = sample_loss;
+
+    for (auto &gps_update : metadata.gps_updates) {
+        py::dict gps;
+        gps["sec_since_epoch"] = gps_update.sec_since_epoch;
+        gps["latitude"] = gps_update.latitude;
+        gps["longitude"] = gps_update.longitude;
+        gps["altitude"] = gps_update.altitude;
+        gps["chunk"] = gps_update.chunk;
+        gps["capture"] = gps_update.capture;
+        gps_data.append(gps);
+    }
+
+    ret["gps_data"] = gps_data;
 
     return ret;
 }
