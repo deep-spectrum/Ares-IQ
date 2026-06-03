@@ -288,8 +288,15 @@ class SM(ABC):
         if not self._gps_stamping:
             return
 
-        gps_meta = meta["gps_data"]
-        np.savez(save_directory / "gps.npz", np.array(gps_meta, dtype=object))
+        gps_meta: list[dict[str, float]] = meta["gps_data"]
+        altitudes = np.array([x['altitude'] for x in gps_meta], dtype=np.float64)
+        captures = np.array([x['capture'] for x in gps_meta], dtype=np.uint64)
+        chunks = np.array([x['chunk'] for x in gps_meta], dtype=np.uint64)
+        latitudes = np.array([x['latitude'] for x in gps_meta], dtype=np.float64)
+        longitudes = np.array([x['longitude'] for x in gps_meta], dtype=np.float64)
+        epochs = np.array([x['sec_since_epoch'] for x in gps_meta], dtype=np.int64)
+
+        np.savez(save_directory / "gps.npz", chunk=chunks, capture=captures, time=epochs, latitude=latitudes, longitude=longitudes, altitude=altitudes)
 
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
