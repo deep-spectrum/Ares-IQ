@@ -902,15 +902,17 @@ bool SM::stream_iq_data_capture_released(
     for (size_t i = 0; i < captures; i++) {
         auto capture = std::make_unique<RawCapture>();
         capture->buf.resize(samples_per_capture * 2);
-
-        (void)smGetIQ(fd, capture->buf.data(),
-                      static_cast<int>(samples_per_capture), nullptr, 0,
-                      &capture->timestamp, smFalse, &sample_loss, nullptr);
         (void)smGetGPSInfo(
             fd, smFalse, &updated, &capture->gps_info.sec_since_epoch,
             &capture->gps_info.latitude, &capture->gps_info.longitude,
             &capture->gps_info.altitude, nullptr, nullptr);
-        capture->gps_info.updated = updated == smTrue;
+        (void)smGetIQ(fd, capture->buf.data(),
+                      static_cast<int>(samples_per_capture), nullptr, 0,
+                      &capture->timestamp, smFalse, &sample_loss, nullptr);
+        capture->gps_info.updated =
+            updated == smTrue && capture->gps_info.sec_since_epoch != 0;
+        capture->gps_info.chunk = chunk;
+        capture->gps_info.capture = i;
         capture->chunk_id = chunk;
         queue.put(std::move(capture));
         if (sample_loss == SM_TRUE) {

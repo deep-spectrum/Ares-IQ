@@ -292,6 +292,18 @@ struct SmGpsInfo {
      * Flag indicating that the GPS data has been updated.
      */
     bool updated = false;
+
+    /**
+     * Chunk index the GPS entry is associated with.
+     * @note This is for internal use with the stream API.
+     */
+    int64_t chunk = 0;
+
+    /**
+     * Capture index the GPS entry is associated with.
+     * @note This is for internal use with the stream API.
+     */
+    size_t capture = 0;
 };
 
 /**
