@@ -376,6 +376,8 @@ class SM(ABC):
         meta["parameters"] = params.as_dict()
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
+        meta["parameters"]["gps_start_time"] = gps_start_time
+        meta["parameters"]["gps_timestamping"] = self._gps_stamping
         self._save_stream_iq_meta(meta, save_directory)
 
     def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
