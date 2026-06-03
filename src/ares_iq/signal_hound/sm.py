@@ -18,6 +18,7 @@ import yaml
 from pathlib import Path
 from typing import Callable
 import psutil
+import numpy as np
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -286,9 +287,9 @@ class SM(ABC):
                            save_directory: Path):
         if not self._gps_stamping:
             return
+
         gps_meta = meta["gps_data"]
-        with open(save_directory / "gps.yaml", "w") as f:
-            yaml.safe_dump(gps_meta, f)
+        np.savez(save_directory / "gps.npz", np.array(gps_meta, dtype=object))
 
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
