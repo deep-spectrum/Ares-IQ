@@ -283,7 +283,8 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
-    def _save_gps_metadata(self, meta: dict[str, object | dict[str, object | datetime.timedelta] | list[dict[str, float]]],
+    def _save_gps_metadata(self,
+                           meta: dict[str, object | dict[str, object | datetime.timedelta] | list[dict[str, float]]],
                            save_directory: Path):
         if not self._gps_stamping:
             return
@@ -296,7 +297,8 @@ class SM(ABC):
         longitudes = np.array([x['longitude'] for x in gps_meta], dtype=np.float64)
         epochs = np.array([x['sec_since_epoch'] for x in gps_meta], dtype=np.int64)
 
-        np.savez(save_directory / "gps.npz", chunk=chunks, capture=captures, time=epochs, latitude=latitudes, longitude=longitudes, altitude=altitudes)
+        np.savez(save_directory / "gps.npz", chunk=chunks, capture=captures, time=epochs, latitude=latitudes,
+                 longitude=longitudes, altitude=altitudes)
 
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
@@ -348,7 +350,7 @@ class SM(ABC):
             ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
                              lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
                              recommended that this parameter be on the magnitude of GB.
-            gps_start_time:
+            gps_start_time: The GPS timestamp to start the measurements at.
         """
         save_directory = self._create_save_directory(save_directory)
 
@@ -389,6 +391,17 @@ class SM(ABC):
         self._save_stream_iq_meta(meta, save_directory)
 
     def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
+        """Retrieve the current GPS information from the SM device.
+
+        Args:
+            refresh: Force the GPS information to refresh.
+
+        Returns:
+            SmGpsInfo: GPS information.
+
+        Raises:
+            SmException: if there was an internal failure.
+        """
         try:
             gps_info = self._dev.get_gps_info(refresh)
         except _SmException as e:
@@ -397,6 +410,16 @@ class SM(ABC):
                          gps_info.updated)
 
     def enable_gps_timestamping(self, enable: bool, wait_disciplined: bool = True, lock_timeout: int = 0):
+        """Enable or disable GPS timestamping.
+
+        Args:
+            enable: Flag to enable or disable GPS timestamping.
+            wait_disciplined: Wait for the oscillator to be disciplined by the GPS. This has no effect when the enable flag is set to `False`.
+            lock_timeout: The amount of seconds to wait for a lock and to wait for the oscillator to get disciplined when `wait_disciplined` gets set to `True`. Set to `0` to wait indefinitely.
+
+        Raises:
+            SmException: If there was an internal error or if the GPS could not acquire a lock.
+        """
         try:
             self._dev.enable_gps_timestamping(enable, wait_disciplined, lock_timeout)
         except _SmException as e:
@@ -404,6 +427,7 @@ class SM(ABC):
         self._gps_stamping = enable
 
     def abort_measurement(self):
+        """Abort the current measurement mode."""
         try:
             self._dev.abort_measurement()
         except _SmException as e:
