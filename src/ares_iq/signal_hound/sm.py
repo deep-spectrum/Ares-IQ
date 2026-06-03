@@ -282,6 +282,14 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def _save_gps_metadata(self, meta: dict[str, object | dict[str, object | datetime.timedelta] | list[dict[str, float]]],
+                           save_directory: Path):
+        if not self._gps_stamping:
+            return
+        gps_meta = meta["gps_data"]
+        with open(save_directory / "gps.yaml", "w") as f:
+            yaml.safe_dump(gps_meta, f)
+
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
@@ -297,6 +305,10 @@ class SM(ABC):
                 configs[key] = value.name
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
+
+        self._save_gps_metadata(meta, save_directory)
+        del meta["gps_data"]
+
         meta["device_configurations"] = configs
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
