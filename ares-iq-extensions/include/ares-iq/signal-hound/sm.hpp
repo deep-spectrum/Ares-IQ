@@ -346,23 +346,23 @@ struct SmNetworkConfig {
 class SM {
   public:
     /**
-     * .
+     * Constructor.
      * @param configs The configurations for the SM device.
      */
     explicit SM(const SMConfigs &configs);
 
     /**
-     * .
+     * Destructor.
      */
     ~SM();
 
     /**
      * Capture IQ data.
-     * @param center The center frequency in Hz.
-     * @param bw The bandwidth in Hz.
-     * @param capture_size The amount of data to capture in bytes.
-     * @param silent Hide the progress bar.
-     * @param verbose Show the logging messages.
+     * @param[in] center The center frequency in Hz.
+     * @param[in] bw The bandwidth in Hz.
+     * @param[in] capture_size The amount of data to capture in bytes.
+     * @param[in] silent Hide the progress bar.
+     * @param[in] verbose Show the logging messages.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
@@ -387,8 +387,8 @@ class SM {
     /**
      * Acquire a GPS lock before collecting any data.
      *
-     * @param target_state The target state for acquiring a GPS lock.
-     * @param timeout_s The timeout for acquiring a GPS lock in seconds.
+     * @param[in] target_state The target state for acquiring a GPS lock.
+     * @param[in] timeout_s The timeout for acquiring a GPS lock in seconds.
      * @return `true` if a GPS lock was acquired. `false` otherwise.
      *
      * @note If a connection to the device is not already open, then
@@ -399,7 +399,7 @@ class SM {
     /**
      * Run a network speed test.
      *
-     * @param duration The amount of time in seconds to run the test for.
+     * @param[in] duration The amount of time in seconds to run the test for.
      * @return The bytes per a second.
      *
      * @note If a connection to the device is not already open, then
@@ -427,22 +427,40 @@ class SM {
     /**
      * Stream captured I/Q data directly to storage.
      *
-     * @param params The stream parameters.
+     * @param[in] params The stream parameters.
      * @return Stream capture metadata.
      */
     py::dict stream_iq_data(const StreamParameters &params);
 
     /**
-     * .
+     * Retrieve the configurations for the SM device.
      * @return The SM device configurations passed in upon initialization.
      */
     SMConfigs get_configs() const;
 
+    /**
+     * Retrieve the current GPS information from the SM device.
+     * @param[in] refresh Force the GPS information to refresh.
+     * @return The current GPS information.
+     */
     SmGpsInfo get_gps_info(bool refresh) const;
 
+    /**
+     * Enable or disable GPS timestamping.
+     *
+     * @param[in] enable Flag to enable or disable GPS timestamping.
+     * @param[in] wait_disciplined Wait for the oscillator to be disciplined by
+     * the GPS. This has no effect when the @p enable flag is set to @p false.
+     * @param[in] lock_timeout The amount of seconds to wait for a lock and to
+     * wait for the oscillator to get disciplined when @p wait_disciplined gets
+     * set to @p true. Set to @p 0 to wait indefinitely.
+     */
     void enable_gps_timestamping(bool enable, bool wait_disciplined,
                                  int64_t lock_timeout);
 
+    /**
+     * Abort the current measurement mode.
+     */
     void abort_measurements() const;
 
   private:
