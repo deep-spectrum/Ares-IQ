@@ -600,6 +600,9 @@ void SM::abort_measurements_released() const {
         throw SmException(SmException::NOT_OPEN);
     }
 
+    LOG_DBG("Aborting measurements");
+    log_mode();
+
     SM_API_CALL(smAbort(fd));
 }
 
