@@ -620,26 +620,24 @@ SmGpsInfo SM::get_gps_info_released(bool refresh) const {
 
 void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
     int64_t start_time = info.sec_since_epoch;
-    bool py_error = false;
 
     if (!_gps_timestamps) {
         return;
     }
 
+    py_exception = nullptr;
+
     LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
 
     // todo: this might be wrong. Not accounting for roll over
-
     do {
         (void)smGetGPSInfo(fd, smTrue, nullptr, &info.sec_since_epoch,
                            &info.latitude, &info.longitude, &info.altitude,
                            nullptr, nullptr);
-    } while ((info.sec_since_epoch < start_time) &&
-             (py_error = check_python_signals()) == false);
-
-    if (py_error) {
-        std::rethrow_exception(py_exception);
-    }
+        if (check_python_signals()) {
+            break;
+        }
+    } while (info.sec_since_epoch < start_time);
 }
 
 void SM::capture_iq_configure_released(double center, double bw,
@@ -955,6 +953,13 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 
     capture_iq_configure_released(params.center_frequency, params.bandwidth,
                                   gps_start);
+
+    if (py_exception != nullptr && _gps_timestamps) {
+        LOG_DBG("Exception thrown");
+        capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+        consumer.join();
+        std::rethrow_exception(py_exception);
+    }
 
     int64_t chunk;
     auto now = std::chrono::steady_clock::now;
