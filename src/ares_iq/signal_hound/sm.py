@@ -394,6 +394,9 @@ class SM(ABC):
             meta = self._dev.stream_iq(params)
         except _SmException as e:
             exception = SmException(e)
+        except Exception as e:
+            exception = e
+
         if exception is not None:
             self.abort_measurement()
             raise exception
