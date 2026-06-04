@@ -506,10 +506,10 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void wait_until_gps_epoch_released(int64_t start_time);
+    void wait_until_gps_epoch_released(SmGpsInfo &info);
     void capture_iq_configure_released(double center, double bw,
-                                       int64_t start_time);
-    void capture_iq_configure(double center, double bw, int64_t start_time);
+                                       SmGpsInfo &info);
+    void capture_iq_configure(double center, double bw, SmGpsInfo &info);
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,

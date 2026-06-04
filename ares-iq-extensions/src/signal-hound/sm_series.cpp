@@ -618,8 +618,8 @@ SmGpsInfo SM::get_gps_info_released(bool refresh) const {
     return ret;
 }
 
-void SM::wait_until_gps_epoch_released(int64_t start_time) {
-    int64_t gps_time = INT64_C(0);
+void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
+    int64_t start_time = info.sec_since_epoch;
     bool py_error = false;
 
     if (!_gps_timestamps) {
@@ -629,11 +629,13 @@ void SM::wait_until_gps_epoch_released(int64_t start_time) {
     LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
 
     // todo: this might be wrong. Not accounting for roll over
-    while ((gps_time < start_time) &&
-           (py_error = check_python_signals()) == false) {
-        smGetGPSInfo(fd, smTrue, nullptr, &gps_time, nullptr, nullptr, nullptr,
-                     nullptr, nullptr);
-    }
+
+    do {
+        (void)smGetGPSInfo(fd, smTrue, nullptr, &info.sec_since_epoch,
+                           &info.latitude, &info.longitude, &info.altitude,
+                           nullptr, nullptr);
+    } while ((info.sec_since_epoch < start_time) &&
+             (py_error = check_python_signals()) == false);
 
     if (py_error) {
         std::rethrow_exception(py_exception);
@@ -641,7 +643,7 @@ void SM::wait_until_gps_epoch_released(int64_t start_time) {
 }
 
 void SM::capture_iq_configure_released(double center, double bw,
-                                       int64_t start_time) {
+                                       SmGpsInfo &info) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
@@ -654,14 +656,14 @@ void SM::capture_iq_configure_released(double center, double bw,
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
-    wait_until_gps_epoch_released(start_time);
+    wait_until_gps_epoch_released(info);
 
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
 }
 
-void SM::capture_iq_configure(double center, double bw, int64_t start_time) {
+void SM::capture_iq_configure(double center, double bw, SmGpsInfo &info) {
     py::gil_scoped_release release;
-    capture_iq_configure_released(center, bw, start_time);
+    capture_iq_configure_released(center, bw, info);
 }
 
 void SM::capture_iq_internal_released(std::vector<Capture> &data,
@@ -692,7 +694,8 @@ void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
 
 py::tuple SM::capture_iq_internal(double center, double bw,
                                   uint64_t capture_size, bool silent) {
-    capture_iq_configure(center, bw, 0);
+    SmGpsInfo dummy;
+    capture_iq_configure(center, bw, dummy);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
@@ -947,9 +950,11 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
     CaptureProgress::MemoryMonitor memory_monitor(
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
         params.max_buffer_size, params.silent);
+    SmGpsInfo gps_start;
+    gps_start.sec_since_epoch = params.start_time_gps_epoch;
 
     capture_iq_configure_released(params.center_frequency, params.bandwidth,
-                                  params.start_time_gps_epoch);
+                                  gps_start);
 
     int64_t chunk;
     auto now = std::chrono::steady_clock::now;
@@ -997,6 +1002,8 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
     if (metadata.save_failed) {
         throw std::runtime_error("Operation failed");
     }
+
+    metadata.gps_updates.insert(metadata.gps_updates.begin(), gps_start);
 
     params.done_cb();
 
@@ -1232,7 +1239,7 @@ SmException::SmException(SmExceptionType type) : _type(type) {
     }
 }
 
-SmException::SmException(const char *msg) : _msg(msg), _type(UNKNOWN) {}
+SmException::SmException(const char *msg) : _type(UNKNOWN), _msg(msg) {}
 
 const char *SmException::what() const noexcept { return _msg.c_str(); }
 
