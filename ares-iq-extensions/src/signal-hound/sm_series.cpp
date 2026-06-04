@@ -956,8 +956,12 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 
     if (py_exception != nullptr && _gps_timestamps) {
         LOG_DBG("Exception thrown");
+
+        // Need to stop consumer thread otherwise python will crash...
         capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
         consumer.join();
+
+        smAbort(fd);
         std::rethrow_exception(py_exception);
     }
 
