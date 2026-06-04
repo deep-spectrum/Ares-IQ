@@ -628,8 +628,6 @@ void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
         return;
     }
 
-    py_exception = nullptr;
-
     LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
 
     // todo: this might be wrong. Not accounting for roll over
@@ -638,7 +636,7 @@ void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
                            &info.latitude, &info.longitude, &info.altitude,
                            nullptr, nullptr);
         if (check_python_signals()) {
-            break;
+            std::rethrow_exception(py_exception);
         }
     } while (info.sec_since_epoch < start_time);
 }
@@ -954,17 +952,13 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
     SmGpsInfo gps_start;
     gps_start.sec_since_epoch = params.start_time_gps_epoch;
 
-    capture_iq_configure_released(params.center_frequency, params.bandwidth,
-                                  gps_start);
-
-    if (py_exception != nullptr && _gps_timestamps) {
-        LOG_DBG("Exception thrown");
-
-        // Need to stop consumer thread otherwise python will crash...
+    try {
+        capture_iq_configure_released(params.center_frequency, params.bandwidth,
+                                      gps_start);
+    } catch (...) {
         capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
         consumer.join();
-
-        std::rethrow_exception(py_exception);
+        throw;
     }
 
     int64_t chunk;
