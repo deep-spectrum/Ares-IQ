@@ -635,6 +635,7 @@ void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
         (void)smGetGPSInfo(fd, smTrue, nullptr, &info.sec_since_epoch,
                            &info.latitude, &info.longitude, &info.altitude,
                            nullptr, nullptr);
+        std::this_thread::sleep_for(1ms);
         if (check_python_signals()) {
             std::rethrow_exception(py_exception);
         }
