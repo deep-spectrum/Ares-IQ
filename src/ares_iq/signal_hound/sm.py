@@ -389,10 +389,14 @@ class SM(ABC):
             start_time_gps_epoch=gps_start_time,
         )
 
+        exception = None
         try:
             meta = self._dev.stream_iq(params)
         except _SmException as e:
-            raise SmException(e)
+            exception = SmException(e)
+        if exception is not None:
+            self.abort_measurement()
+            raise exception
         meta["parameters"] = params.as_dict()
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit

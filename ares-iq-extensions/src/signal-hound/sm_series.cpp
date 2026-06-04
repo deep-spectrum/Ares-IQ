@@ -961,7 +961,6 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
         capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
         consumer.join();
 
-        smAbort(fd);
         std::rethrow_exception(py_exception);
     }
 
