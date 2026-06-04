@@ -97,6 +97,11 @@ struct StreamParameters {
     std::function<void()> stream_cb = nullptr;
 
     /**
+     * Start time for I/Q streaming.
+     */
+    int64_t start_time_gps_epoch = 0;
+
+    /**
      * Return the struct as a Python dictionary.
      * @return The configurations as a dictionary.
      * @warning Not all parameters are in the dictionary. See the parameter

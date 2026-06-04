@@ -13,6 +13,7 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/allocators/page_allocator.hpp>
 #include <ares/logging/log.hpp>
+#include <ares/mntpoint/mntpoint.hpp>
 #include <ares/pyutil.hpp>
 #include <capture-progress/monitor.hpp>
 #include <capture-progress/progress.hpp>
@@ -30,7 +31,6 @@
 #include <stdexcept>
 #include <thread>
 #include <vector>
-#include <ares/mntpoint/mntpoint.hpp>
 
 namespace py = pybind11;
 using namespace std::chrono_literals;
@@ -98,10 +98,6 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                        "one device with this IP is connected to the host "
                        "interface, the behavior is undefined.")
         .def_readwrite("port", &SMConfigs::port, "Target device port")
-        .def_readwrite("gps_timestamping", &SMConfigs::gps_timestamping,
-                       "Use GPS timestamping")
-        .def_readwrite("gps_lock_timeout", &SMConfigs::gps_lock_timeout,
-                       "Amount of time in seconds to wait for a GPS lock")
         .def_readwrite("gps_model", &SMConfigs::gps_model,
                        "The GPS model to use")
         .def_readwrite("decimation", &SMConfigs::decimation,
@@ -185,7 +181,10 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
                       "not locked, this value will be set to zero.")
         .def_readonly("altitude", &SmGpsInfo::altitude,
                       "Altitude in meters. If the GPS is not locked, "
-                      "this value will be set to zero.");
+                      "this value will be set to zero.")
+        .def_readonly(
+            "updated", &SmGpsInfo::updated,
+            "True if the NMEA data has been updated since the last user call.");
 
     PYBIND11_NUMPY_DTYPE(SmGpsInfo, sec_since_epoch, latitude, longitude,
                          altitude);
@@ -205,7 +204,15 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("open", &SM::open, "Open SM device")
         .def("close", &SM::close, "Close SM device")
         .def("stream_iq", &SM::stream_iq_data, "Stream IQ data to a file")
-        .def("get_configs", &SM::get_configs, "Retrieve SM configurations");
+        .def("get_configs", &SM::get_configs, "Retrieve SM configurations")
+        .def("get_gps_info", &SM::get_gps_info, py::arg("refresh"),
+             "Retrieve current GPS info")
+        .def("enable_gps_timestamping", &SM::enable_gps_timestamping,
+             py::arg("enable"), py::arg("wait_disciplined"),
+             py::arg("lock_timeout"), "Enable/Disable GPS timestamping")
+        .def("abort_measurement", &SM::abort_measurements,
+             "Stop SM measurements and transition the device back into IDLE "
+             "mode");
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -236,16 +243,14 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
-                      SP(port), SP(gps_timestamping), SP(gps_lock_timeout),
-                      SP(gps_model), SP(decimation), SP(software_filter),
-                      SP(samples_per_capture));
+                      SP(port), SP(gps_model), SP(decimation),
+                      SP(software_filter), SP(samples_per_capture));
 }
 
 py::dict SMConfigs::as_dict() {
     return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr),
-                         NV(port), NV(gps_timestamping), NV(gps_lock_timeout),
-                         NV(gps_model), NV(decimation), NV(software_filter),
-                         NV(samples_per_capture));
+                         NV(port), NV(gps_model), NV(decimation),
+                         NV(software_filter), NV(samples_per_capture));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -417,6 +422,22 @@ py::dict SM::stream_iq_data(const StreamParameters &params) {
 
 SMConfigs SM::get_configs() const { return _configs; }
 
+SmGpsInfo SM::get_gps_info(bool refresh) const {
+    py::gil_scoped_release release;
+    return get_gps_info_released(refresh);
+}
+
+void SM::enable_gps_timestamping(bool enable, bool wait_disciplined,
+                                 int64_t lock_timeout) {
+    py::gil_scoped_release release;
+    enable_gps_timestamping_released(enable, wait_disciplined, lock_timeout);
+}
+
+void SM::abort_measurements() const {
+    py::gil_scoped_release release;
+    abort_measurements_released();
+}
+
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
@@ -445,11 +466,6 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
     bool locked, timeout = timeout_s != INT64_C(0);
     long time_elapsed;
 
-    if (!_configs.gps_timestamping) {
-        throw py::attribute_error(
-            "GPS timestamping disabled in the configurations");
-    }
-
     if (target_state == smGPSStateNotPresent) {
         throw std::invalid_argument(
             "NOT_PRESENT is an invalid state to sync to.");
@@ -463,30 +479,38 @@ bool SM::gps_sync_released(const SmGPSState &target_state, int64_t timeout_s) {
         throw SmException(SmException::NOT_OPEN);
     }
 
-    auto start_time = std::chrono::steady_clock::now();
+    auto now = std::chrono::steady_clock::now;
+    auto start_time = now();
     do {
         locked = acquire_gps_lock_target_state_released(target_state);
-        std::this_thread::sleep_for(1s);
-        time_elapsed = std::chrono::duration_cast<std::chrono::seconds>(
-                           std::chrono::steady_clock::now() - start_time)
-                           .count();
+        if (!locked) {
+            std::this_thread::sleep_for(1s);
+        }
+        time_elapsed =
+            std::chrono::duration_cast<std::chrono::seconds>(now() - start_time)
+                .count();
     } while (!locked && (!timeout || time_elapsed < timeout_s));
 
     return locked;
 }
 
-void SM::gps_configure_released() {
-    if (_gps_configured) {
-        return;
+void SM::gps_sync_released_throw_no_lock(const SmGPSState &target_state,
+                                         int64_t timeout) {
+    auto now = std::chrono::steady_clock::now;
+    auto start = now();
+    bool locked = gps_sync_released(target_state, timeout);
+    auto end = now();
+
+    if (!locked) {
+        throw SmException(SmException::NO_GPS_LOCK);
     }
 
-    acquire_gps_lock_released();
-
-    SmBool enabled = (_configs.gps_timestamping) ? smTrue : smFalse;
-    LOG_DBG("GPS Timestamping: %s", (enabled == smTrue) ? "On" : "Off");
-    SM_API_CALL(smSetGPSTimebaseUpdate(fd, enabled));
-
-    _gps_configured = true;
+    long time_elapsed =
+        std::chrono::duration_cast<std::chrono::seconds>(end - start).count();
+    LOG_INF("Time taken to %s: %ld seconds",
+            target_state == smGPSStateLocked ? "acquire GPS lock"
+                                             : "GPS discipline oscillator",
+            time_elapsed);
 }
 
 void SM::log_gps_state(SmGPSState state) {
@@ -531,56 +555,95 @@ bool SM::acquire_gps_lock_target_state_released(SmGPSState target_state) {
     return state >= target_state;
 }
 
-void SM::acquire_gps_lock_released() {
-    bool locked;
-    long time_elapsed;
-    int64_t timeout_s = _configs.gps_lock_timeout;
+void SM::enable_gps_timestamping_released(bool enable, bool wait_disciplined,
+                                          int64_t lock_timeout) {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
 
-    if (!_configs.gps_timestamping) {
+    SmMode mode;
+    SM_API_CALL(smGetCurrentMode(fd, &mode));
+    log_mode();
+
+    if (mode != smModeIdle) {
+        LOG_ERR("Device must be idle");
+        throw SmException(SmException::NOT_IDLE);
+    }
+
+    if (!enable) {
+        LOG_INF("Disabling GPS timestamping");
+        SM_API_CALL(smSetGPSTimebaseUpdate(fd, smFalse));
+        _gps_timestamps = false;
         return;
     }
 
-    LOG_INF("Acquiring a GPS lock with a %ld second timeout", timeout_s);
+    LOG_INF("Enabling GPS timestamping");
+    SM_API_CALL(smSetGPSTimebaseUpdate(fd, smTrue));
+    _gps_timestamps = true;
 
-    auto now = std::chrono::steady_clock::now;
-    auto start_init = now();
-    locked = gps_sync_released(smGPSStateLocked, timeout_s);
-    auto stop = now();
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to acquire a GPS lock");
+    if (!_gps_configured) {
+        LOG_INF("Waiting for GPS lock");
+        gps_sync_released_throw_no_lock(smGPSStateLocked, lock_timeout);
+        LOG_INF("Setting GPS Platform model");
+        SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
+        _gps_configured = true;
     }
 
-    time_elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init)
-            .count();
-    LOG_DBG("Time elapsed to acquire a lock: %ld s", time_elapsed);
-
-    log_mode();
-
-    LOG_INF("GPS lock acquired. Setting platform model.");
-    SM_API_CALL(smSetGPSPlatformModel(fd, _configs.gps_model));
-
-    auto start = now();
-    locked = gps_sync_released(smGPSStateLocked, timeout_s);
-    stop = now();
-
-    if (!locked) {
-        LOG_ERR("GPS lock timed out");
-        throw std::runtime_error("Unable to GPS discipline the oscillator");
+    if (wait_disciplined) {
+        LOG_INF("Waiting for GPS disciplined timebase");
+        gps_sync_released_throw_no_lock(smGPSStateDisciplined, lock_timeout);
     }
-
-    time_elapsed =
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start).count();
-    LOG_DBG("Time elapsed to discipline the oscillator: %ld s", time_elapsed);
-
-    LOG_INF(
-        "Successfully acquired a GPS lock! Time taken: %d seconds",
-        std::chrono::duration_cast<std::chrono::seconds>(stop - start_init));
 }
 
-void SM::capture_iq_configure_released(double center, double bw) {
+void SM::abort_measurements_released() const {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    LOG_DBG("Aborting measurements");
+    log_mode();
+
+    SM_API_CALL(smAbort(fd));
+}
+
+SmGpsInfo SM::get_gps_info_released(bool refresh) const {
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SmGpsInfo ret;
+    SmBool updated, refresh_ = refresh ? smTrue : smFalse;
+    SM_API_CALL(smGetGPSInfo(fd, refresh_, &updated, &ret.sec_since_epoch,
+                             &ret.latitude, &ret.longitude, &ret.altitude,
+                             nullptr, nullptr));
+    ret.updated = updated == smTrue;
+
+    return ret;
+}
+
+void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
+    int64_t start_time = info.sec_since_epoch;
+
+    if (!_gps_timestamps) {
+        return;
+    }
+
+    LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
+
+    // todo: this might be wrong. Not accounting for roll over
+    do {
+        (void)smGetGPSInfo(fd, smTrue, nullptr, &info.sec_since_epoch,
+                           &info.latitude, &info.longitude, &info.altitude,
+                           nullptr, nullptr);
+        std::this_thread::sleep_for(1ms);
+        if (check_python_signals()) {
+            std::rethrow_exception(py_exception);
+        }
+    } while (info.sec_since_epoch < start_time);
+}
+
+void SM::capture_iq_configure_released(double center, double bw,
+                                       SmGpsInfo &info) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
@@ -593,16 +656,14 @@ void SM::capture_iq_configure_released(double center, double bw) {
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
-    gps_configure_released();
+    wait_until_gps_epoch_released(info);
 
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
-
-    // todo: acquire lock?
 }
 
-void SM::capture_iq_configure(double center, double bw) {
+void SM::capture_iq_configure(double center, double bw, SmGpsInfo &info) {
     py::gil_scoped_release release;
-    capture_iq_configure_released(center, bw);
+    capture_iq_configure_released(center, bw, info);
 }
 
 void SM::capture_iq_internal_released(std::vector<Capture> &data,
@@ -633,7 +694,8 @@ void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
 
 py::tuple SM::capture_iq_internal(double center, double bw,
                                   uint64_t capture_size, bool silent) {
-    capture_iq_configure(center, bw);
+    SmGpsInfo dummy;
+    capture_iq_configure(center, bw, dummy);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
@@ -838,19 +900,22 @@ bool SM::stream_iq_data_capture_released(
     int sample_loss;
     bool sample_loss_ = false;
     uint32_t samples_per_capture = _configs.samples_per_capture;
+    SmBool updated;
 
     for (size_t i = 0; i < captures; i++) {
         auto capture = std::make_unique<RawCapture>();
         capture->buf.resize(samples_per_capture * 2);
-
+        (void)smGetGPSInfo(
+            fd, smFalse, &updated, &capture->gps_info.sec_since_epoch,
+            &capture->gps_info.latitude, &capture->gps_info.longitude,
+            &capture->gps_info.altitude, nullptr, nullptr);
         (void)smGetIQ(fd, capture->buf.data(),
                       static_cast<int>(samples_per_capture), nullptr, 0,
                       &capture->timestamp, smFalse, &sample_loss, nullptr);
-        (void)smGetGPSInfo(fd, smFalse, &capture->gps_info.updated,
-                           &capture->gps_info.sec_since_epoch,
-                           &capture->gps_info.latitude,
-                           &capture->gps_info.longitude,
-                           &capture->gps_info.altitude, nullptr, nullptr);
+        capture->gps_info.updated =
+            updated == smTrue && capture->gps_info.sec_since_epoch != 0;
+        capture->gps_info.chunk = chunk;
+        capture->gps_info.capture = i;
         capture->chunk_id = chunk;
         queue.put(std::move(capture));
         if (sample_loss == SM_TRUE) {
@@ -885,6 +950,17 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
     CaptureProgress::MemoryMonitor memory_monitor(
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
         params.max_buffer_size, params.silent);
+    SmGpsInfo gps_start;
+    gps_start.sec_since_epoch = params.start_time_gps_epoch;
+
+    try {
+        capture_iq_configure_released(params.center_frequency, params.bandwidth,
+                                      gps_start);
+    } catch (...) {
+        capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
+        consumer.join();
+        throw;
+    }
 
     int64_t chunk;
     auto now = std::chrono::steady_clock::now;
@@ -933,6 +1009,8 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
         throw std::runtime_error("Operation failed");
     }
 
+    metadata.gps_updates.insert(metadata.gps_updates.begin(), gps_start);
+
     params.done_cb();
 
     oom = memory_monitor.out_of_memory();
@@ -952,17 +1030,19 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
         throw SmException(SmException::NOT_OPEN);
     }
 
-    capture_iq_configure(params.center_frequency, params.bandwidth);
-
     bool sample_loss, oom;
     RecordingMetadata metadata;
     uint64_t captures_per_chunk;
+
+    _stream_diagnostics.data_bytes_written = 0;
+    _stream_diagnostics.padding_written = 0;
 
     stream_iq_data_capture(params, captures_per_chunk, metadata, oom,
                            sample_loss);
 
     py::dict ret;
     py::dict diagnostics;
+    py::list gps_data;
 
     diagnostics["save_duration"] = metadata.write_duration;
     diagnostics["resource_exhaustion"] = oom;
@@ -971,6 +1051,19 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     ret["captures_per_chunk"] = captures_per_chunk;
     ret["diagnostics"] = diagnostics;
     ret["sample_loss"] = sample_loss;
+
+    for (auto &gps_update : metadata.gps_updates) {
+        py::dict gps;
+        gps["sec_since_epoch"] = gps_update.sec_since_epoch;
+        gps["latitude"] = gps_update.latitude;
+        gps["longitude"] = gps_update.longitude;
+        gps["altitude"] = gps_update.altitude;
+        gps["chunk"] = gps_update.chunk;
+        gps["capture"] = gps_update.capture;
+        gps_data.append(gps);
+    }
+
+    ret["gps_data"] = gps_data;
 
     return ret;
 }
@@ -985,7 +1078,7 @@ void SM::stream_iq_data_to_disk(
     bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
     LOG_DBG("IQ direct access: %d", iq_direct_access);
 
-    ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0);
+    ts_fd = stream_iq_open_fd(ts_fd, params.save_directory, false, 0, false);
     if (ts_fd < 0) {
         metadata.save_failed = true;
         return;
@@ -998,15 +1091,15 @@ void SM::stream_iq_data_to_disk(
         auto write_data = queue.get();
 
         if (write_data == nullptr) {
-            stream_iq_flush_chunk(iq_fd, buffer);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
             close_fd(iq_fd);
             break;
         }
 
         if (current_chunk != write_data->chunk_id) {
-            stream_iq_flush_chunk(iq_fd, buffer);
-            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, iq_direct_access,
-                                      write_data->chunk_id);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
+            iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
+                                      write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;
             if (iq_fd < 0) {
                 metadata.save_failed = true;
@@ -1021,18 +1114,9 @@ void SM::stream_iq_data_to_disk(
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
 
-        if (buffer.size() >= PAGE_SIZE) {
-            size_t size = (buffer.size() / PAGE_SIZE) * PAGE_SIZE;
-            ssize_t bytes_written = write(iq_fd, buffer.data(), size);
-            if (bytes_written < 0) {
-                LOG_ERR("%s:%u write: %s",
-                        std::source_location::current().file_name(),
-                        std::source_location::current().line(),
-                        strerror(errno));
-                continue;
-            }
-            _stream_diagnostics.data_bytes_written += bytes_written;
-            buffer.erase(buffer.begin(), buffer.begin() + bytes_written);
+        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access);
+        if (ret < 0) {
+            continue;
         }
 
         ssize_t written = write(ts_fd, &timestamp, sizeof(double));
@@ -1043,6 +1127,9 @@ void SM::stream_iq_data_to_disk(
         }
 
         entries_written += 1;
+        if (write_data->gps_info.updated) {
+            metadata.gps_updates.emplace_back(write_data->gps_info);
+        }
     }
     auto stop = std::chrono::steady_clock::now();
     close_fd(ts_fd);
@@ -1059,32 +1146,63 @@ void SM::stream_iq_data_to_disk(
                                  metadata.write_duration)
                                  .count())) /
         1e6;
-    LOG_DBG("Bytes captured: %lu bytes", _stream_diagnostics.data_bytes_written);
+    LOG_DBG("Bytes captured: %lu bytes",
+            _stream_diagnostics.data_bytes_written);
     LOG_DBG("Padding added: %lu bytes", _stream_diagnostics.padding_written);
     LOG_INF("Data saved at ~%f MB/s", speed);
 }
 
-void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer) {
-    if (!buffer.empty()) {
+int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
+                                bool direct) {
+    int ret = 0;
+    ssize_t bytes_written = 0;
+
+    if (direct && data.size() >= PAGE_SIZE) {
+        size_t size = (data.size() / PAGE_SIZE) * PAGE_SIZE;
+        bytes_written = write(iq_fd, data.data(), size);
+    } else if (!direct) {
+        bytes_written = write(iq_fd, data.data(), data.size());
+    }
+
+    if (bytes_written < 0) {
+        LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
+                std::source_location::current().line(), strerror(errno));
+        ret = bytes_written;
+    } else {
+        data.erase(data.begin(), data.begin() + bytes_written);
+    }
+
+    _stream_diagnostics.data_bytes_written += bytes_written;
+
+    return ret;
+}
+
+void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
+                               bool direct) {
+    ssize_t err = 0;
+    size_t old_size = buffer.size();
+
+    if (!buffer.empty() && direct) {
         assert(iq_fd > 0);
-        size_t old_size = buffer.size();
         size_t new_size = (((old_size - 1) / PAGE_SIZE) + 1) * PAGE_SIZE;
         buffer.resize(new_size);
-        ssize_t err = write(iq_fd, buffer.data(), buffer.size());
-        if (err < 0) {
-            LOG_ERR("%s:%u write: %s",
-                    std::source_location::current().file_name(),
-                    std::source_location::current().line(), strerror(errno));
-        } else {
-            buffer.erase(buffer.begin(), buffer.begin() + err);
-            _stream_diagnostics.data_bytes_written += old_size;
-            _stream_diagnostics.padding_written += (err - old_size);
-        }
+        err = write(iq_fd, buffer.data(), buffer.size());
+    } else if (!buffer.empty()) {
+        err = write(iq_fd, buffer.data(), buffer.size());
+    }
+
+    if (err < 0) {
+        LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
+                std::source_location::current().line(), strerror(errno));
+    } else {
+        buffer.erase(buffer.begin(), buffer.begin() + err);
+        _stream_diagnostics.data_bytes_written += old_size;
+        _stream_diagnostics.padding_written += (err - old_size);
     }
 }
 
 int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
-                          int32_t chunk) {
+                          int32_t chunk, bool direct) {
     std::stringstream oss;
     if (old_fd > 0) {
         close_fd(old_fd);
@@ -1098,10 +1216,11 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
             << "ts.f8";
     }
 
-    int new_fd = open_fd(oss.str().c_str(), iq);
+    int new_fd = open_fd(oss.str().c_str(), direct);
     if (new_fd < 0) {
         LOG_ERR("open: %s", strerror(errno));
     }
+
     return new_fd;
 }
 
@@ -1111,6 +1230,14 @@ SmException::SmException(SmExceptionType type) : _type(type) {
         _msg = "Not open";
         break;
     }
+    case NOT_IDLE: {
+        _msg = "Device must be idle to perform operation";
+        break;
+    }
+    case NO_GPS_LOCK: {
+        _msg = "Unable to acquire GPS lock within the timeout";
+        break;
+    }
     default: {
         _msg = "Unknown";
         break;
@@ -1118,7 +1245,7 @@ SmException::SmException(SmExceptionType type) : _type(type) {
     }
 }
 
-SmException::SmException(const char *msg) : _msg(msg), _type(UNKNOWN) {}
+SmException::SmException(const char *msg) : _type(UNKNOWN), _msg(msg) {}
 
 const char *SmException::what() const noexcept { return _msg.c_str(); }
 

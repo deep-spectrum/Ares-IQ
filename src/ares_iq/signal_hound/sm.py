@@ -18,6 +18,7 @@ import yaml
 from pathlib import Path
 from typing import Callable
 import psutil
+import numpy as np
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -115,8 +116,6 @@ class SMConfigs(ConfigBase):
     Device configuration for SM series devices.
 
     Attributes:
-        gps_timestamping: Generate GPS disciplined timestamps.
-        gps_lock_timeout: Number number of seconds to wait for a GPS lock.
         gps_model: The GPS model to use.
         decimation: The downsampling factor. Must be a power of 2 between 1 and SM_MAX_IQ_DECIMATION.
         software_filter: Enable software filtering. Ignored on networked SM devices.
@@ -125,9 +124,6 @@ class SMConfigs(ConfigBase):
         device_addr: The device address of the SM device.
         port: The port for the SM device.
     """
-    gps_timestamping: bool = False
-    gps_lock_timeout: int = field(default=0, metadata={"min": 0},
-                                  validator=[validators.instance_of(int), validate_bounds])
     gps_model: SmGpsPlatformModel = field(default=SmGpsPlatformModel.STATIONARY, converter=_convert_sm_gps)
     decimation: int = field(default=1,
                             metadata={"min": 1, "max": SM_MAX_IQ_DECIMATION},
@@ -149,13 +145,24 @@ class SMConfigs(ConfigBase):
 
 @dataclass(frozen=True)
 class SmGpsInfo:
+    """GPS information from the SM device.
+
+    Attributes:
+        sec_since_epoch: Number of seconds since epoch as reported by the GPS NMEA sentences. Last reported value by the GPS. If the GPS is not locked, this value will be set to zero.
+        latitude: Latitude in decimal degrees. If the GPS is not locked, this value will be set to zero.
+        longitude: Longitude in decimal degrees. If the GPS is not locked, this value will be set to zero.
+        altitude: Altitude in meters. If the GPS is not locked, this value will be set to zero.
+        updated: Flag indicating that the GPS data has been updated.
+    """
     sec_since_epoch: int
     latitude: float
     longitude: float
     altitude: float
+    updated: bool = False
 
 
 class SmException(Exception):
+    """SM API exceptions."""
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -176,8 +183,6 @@ class SM(ABC):
         else:
             configs_ = _SmConfigs(device=model,
                                   serial=serial,
-                                  gps_timestamping=configs.gps_timestamping,
-                                  gps_lock_timeout=configs.gps_lock_timeout,
                                   gps_model=configs.gps_model,
                                   decimation=configs.decimation,
                                   software_filter=configs.software_filter,
@@ -189,7 +194,7 @@ class SM(ABC):
             self._dev = _SM(configs_)
         except _SmException as e:
             raise SmException(e)
-        self._gps_stamping = configs_.gps_timestamping
+        self._gps_stamping = False
 
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
@@ -288,6 +293,23 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    def _save_gps_metadata(self,
+                           meta: dict[str, object | dict[str, object | datetime.timedelta] | list[dict[str, float]]],
+                           save_directory: Path):
+        if not self._gps_stamping:
+            return
+
+        gps_meta: list[dict[str, float]] = meta["gps_data"]
+        altitudes = np.array([x['altitude'] for x in gps_meta], dtype=np.float64)
+        captures = np.array([x['capture'] for x in gps_meta], dtype=np.uint64)
+        chunks = np.array([x['chunk'] for x in gps_meta], dtype=np.uint64)
+        latitudes = np.array([x['latitude'] for x in gps_meta], dtype=np.float64)
+        longitudes = np.array([x['longitude'] for x in gps_meta], dtype=np.float64)
+        epochs = np.array([x['sec_since_epoch'] for x in gps_meta], dtype=np.int64)
+
+        np.savez(save_directory / "gps.npz", chunk=chunks, capture=captures, time=epochs, latitude=latitudes,
+                 longitude=longitudes, altitude=altitudes)
+
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
         configs: dict[str, object] = self._dev.get_configs().as_dict()
@@ -303,6 +325,10 @@ class SM(ABC):
                 configs[key] = value.name
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
+
+        self._save_gps_metadata(meta, save_directory)
+        del meta["gps_data"]
+
         meta["device_configurations"] = configs
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
@@ -317,7 +343,7 @@ class SM(ABC):
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
                   stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
-                  ram_usage_limit: int | None = 0):
+                  ram_usage_limit: int | None = 0, gps_start_time: int = 0):
         """Stream I/Q data to disk.
 
         Args:
@@ -334,6 +360,7 @@ class SM(ABC):
             ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
                              lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
                              recommended that this parameter be on the magnitude of GB.
+            gps_start_time: The GPS timestamp to start the measurements at.
         """
         save_directory = self._create_save_directory(save_directory)
 
@@ -358,17 +385,64 @@ class SM(ABC):
             verbose=verbose,
             stop_sample_loss=stop_sample_loss,
             done_cb=done,
-            max_buffer_size=_ram_usage_limit
+            max_buffer_size=_ram_usage_limit,
+            start_time_gps_epoch=gps_start_time,
         )
 
         try:
             meta = self._dev.stream_iq(params)
         except _SmException as e:
             raise SmException(e)
+
         meta["parameters"] = params.as_dict()
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
+        meta["parameters"]["gps_start_time"] = gps_start_time
+        meta["parameters"]["gps_timestamping"] = self._gps_stamping
         self._save_stream_iq_meta(meta, save_directory)
+
+    def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
+        """Retrieve the current GPS information from the SM device.
+
+        Args:
+            refresh: Force the GPS information to refresh.
+
+        Returns:
+            SmGpsInfo: GPS information.
+
+        Raises:
+            SmException: if there was an internal failure.
+        """
+        try:
+            gps_info = self._dev.get_gps_info(refresh)
+        except _SmException as e:
+            raise SmException(e)
+        return SmGpsInfo(gps_info.sec_since_epoch, gps_info.latitude, gps_info.longitude, gps_info.altitude,
+                         gps_info.updated)
+
+    def enable_gps_timestamping(self, enable: bool, wait_disciplined: bool = True, lock_timeout: int = 0):
+        """Enable or disable GPS timestamping.
+
+        Args:
+            enable: Flag to enable or disable GPS timestamping.
+            wait_disciplined: Wait for the oscillator to be disciplined by the GPS. This has no effect when the enable flag is set to `False`.
+            lock_timeout: The amount of seconds to wait for a lock and to wait for the oscillator to get disciplined when `wait_disciplined` gets set to `True`. Set to `0` to wait indefinitely.
+
+        Raises:
+            SmException: If there was an internal error or if the GPS could not acquire a lock.
+        """
+        try:
+            self._dev.enable_gps_timestamping(enable, wait_disciplined, lock_timeout)
+        except _SmException as e:
+            raise SmException(e)
+        self._gps_stamping = enable
+
+    def abort_measurement(self):
+        """Abort the current measurement mode."""
+        try:
+            self._dev.abort_measurement()
+        except _SmException as e:
+            raise SmException(e)
 
 
 @dataclass(frozen=True)
@@ -405,6 +479,11 @@ class NetworkedSM(SM, ABC):
             raise SmException(e)
 
     def sfp_diagnostics(self) -> SmSFPDiagnostics:
+        """Collect SFP port diagnostic data.
+
+        Returns:
+            SFP diagnostic information.
+        """
         try:
             data = self._dev.network_diagnostic_info()
         except _SmException as e:

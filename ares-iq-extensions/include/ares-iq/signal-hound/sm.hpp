@@ -63,15 +63,6 @@ struct SMConfigs {
     uint16_t port = SM_DEFAULT_PORT;
 
     /**
-     * Use GPS timestamping.
-     */
-    bool gps_timestamping = false;
-    /**
-     * The maximum number of seconds to wait for a GPS lock in seconds. 0
-     * seconds represents no timeout.
-     */
-    int32_t gps_lock_timeout = 0;
-    /**
      * The GPS platform model to use.
      */
     SmGPSPlatformModel gps_model = SmGPSPlatformModelStationary;
@@ -80,10 +71,12 @@ struct SMConfigs {
      * The downsampling factor. Must be a power of 2.
      */
     uint16_t decimation = 1;
+
     /**
      * Enable the software filter.
      */
     bool software_filter = false;
+
     /**
      * The number of samples per a capture.
      */
@@ -298,7 +291,19 @@ struct SmGpsInfo {
     /**
      * Flag indicating that the GPS data has been updated.
      */
-    SmBool updated = smFalse;
+    bool updated = false;
+
+    /**
+     * Chunk index the GPS entry is associated with.
+     * @note This is for internal use with the stream API.
+     */
+    int64_t chunk = 0;
+
+    /**
+     * Capture index the GPS entry is associated with.
+     * @note This is for internal use with the stream API.
+     */
+    size_t capture = 0;
 };
 
 /**
@@ -341,23 +346,23 @@ struct SmNetworkConfig {
 class SM {
   public:
     /**
-     * .
+     * Constructor.
      * @param configs The configurations for the SM device.
      */
     explicit SM(const SMConfigs &configs);
 
     /**
-     * .
+     * Destructor.
      */
     ~SM();
 
     /**
      * Capture IQ data.
-     * @param center The center frequency in Hz.
-     * @param bw The bandwidth in Hz.
-     * @param capture_size The amount of data to capture in bytes.
-     * @param silent Hide the progress bar.
-     * @param verbose Show the logging messages.
+     * @param[in] center The center frequency in Hz.
+     * @param[in] bw The bandwidth in Hz.
+     * @param[in] capture_size The amount of data to capture in bytes.
+     * @param[in] silent Hide the progress bar.
+     * @param[in] verbose Show the logging messages.
      * @return The captured complex data in a numpy array and the capture
      * timestamps.
      */
@@ -382,8 +387,8 @@ class SM {
     /**
      * Acquire a GPS lock before collecting any data.
      *
-     * @param target_state The target state for acquiring a GPS lock.
-     * @param timeout_s The timeout for acquiring a GPS lock in seconds.
+     * @param[in] target_state The target state for acquiring a GPS lock.
+     * @param[in] timeout_s The timeout for acquiring a GPS lock in seconds.
      * @return `true` if a GPS lock was acquired. `false` otherwise.
      *
      * @note If a connection to the device is not already open, then
@@ -394,7 +399,7 @@ class SM {
     /**
      * Run a network speed test.
      *
-     * @param duration The amount of time in seconds to run the test for.
+     * @param[in] duration The amount of time in seconds to run the test for.
      * @return The bytes per a second.
      *
      * @note If a connection to the device is not already open, then
@@ -422,16 +427,41 @@ class SM {
     /**
      * Stream captured I/Q data directly to storage.
      *
-     * @param params The stream parameters.
+     * @param[in] params The stream parameters.
      * @return Stream capture metadata.
      */
     py::dict stream_iq_data(const StreamParameters &params);
 
     /**
-     * .
+     * Retrieve the configurations for the SM device.
      * @return The SM device configurations passed in upon initialization.
      */
     SMConfigs get_configs() const;
+
+    /**
+     * Retrieve the current GPS information from the SM device.
+     * @param[in] refresh Force the GPS information to refresh.
+     * @return The current GPS information.
+     */
+    SmGpsInfo get_gps_info(bool refresh) const;
+
+    /**
+     * Enable or disable GPS timestamping.
+     *
+     * @param[in] enable Flag to enable or disable GPS timestamping.
+     * @param[in] wait_disciplined Wait for the oscillator to be disciplined by
+     * the GPS. This has no effect when the @p enable flag is set to @p false.
+     * @param[in] lock_timeout The amount of seconds to wait for a lock and to
+     * wait for the oscillator to get disciplined when @p wait_disciplined gets
+     * set to @p true. Set to @p 0 to wait indefinitely.
+     */
+    void enable_gps_timestamping(bool enable, bool wait_disciplined,
+                                 int64_t lock_timeout);
+
+    /**
+     * Abort the current measurement mode.
+     */
+    void abort_measurements() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -440,6 +470,7 @@ class SM {
     SMConfigs _configs;
     bool _open = false;
     bool _gps_configured = false;
+    bool _gps_timestamps = false;
     std::exception_ptr py_exception = nullptr;
 
     std::tuple<int, int, int> firmware_version_released() const;
@@ -457,11 +488,17 @@ class SM {
 
     void close_released();
 
-    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout_s);
-    void gps_configure_released();
+    SmGpsInfo get_gps_info_released(bool refresh) const;
+
     static void log_gps_state(SmGPSState state);
     bool acquire_gps_lock_target_state_released(SmGPSState target_state);
-    void acquire_gps_lock_released();
+    bool gps_sync_released(const SmGPSState &target_state, int64_t timeout);
+    void gps_sync_released_throw_no_lock(const SmGPSState &target_state,
+                                         int64_t timeout);
+    void enable_gps_timestamping_released(bool enable, bool wait_disciplined,
+                                          int64_t lock_timeout);
+
+    void abort_measurements_released() const;
 
     struct Capture {
         complex_t *buf;
@@ -469,8 +506,10 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void capture_iq_configure_released(double center, double bw);
-    void capture_iq_configure(double center, double bw);
+    void wait_until_gps_epoch_released(SmGpsInfo &info);
+    void capture_iq_configure_released(double center, double bw,
+                                       SmGpsInfo &info);
+    void capture_iq_configure(double center, double bw, SmGpsInfo &info);
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,
@@ -492,6 +531,7 @@ class SM {
         uint64_t total_captures = 0;
         volatile bool save_failed = false;
         volatile bool signal_received = false;
+        std::vector<SmGpsInfo> gps_updates;
     };
 
     struct StreamDiagnostics {
@@ -517,15 +557,20 @@ class SM {
     stream_iq_data_to_disk(const StreamParameters &params,
                            RecordingMetadata &metadata,
                            ares::queue<std::unique_ptr<RawCapture>> &queue);
-    void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer);
+    int stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
+                                bool direct);
+    void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
+                               bool direct);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
-                                 bool iq, int32_t chunk);
+                                 bool iq, int32_t chunk, bool direct);
 };
 
 class SmException : std::exception {
   public:
     enum SmExceptionType {
         NOT_OPEN,
+        NOT_IDLE,
+        NO_GPS_LOCK,
 
         UNKNOWN,
     };
