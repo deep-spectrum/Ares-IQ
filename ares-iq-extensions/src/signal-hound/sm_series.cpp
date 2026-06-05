@@ -1045,6 +1045,7 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     py::dict ret;
     py::dict diagnostics;
     py::list gps_data;
+    py::dict hashes;
 
     diagnostics["save_duration"] = metadata.write_duration;
     diagnostics["resource_exhaustion"] = oom;
@@ -1065,7 +1066,15 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
         gps_data.append(gps);
     }
 
+    for (size_t i = 0; i < metadata.iq_hash.size(); i++) {
+        std::stringstream ss;
+        ss << "iq" << i << ".c8";
+        hashes[ss.str().c_str()] = metadata.iq_hash[i];
+    }
+    hashes["ts.f8"] = metadata.ts_hash;
+
     ret["gps_data"] = gps_data;
+    ret["hashes"] = hashes;
 
     return ret;
 }
