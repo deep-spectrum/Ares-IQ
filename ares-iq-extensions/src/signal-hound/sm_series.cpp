@@ -244,13 +244,15 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
                       SP(port), SP(gps_model), SP(decimation),
-                      SP(software_filter), SP(samples_per_capture));
+                      SP(software_filter), SP(samples_per_capture),
+                      SP(hash_seed));
 }
 
 py::dict SMConfigs::as_dict() {
     return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr),
                          NV(port), NV(gps_model), NV(decimation),
-                         NV(software_filter), NV(samples_per_capture));
+                         NV(software_filter), NV(samples_per_capture),
+                         NV(hash_seed));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -1075,8 +1077,8 @@ void SM::stream_iq_data_to_disk(
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
-    xxh::hash_state64_t iq_hash_state;
-    xxh::hash_state64_t ts_hash_state;
+    xxh::hash_state64_t iq_hash_state(_configs.hash_seed);
+    xxh::hash_state64_t ts_hash_state(_configs.hash_seed);
     bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
     LOG_DBG("IQ direct access: %d", iq_direct_access);
 
@@ -1097,7 +1099,6 @@ void SM::stream_iq_data_to_disk(
                                   iq_hash_state);
             close_fd(iq_fd);
             metadata.iq_hash.emplace_back(iq_hash_state.digest());
-            iq_hash_state.reset();
             break;
         }
 
@@ -1105,7 +1106,7 @@ void SM::stream_iq_data_to_disk(
             stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
                                   iq_hash_state);
             metadata.iq_hash.emplace_back(iq_hash_state.digest());
-            iq_hash_state.reset();
+            iq_hash_state.reset(_configs.hash_seed);
             iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
                                       write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;

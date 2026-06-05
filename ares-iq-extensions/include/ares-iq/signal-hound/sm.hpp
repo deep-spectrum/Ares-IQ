@@ -84,6 +84,11 @@ struct SMConfigs {
     uint32_t samples_per_capture = 524288;
 
     /**
+     * Seed for xxHash64 algorithm.
+     */
+    uint64_t hash_seed = 0;
+
+    /**
      * Retrieve the dictionary representation of the configurations.
      * @return The dictionary representation.
      */
