@@ -165,6 +165,7 @@ class SmGpsInfo:
 
 class SmException(Exception):
     """SM API exceptions."""
+
     def __init__(self, *args):
         super().__init__(*args)
 

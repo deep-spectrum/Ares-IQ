@@ -46,7 +46,8 @@ def capture(
         bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
         silent: Annotated[bool, typer.Option("--silent", help='Do not show the progress bar')] = False,
-        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
+        verbose: Annotated[
+            bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
     try:
         with open(CONFIG_FILE, "r") as f:
             configs = yaml.safe_load(f)
