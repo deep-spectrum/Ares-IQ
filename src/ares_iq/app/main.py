@@ -112,7 +112,7 @@ def verify(trace: Annotated[str, typer.Argument(help='The trace to verify')]):
         raise typer.BadParameter(f"Trace {trace_path} does not exist")
     if not trace_path.is_dir():
         raise typer.BadParameter(f"Trace must be a directory")
-    checksums_path = trace_path / "checksums.yaml"
+    checksums_path = trace_path / "checksum.yaml"
     if not checksums_path.exists():
         print_error(f"{checksums_path} does not exist")
         return
