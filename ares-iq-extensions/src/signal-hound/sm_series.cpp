@@ -1075,6 +1075,8 @@ void SM::stream_iq_data_to_disk(
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
+    xxh::hash_state64_t iq_hash_state;
+    xxh::hash_state64_t ts_hash_state;
     bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
     LOG_DBG("IQ direct access: %d", iq_direct_access);
 
@@ -1091,13 +1093,19 @@ void SM::stream_iq_data_to_disk(
         auto write_data = queue.get();
 
         if (write_data == nullptr) {
-            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
+                                  iq_hash_state);
             close_fd(iq_fd);
+            metadata.iq_hash.emplace_back(iq_hash_state.digest());
+            iq_hash_state.reset();
             break;
         }
 
         if (current_chunk != write_data->chunk_id) {
-            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
+                                  iq_hash_state);
+            metadata.iq_hash.emplace_back(iq_hash_state.digest());
+            iq_hash_state.reset();
             iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
                                       write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;
@@ -1114,7 +1122,8 @@ void SM::stream_iq_data_to_disk(
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
 
-        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access);
+        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access,
+                                          iq_hash_state);
         if (ret < 0) {
             continue;
         }
@@ -1125,6 +1134,7 @@ void SM::stream_iq_data_to_disk(
                     std::source_location::current().file_name(),
                     std::source_location::current().line(), strerror(errno));
         }
+        ts_hash_state.update(&timestamp, sizeof(double));
 
         entries_written += 1;
         if (write_data->gps_info.updated) {
@@ -1133,6 +1143,7 @@ void SM::stream_iq_data_to_disk(
     }
     auto stop = std::chrono::steady_clock::now();
     close_fd(ts_fd);
+    metadata.ts_hash = ts_hash_state.digest();
 
     LOG_DBG("%lu bytes dropped", buffer.size());
     LOG_DBG("Entries written: %lu", entries_written);
@@ -1153,7 +1164,7 @@ void SM::stream_iq_data_to_disk(
 }
 
 int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
-                                bool direct) {
+                                bool direct, xxh::hash_state64_t &hash_stream) {
     int ret = 0;
     ssize_t bytes_written = 0;
 
@@ -1169,6 +1180,7 @@ int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
                 std::source_location::current().line(), strerror(errno));
         ret = bytes_written;
     } else {
+        hash_stream.update(data.data(), bytes_written);
         data.erase(data.begin(), data.begin() + bytes_written);
     }
 
@@ -1178,7 +1190,7 @@ int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
 }
 
 void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
-                               bool direct) {
+                               bool direct, xxh::hash_state64_t &hash_stream) {
     ssize_t err = 0;
     size_t old_size = buffer.size();
 
@@ -1195,6 +1207,7 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
         LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
                 std::source_location::current().line(), strerror(errno));
     } else {
+        hash_stream.update(buffer.data(), err);
         buffer.erase(buffer.begin(), buffer.begin() + err);
         _stream_diagnostics.data_bytes_written += old_size;
         _stream_diagnostics.padding_written += (err - old_size);

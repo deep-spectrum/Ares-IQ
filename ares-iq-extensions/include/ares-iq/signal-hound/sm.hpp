@@ -17,6 +17,7 @@
 // ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
+#include <xxhash.hpp>
 
 namespace py = pybind11;
 
@@ -532,6 +533,8 @@ class SM {
         volatile bool save_failed = false;
         volatile bool signal_received = false;
         std::vector<SmGpsInfo> gps_updates;
+        std::vector<xxh::hash64_t> iq_hash;
+        xxh::hash64_t ts_hash;
     };
 
     struct StreamDiagnostics {
@@ -558,9 +561,9 @@ class SM {
                            RecordingMetadata &metadata,
                            ares::queue<std::unique_ptr<RawCapture>> &queue);
     int stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
-                                bool direct);
+                                bool direct, xxh::hash_state64_t &hash_stream);
     void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
-                               bool direct);
+                               bool direct, xxh::hash_state64_t &hash_stream);
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
 };
