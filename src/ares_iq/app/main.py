@@ -106,7 +106,7 @@ def check_file(file: Path, crc: str, seed: int) -> bool:
 
 
 @app.command(name='verify', help='Verify the the data validity of an iq trace')
-def verify(trace: Annotated[str, typer.Argument('trace', help='The trace to verify')]):
+def verify(trace: Annotated[str, typer.Argument(help='The trace to verify')]):
     trace_path = Path(trace)
     if not trace_path.exists():
         raise typer.BadParameter(f"Trace {trace_path} does not exist")
