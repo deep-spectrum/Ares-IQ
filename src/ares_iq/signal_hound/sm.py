@@ -19,6 +19,8 @@ from pathlib import Path
 from typing import Callable
 import psutil
 import numpy as np
+import io
+import xxhash
 
 logger = logging.getLogger(SM_LOGGER_NAME)
 
@@ -163,6 +165,7 @@ class SmGpsInfo:
 
 class SmException(Exception):
     """SM API exceptions."""
+
     def __init__(self, *args):
         super().__init__(*args)
 
@@ -293,11 +296,20 @@ class SM(ABC):
     def __exit__(self, exc_type, exc_val, exc_tb):
         self.close()
 
+    @staticmethod
+    def _save_hashes(seed: int, hashes: dict[str, int | str | None], save_directory: Path):
+        for key in hashes.keys():
+            if isinstance(hashes[key], int):
+                hashes[key] = f"{hashes[key]:x}"
+        hashes['seed'] = f"{seed:x}"
+        with open(save_directory / "checksum.yaml", "w") as f:
+            yaml.safe_dump(hashes, f)
+
     def _save_gps_metadata(self,
                            meta: dict[str, object | dict[str, object | datetime.timedelta] | list[dict[str, float]]],
-                           save_directory: Path):
+                           save_directory: Path) -> str | None:
         if not self._gps_stamping:
-            return
+            return None
 
         gps_meta: list[dict[str, float]] = meta["gps_data"]
         altitudes = np.array([x['altitude'] for x in gps_meta], dtype=np.float64)
@@ -307,11 +319,22 @@ class SM(ABC):
         longitudes = np.array([x['longitude'] for x in gps_meta], dtype=np.float64)
         epochs = np.array([x['sec_since_epoch'] for x in gps_meta], dtype=np.int64)
 
-        np.savez(save_directory / "gps.npz", chunk=chunks, capture=captures, time=epochs, latitude=latitudes,
+        buffer = io.BytesIO()
+        np.savez(buffer, chunk=chunks, capture=captures, time=epochs, latitude=latitudes,
                  longitude=longitudes, altitude=altitudes)
+        buffer.seek(0)
+        gps_hash = xxhash.xxh64(buffer.getbuffer(), meta['device_configurations']['hash_seed']).hexdigest()
+
+        buffer.seek(0)
+        with open(save_directory / "gps.npz", "wb") as f:
+            f.write(buffer.getbuffer())
+
+        return gps_hash
 
     def _save_stream_iq_meta(self, meta: dict[str, object | dict[str, object | datetime.timedelta]],
                              save_directory: Path):
+        hashes = meta["hashes"]
+        del meta["hashes"]
         configs: dict[str, object] = self._dev.get_configs().as_dict()
         meta["diagnostics"]["save_duration"] = meta["diagnostics"]["save_duration"].total_seconds()
         meta["diagnostics"]["device_diagnostics"] = self._dev.diagnostic_info().as_dict()
@@ -326,12 +349,21 @@ class SM(ABC):
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
 
-        self._save_gps_metadata(meta, save_directory)
+        meta["device_configurations"] = configs
+
+        hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
         del meta["gps_data"]
 
-        meta["device_configurations"] = configs
+        buffer = io.StringIO()
+        yaml.safe_dump(meta, buffer)
+        buffer.seek(0)
+
+        meta["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), meta['device_configurations']['hash_seed']).hexdigest()
+
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
+
+        self._save_hashes(meta['device_configurations']['hash_seed'], hashes, save_directory)
 
     @staticmethod
     def _create_save_directory(save_directory: str | Path) -> Path:

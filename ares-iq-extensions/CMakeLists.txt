@@ -27,6 +27,14 @@ include(FindUHD)
 include(CheckLinuxDistro)
 include(AddPythonModule)
 
+# Hash
+include(FetchContent)
+FetchContent_Declare(
+		xxhash_cpp
+		URL https://github.com/redspah/xxhash_cpp/archive/refs/tags/0.8.1.zip
+)
+FetchContent_MakeAvailable(xxhash_cpp)
+
 if (${LINUX_DISTRO} STREQUAL "ubuntu")
 	if (${LINUX_VERSION_MAJOR} LESS ${MIN_UBUNTU_VERSION} OR ${LINUX_VERSION_MAJOR} GREATER ${MAX_UBUNTU_VERSION})
 		message(FATAL_ERROR "Ubuntu version not supported. Ubuntu is supported from version ${MIN_UBUNTU_VERSION} to ${MAX_UBUNTU_VERSION}")
@@ -56,7 +64,7 @@ python_module(_core src/core.cpp
 )
 python_module(_sh_sm_series src/signal-hound/sm_series.cpp
 		DESTINATION ${PACKAGE_NAME}/signal_hound
-		DEPENDENCIES capture_progress logging ares_data_structures ares_allocators ares_mount_point
-		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures ares_allocators ares_mount_point
+		DEPENDENCIES capture_progress logging ares_data_structures ares_allocators ares_mount_point xxhash_cpp
+		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures ares_allocators ares_mount_point xxhash_cpp
 		INSTALL_LIBS ${SM_API_LIBS}
 )

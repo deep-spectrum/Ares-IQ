@@ -10,6 +10,9 @@ import yaml
 from ares_iq.print_utils import print_error
 from ares_iq.print_utils.logging import AresIqHandler
 import logging
+from pathlib import Path
+import xxhash
+from rich.console import Console
 
 logger = logging.getLogger()
 logger.addHandler(AresIqHandler(warning_panel=True, error_panel=True, critical_error_panel=True))
@@ -43,7 +46,8 @@ def capture(
         bw: Annotated[float, typer.Option("--bw", "-w", help='Bandwidth of the capture in MHz')] = 160,
         file_size: Annotated[float, typer.Option("--size", "-s", help='The amount of IQ data to capture in GB')] = 4,
         silent: Annotated[bool, typer.Option("--silent", help='Do not show the progress bar')] = False,
-        verbose: Annotated[bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
+        verbose: Annotated[
+            bool, typer.Option("--verbose", "-v", help='Like verbose, but show logging messages too')] = False):
     try:
         with open(CONFIG_FILE, "r") as f:
             configs = yaml.safe_load(f)
@@ -87,6 +91,52 @@ def set_platform(platform: Annotated[str, typer.Argument(
 
     with open(CONFIG_FILE, "w") as f:
         yaml.safe_dump(configs, f)
+
+
+def check_file(file: Path, crc: str, seed: int) -> bool:
+    console = Console()
+    if not file.exists():
+        console.print(f"{file.name}: [red]Does not exist[/red]")
+        return False
+    with open(file, "rb") as f:
+        buffer = f.read()
+    calculated = xxhash.xxh64(buffer, seed).hexdigest()
+    ret = calculated == crc
+    if ret:
+        console.print(f"{file.name}: [green]OK[/green]")
+    else:
+        console.print(f"{file.name}: [red]Failed ({calculated} != {crc})[/red]")
+    return ret
+
+
+@app.command(name='verify', help='Verify the the data validity of an iq trace')
+def verify(trace: Annotated[str, typer.Argument(help='The trace to verify')]):
+    trace_path = Path(trace)
+    if not trace_path.exists():
+        raise typer.BadParameter(f"Trace {trace_path} does not exist")
+    if not trace_path.is_dir():
+        raise typer.BadParameter(f"Trace must be a directory")
+    checksums_path = trace_path / "checksum.yaml"
+    if not checksums_path.exists():
+        print_error(f"{checksums_path} does not exist")
+        return
+    checksums: dict[str, str] | None = None
+    with open(checksums_path) as f:
+        checksums = yaml.safe_load(f)
+
+    assert checksums is not None
+
+    seed = int(checksums['seed'], 16)
+    del checksums['seed']
+
+    ok = True
+    for file, crc in checksums.items():
+        ok = check_file(trace_path / file, crc, seed) and ok
+
+    if not ok:
+        print_error("One or more files in the trace has data integrity issues")
+        return
+    print("All files are valid")
 
 
 def import_extended_commands():

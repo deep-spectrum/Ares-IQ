@@ -244,13 +244,15 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
     ares::from_kwargs(kwargs, SP(device), SP(serial), SP(host), SP(device_addr),
                       SP(port), SP(gps_model), SP(decimation),
-                      SP(software_filter), SP(samples_per_capture));
+                      SP(software_filter), SP(samples_per_capture),
+                      SP(hash_seed));
 }
 
 py::dict SMConfigs::as_dict() {
     return ares::to_dict(NV(device), NV(serial), NV(host), NV(device_addr),
                          NV(port), NV(gps_model), NV(decimation),
-                         NV(software_filter), NV(samples_per_capture));
+                         NV(software_filter), NV(samples_per_capture),
+                         NV(hash_seed));
 }
 
 int SMDevice::getSerial() const { return serial; }
@@ -1043,6 +1045,7 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     py::dict ret;
     py::dict diagnostics;
     py::list gps_data;
+    py::dict hashes;
 
     diagnostics["save_duration"] = metadata.write_duration;
     diagnostics["resource_exhaustion"] = oom;
@@ -1063,7 +1066,19 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
         gps_data.append(gps);
     }
 
+    LOG_DBG("Saving hashes");
+    for (size_t i = 0; i < metadata.iq_hash.size(); i++) {
+        std::stringstream ss;
+        ss << "iq" << i << ".c8";
+        LOG_DBG("Hash for %s: 0x%llX", ss.str().c_str(), metadata.iq_hash[i]);
+        hashes[ss.str().c_str()] = metadata.iq_hash[i];
+    }
+
+    LOG_DBG("Hash for ts.f8: 0x%llX", metadata.ts_hash);
+    hashes["ts.f8"] = metadata.ts_hash;
+
     ret["gps_data"] = gps_data;
+    ret["hashes"] = hashes;
 
     return ret;
 }
@@ -1075,6 +1090,8 @@ void SM::stream_iq_data_to_disk(
     int32_t current_chunk = -1;
     std::vector<uint8_t> buffer;
     int iq_fd = -1, ts_fd = -1;
+    xxh::hash_state64_t iq_hash_state(_configs.hash_seed);
+    xxh::hash_state64_t ts_hash_state(_configs.hash_seed);
     bool iq_direct_access = ares::mount_device_nvme(params.save_directory);
     LOG_DBG("IQ direct access: %d", iq_direct_access);
 
@@ -1091,13 +1108,17 @@ void SM::stream_iq_data_to_disk(
         auto write_data = queue.get();
 
         if (write_data == nullptr) {
-            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
+                                  iq_hash_state);
             close_fd(iq_fd);
+            save_hash_digest(iq_fd, iq_hash_state, metadata.iq_hash);
             break;
         }
 
         if (current_chunk != write_data->chunk_id) {
-            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access);
+            stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
+                                  iq_hash_state);
+            save_hash_digest(iq_fd, iq_hash_state, metadata.iq_hash);
             iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
                                       write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;
@@ -1114,7 +1135,8 @@ void SM::stream_iq_data_to_disk(
         double timestamp =
             static_cast<double>(write_data->timestamp) / ns_per_sec;
 
-        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access);
+        int ret = stream_iq_write_iq_data(iq_fd, buffer, iq_direct_access,
+                                          iq_hash_state);
         if (ret < 0) {
             continue;
         }
@@ -1125,6 +1147,7 @@ void SM::stream_iq_data_to_disk(
                     std::source_location::current().file_name(),
                     std::source_location::current().line(), strerror(errno));
         }
+        ts_hash_state.update(&timestamp, sizeof(double));
 
         entries_written += 1;
         if (write_data->gps_info.updated) {
@@ -1133,6 +1156,7 @@ void SM::stream_iq_data_to_disk(
     }
     auto stop = std::chrono::steady_clock::now();
     close_fd(ts_fd);
+    metadata.ts_hash = ts_hash_state.digest();
 
     LOG_DBG("%lu bytes dropped", buffer.size());
     LOG_DBG("Entries written: %lu", entries_written);
@@ -1153,7 +1177,7 @@ void SM::stream_iq_data_to_disk(
 }
 
 int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
-                                bool direct) {
+                                bool direct, xxh::hash_state64_t &hash_stream) {
     int ret = 0;
     ssize_t bytes_written = 0;
 
@@ -1169,6 +1193,7 @@ int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
                 std::source_location::current().line(), strerror(errno));
         ret = bytes_written;
     } else {
+        hash_stream.update(data.data(), bytes_written);
         data.erase(data.begin(), data.begin() + bytes_written);
     }
 
@@ -1178,7 +1203,7 @@ int SM::stream_iq_write_iq_data(int iq_fd, std::vector<uint8_t> &data,
 }
 
 void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
-                               bool direct) {
+                               bool direct, xxh::hash_state64_t &hash_stream) {
     ssize_t err = 0;
     size_t old_size = buffer.size();
 
@@ -1188,17 +1213,29 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
         buffer.resize(new_size);
         err = write(iq_fd, buffer.data(), buffer.size());
     } else if (!buffer.empty()) {
+        assert(iq_fd > 0);
         err = write(iq_fd, buffer.data(), buffer.size());
     }
 
     if (err < 0) {
         LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
                 std::source_location::current().line(), strerror(errno));
-    } else {
+    } else if (!buffer.empty()) {
+        hash_stream.update(buffer.data(), err);
         buffer.erase(buffer.begin(), buffer.begin() + err);
         _stream_diagnostics.data_bytes_written += old_size;
         _stream_diagnostics.padding_written += (err - old_size);
     }
+}
+
+void SM::save_hash_digest(int iq_fd, xxh::hash_state64_t &hash_stream,
+                          std::vector<xxh::hash64_t> &save_vector) const {
+    if (iq_fd < 0) {
+        return;
+    }
+
+    save_vector.emplace_back(hash_stream.digest());
+    hash_stream.reset(_configs.hash_seed);
 }
 
 int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
