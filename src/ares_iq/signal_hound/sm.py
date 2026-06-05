@@ -348,10 +348,10 @@ class SM(ABC):
         # Samples per a capture is already in the metadata
         del configs["samples_per_capture"]
 
+        meta["device_configurations"] = configs
+
         hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
         del meta["gps_data"]
-
-        meta["device_configurations"] = configs
 
         buffer = io.BytesIO()
         yaml.safe_dump(meta, buffer)
