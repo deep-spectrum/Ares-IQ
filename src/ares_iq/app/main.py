@@ -99,9 +99,9 @@ def check_file(file: Path, crc: str, seed: int) -> bool:
     ret = calculated == crc
     console = Console()
     if ret:
-        console.print(f"{file.root}: [green]OK[/green]")
+        console.print(f"{file.name}: [green]OK[/green]")
     else:
-        console.print(f"{file.root}: [red]Failed ({calculated} != {crc})[/red]")
+        console.print(f"{file.name}: [red]Failed ({calculated} != {crc})[/red]")
     return ret
 
 
