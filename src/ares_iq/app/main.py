@@ -93,11 +93,14 @@ def set_platform(platform: Annotated[str, typer.Argument(
 
 
 def check_file(file: Path, crc: str, seed: int) -> bool:
+    console = Console()
+    if not file.exists():
+        console.print(f"{file.name}: [red]Does not exist[/red]")
+        return False
     with open(file, "rb") as f:
         buffer = f.read()
     calculated = xxhash.xxh64(buffer, seed).hexdigest()
     ret = calculated == crc
-    console = Console()
     if ret:
         console.print(f"{file.name}: [green]OK[/green]")
     else:
