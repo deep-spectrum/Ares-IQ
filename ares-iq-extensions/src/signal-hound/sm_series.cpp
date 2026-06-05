@@ -1066,11 +1066,15 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
         gps_data.append(gps);
     }
 
+    LOG_DBG("Saving hashes");
     for (size_t i = 0; i < metadata.iq_hash.size(); i++) {
         std::stringstream ss;
         ss << "iq" << i << ".c8";
+        LOG_DBG("Hash for %s: 0x%llX", ss.str().c_str(), metadata.iq_hash[i]);
         hashes[ss.str().c_str()] = metadata.iq_hash[i];
     }
+
+    LOG_DBG("Hash for ts.f8: 0x%llX", metadata.ts_hash);
     hashes["ts.f8"] = metadata.ts_hash;
 
     ret["gps_data"] = gps_data;
