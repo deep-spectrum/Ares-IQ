@@ -353,16 +353,16 @@ class SM(ABC):
         hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
         del meta["gps_data"]
 
-        buffer = io.BytesIO()
+        buffer = io.StringIO()
         yaml.safe_dump(meta, buffer)
         buffer.seek(0)
 
-        meta["meta.yaml"] = xxhash.xxh64(buffer.getbuffer(), meta['device_configurations']['hash_seed']).hexdigest()
+        meta["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), meta['device_configurations']['hash_seed']).hexdigest()
 
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
 
-        self._save_hashes(meta['device_configurations']['hash_seed'], hashes)
+        self._save_hashes(meta['device_configurations']['hash_seed'], hashes, save_directory)
 
     @staticmethod
     def _create_save_directory(save_directory: str | Path) -> Path:
