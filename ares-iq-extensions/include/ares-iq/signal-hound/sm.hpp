@@ -569,6 +569,8 @@ class SM {
                                 bool direct, xxh::hash_state64_t &hash_stream);
     void stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
                                bool direct, xxh::hash_state64_t &hash_stream);
+    void save_hash_digest(int iq_fd, xxh::hash_state64_t &hash_stream,
+                          std::vector<xxh::hash64_t> &save_vector) const;
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
 };

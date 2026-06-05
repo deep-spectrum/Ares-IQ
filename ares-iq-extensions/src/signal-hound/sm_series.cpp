@@ -1111,15 +1111,14 @@ void SM::stream_iq_data_to_disk(
             stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
                                   iq_hash_state);
             close_fd(iq_fd);
-            metadata.iq_hash.emplace_back(iq_hash_state.digest());
+            save_hash_digest(iq_fd, iq_hash_state, metadata.iq_hash);
             break;
         }
 
         if (current_chunk != write_data->chunk_id) {
             stream_iq_flush_chunk(iq_fd, buffer, iq_direct_access,
                                   iq_hash_state);
-            metadata.iq_hash.emplace_back(iq_hash_state.digest());
-            iq_hash_state.reset(_configs.hash_seed);
+            save_hash_digest(iq_fd, iq_hash_state, metadata.iq_hash);
             iq_fd = stream_iq_open_fd(iq_fd, params.save_directory, true,
                                       write_data->chunk_id, iq_direct_access);
             current_chunk = write_data->chunk_id;
@@ -1214,18 +1213,29 @@ void SM::stream_iq_flush_chunk(int iq_fd, std::vector<uint8_t> &buffer,
         buffer.resize(new_size);
         err = write(iq_fd, buffer.data(), buffer.size());
     } else if (!buffer.empty()) {
+        assert(iq_fd > 0);
         err = write(iq_fd, buffer.data(), buffer.size());
     }
 
     if (err < 0) {
         LOG_ERR("%s:%u write: %s", std::source_location::current().file_name(),
                 std::source_location::current().line(), strerror(errno));
-    } else {
+    } else if (!buffer.empty()) {
         hash_stream.update(buffer.data(), err);
         buffer.erase(buffer.begin(), buffer.begin() + err);
         _stream_diagnostics.data_bytes_written += old_size;
         _stream_diagnostics.padding_written += (err - old_size);
     }
+}
+
+void SM::save_hash_digest(int iq_fd, xxh::hash_state64_t &hash_stream,
+                          std::vector<xxh::hash64_t> &save_vector) const {
+    if (iq_fd < 0) {
+        return;
+    }
+
+    save_vector.emplace_back(hash_stream.digest());
+    hash_stream.reset(_configs.hash_seed);
 }
 
 int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
