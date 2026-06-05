@@ -358,10 +358,9 @@ class SM(ABC):
         buffer.seek(0)
 
         meta["meta.yaml"] = xxhash.xxh64(buffer.getbuffer(), meta['device_configurations']['hash_seed']).hexdigest()
-        buffer.seek(0)
 
-        with open(save_directory / "meta.yaml", "wb") as f:
-            f.write(buffer.getbuffer())
+        with open(save_directory / "meta.yaml", "w") as f:
+            yaml.safe_dump(meta, f)
 
         self._save_hashes(meta['device_configurations']['hash_seed'], hashes)
 
