@@ -22,6 +22,7 @@ dependencies = [
     "pyyaml",
     "ares-iq-extensions",
     "psutil",
+    "xxhash>=3.7.0",
 ]
 
 [project.scripts]
