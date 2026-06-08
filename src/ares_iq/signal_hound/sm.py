@@ -112,7 +112,7 @@ def _convert_sm_gps(x: object) -> SmGpsPlatformModel:
 
 
 @define
-class SMConfigs(ConfigBase):
+class SmConfigs(ConfigBase):
     """SM device configurations.
 
     Device configuration for SM series devices.
@@ -173,7 +173,7 @@ class SmException(Exception):
 class SM(ABC):
     """Base class for SM platforms"""
 
-    def __init__(self, model: SmDeviceType, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, model: SmDeviceType, configs: SmConfigs | None = None, serial: int = -1):
         """Initializes the base SM device.
 
         Args:
@@ -611,7 +611,7 @@ class NetworkedSM(SM, ABC):
 class SM200A(SM):
     """SM200A device."""
 
-    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, configs: SmConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200A, configs, serial)
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
@@ -621,7 +621,7 @@ class SM200A(SM):
 class SM200B(SM):
     """SM200B device."""
 
-    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, configs: SmConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200B, configs, serial)
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
@@ -631,7 +631,7 @@ class SM200B(SM):
 class SM200C(NetworkedSM):
     """SM200C device."""
 
-    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, configs: SmConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM200C, configs, serial)
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
@@ -641,7 +641,7 @@ class SM200C(NetworkedSM):
 class SM435B(SM):
     """SM435B device."""
 
-    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, configs: SmConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435B, configs, serial)
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
@@ -651,7 +651,7 @@ class SM435B(SM):
 class SM435C(NetworkedSM):
     """SM435C device."""
 
-    def __init__(self, configs: SMConfigs | None = None, serial: int = -1):
+    def __init__(self, configs: SmConfigs | None = None, serial: int = -1):
         super().__init__(SmDeviceType.SM435C, configs, serial)
 
     def _quantize(self, iq_data: list[IQData]) -> list[QuantizedData]:
