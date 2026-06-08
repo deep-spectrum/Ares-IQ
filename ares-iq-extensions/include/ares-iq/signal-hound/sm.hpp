@@ -495,6 +495,12 @@ class SM {
      */
     void set_logging_level(long level);
 
+    /**
+     * Retrieve the current logger level.
+     * @return The current log level.
+     */
+    long get_log_level();
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 

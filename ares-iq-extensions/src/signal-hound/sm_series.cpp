@@ -217,7 +217,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("dbg"), py::arg("info"), py::arg("warning"),
              py::arg("error"), py::arg("critical"), py::arg("get_level"),
              py::arg("set_level"))
-        .def("set_log_level", &SM::set_logging_level, py::arg("level"));
+        .def("set_log_level", &SM::set_logging_level, py::arg("level"))
+        .def("get_log_level", &SM::get_log_level);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -491,6 +492,9 @@ void SM::set_logging_level(long level) {
     }
     }
 }
+
+// ReSharper disable once CppMemberFunctionMayBeStatic
+long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
