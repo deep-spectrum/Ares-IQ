@@ -216,7 +216,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
         .def("register_log_callbacks", &SM::register_logger_callbacks,
              py::arg("dbg"), py::arg("info"), py::arg("warning"),
              py::arg("error"), py::arg("critical"), py::arg("get_level"),
-             py::arg("set_level"));
+             py::arg("set_level"))
+        .def("set_log_level", &SM::set_logging_level, py::arg("level"));
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -456,6 +457,39 @@ void SM::register_logger_callbacks(
     const std::function<void(long)> &set_level) {
     LOG_MODULE_REGISTER_CALLBACKS(dbg, info, warn, error, crit, set_level,
                                   get_level);
+}
+
+// ReSharper disable once CppMemberFunctionMayBeStatic
+void SM::set_logging_level(long level) {
+    switch (level) {
+    case 10: {
+        SET_LOG_LEVEL(LOG_LEVEL_DBG);
+        break;
+    }
+    case 20: {
+        SET_LOG_LEVEL(LOG_LEVEL_INFO);
+        break;
+    }
+    case 30: {
+        SET_LOG_LEVEL(LOG_LEVEL_WARN);
+        break;
+    }
+    case 40: {
+        SET_LOG_LEVEL(LOG_LEVEL_ERROR);
+        break;
+    }
+    case 50: {
+        SET_LOG_LEVEL(LOG_LEVEL_CRITICAL);
+        break;
+    }
+    case 60: {
+        SET_LOG_LEVEL(LOG_LEVEL_OFF);
+        break;
+    }
+    default: {
+        throw std::invalid_argument("Invalid logging level");
+    }
+    }
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {

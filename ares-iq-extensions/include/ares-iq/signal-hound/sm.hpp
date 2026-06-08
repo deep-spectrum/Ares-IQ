@@ -489,6 +489,12 @@ class SM {
         const std::function<long()> &get_level,
         const std::function<void(long)> &set_level);
 
+    /**
+     * Set the logger level.
+     * @param level New log level.
+     */
+    void set_logging_level(long level);
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
