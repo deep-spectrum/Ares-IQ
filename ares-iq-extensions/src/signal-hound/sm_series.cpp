@@ -212,7 +212,11 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("lock_timeout"), "Enable/Disable GPS timestamping")
         .def("abort_measurement", &SM::abort_measurements,
              "Stop SM measurements and transition the device back into IDLE "
-             "mode");
+             "mode")
+        .def("register_log_callbacks", &SM::register_logger_callbacks,
+             py::arg("dbg"), py::arg("info"), py::arg("warning"),
+             py::arg("error"), py::arg("critical"), py::arg("get_level"),
+             py::arg("set_level"));
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -438,6 +442,20 @@ void SM::enable_gps_timestamping(bool enable, bool wait_disciplined,
 void SM::abort_measurements() const {
     py::gil_scoped_release release;
     abort_measurements_released();
+}
+
+// Cannot be static because it will break the bindings
+// ReSharper disable once CppMemberFunctionMayBeStatic
+void SM::register_logger_callbacks(
+    const std::function<void(const std::string &)> &dbg,
+    const std::function<void(const std::string &)> &info,
+    const std::function<void(const std::string &)> &warn,
+    const std::function<void(const std::string &)> &error,
+    const std::function<void(const std::string &)> &crit,
+    const std::function<long()> &get_level,
+    const std::function<void(long)> &set_level) {
+    LOG_MODULE_REGISTER_CALLBACKS(dbg, info, warn, error, crit, set_level,
+                                  get_level);
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
