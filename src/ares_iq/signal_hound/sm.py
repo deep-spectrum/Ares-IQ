@@ -488,7 +488,47 @@ class SM(ABC):
             return
 
         self._logger = logger_redirect
-        self._dev.register_log_callbacks(self._debug, self._info, self._warning, self._error, self._critical, self._get_level, self._set_level)
+        self._dev.register_log_callbacks(self._debug, self._info, self._warning, self._error, self._critical,
+                                         self._get_level, self._set_level)
+
+    def set_log_level(self, level: int):
+        """Set logging level of the SM core library.
+
+        Args:
+            level: The new logging level of the core library.
+
+        Raises
+            ValueError: If the logging level is invalid.
+
+        Notes:
+            This is compatible with the logging levels found in the python logging module.
+
+            - `10`: DEBUG
+            - `20`: INFO
+            - `30`: WARNING
+            - `40`: ERROR
+            - `50`: CRITICAL
+            - `60`: OFF
+        """
+        self._dev.set_log_level(level)
+
+    def get_log_level(self) -> int:
+        """Retrieve the current logging level of the core logger.
+
+        Returns:
+            The logging level.
+
+        Notes:
+            This is compatible with the logging levels found in the python logging module.
+
+            - `10`: DEBUG
+            - `20`: INFO
+            - `30`: WARNING
+            - `40`: ERROR
+            - `50`: CRITICAL
+            - `60`: OFF
+        """
+        return self._dev.get_log_level()
 
     def _debug(self, msg: str):
         if self._logger is None:
