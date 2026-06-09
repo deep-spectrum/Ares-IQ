@@ -28,7 +28,8 @@ py::tuple time_now() {
     return py::make_tuple(tv.tv_sec, tv.tv_usec);
 }
 
-py::tuple add_time(int64_t src_sec, int64_t src_usec, int64_t add_sec, int64_t add_usec) {
+py::tuple add_time(int64_t src_sec, int64_t src_usec, int64_t add_sec,
+                   int64_t add_usec) {
     struct timeval tv = {src_sec, src_usec}, add = {add_sec, add_usec}, result;
     add_timeval(&tv, &add, &result);
     return py::make_tuple(result.tv_sec, result.tv_usec);
@@ -64,7 +65,8 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used()) {
              "Convert streaming parameters to a dictionary");
 
     m.def("time_now", &time_now);
-    m.def("add_time", &add_time, py::arg("src_sec"), py::arg("src_usec"), py::arg("add_sec"), py::arg("add_usec"));
+    m.def("add_time", &add_time, py::arg("src_sec"), py::arg("src_usec"),
+          py::arg("add_sec"), py::arg("add_usec"));
     m.def("spin_until", &spin_until, py::arg("sec"), py::arg("usec"));
 }
 
@@ -82,7 +84,8 @@ py::dict StreamParameters::as_dict() {
                          NV(stop_on_sample_loss));
 }
 
-void add_timeval(const struct timeval *timeval, const struct timeval *add_time, struct timeval *result) {
+void add_timeval(const struct timeval *timeval, const struct timeval *add_time,
+                 struct timeval *result) {
     result->tv_sec = timeval->tv_sec + add_time->tv_sec;
     result->tv_usec = timeval->tv_usec + add_time->tv_usec;
 

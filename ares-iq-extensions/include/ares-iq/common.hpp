@@ -20,7 +20,26 @@
 extern "C" {
 #include <sys/time.h>
 
-void add_timeval(const struct timeval *timeval, const struct timeval *add_time, struct timeval *result);
+/**
+ * Add two time values.
+ *
+ * @param timeval Pointer to the timeval to add time to.
+ * @param add_time Pointer to the amount of time to add.
+ * @param result Pointer to the resulting time value.
+ */
+void add_timeval(const struct timeval *timeval, const struct timeval *add_time,
+                 struct timeval *result);
+
+/**
+ * Compare two time values.
+ *
+ * @param lhs Pointer to the left hand side timeval.
+ * @param rhs Pointer to the right hand side timeval.
+ *
+ * @return @p -1 if @p lhs < @p rhs
+ * @return @p 0 if @p lhs == @p rhs
+ * @return @p 1 if @p lhs > @p rhs
+ */
 int cmp_timeval(const struct timeval *lhs, const struct timeval *rhs);
 }
 
