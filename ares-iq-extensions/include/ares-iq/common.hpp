@@ -17,6 +17,13 @@
 #include <pybind11/pybind11.h>
 #include <string>
 
+extern "C" {
+#include <sys/time.h>
+
+void add_timeval(const struct timeval *timeval, const struct timeval *add_time, struct timeval *result);
+int cmp_timeval(const struct timeval *lhs, const struct timeval *rhs);
+}
+
 using namespace std::chrono_literals;
 namespace py = pybind11;
 
