@@ -679,12 +679,9 @@ SmGpsInfo SM::get_gps_info_released(bool refresh) const {
     return ret;
 }
 
-void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
+void SM::wait_until_gps_epoch_released(SmGpsInfo &info, StartTime &start) {
+    assert(_gps_timestamps);
     int64_t start_time = info.sec_since_epoch;
-
-    if (!_gps_timestamps) {
-        return;
-    }
 
     LOG_INF("Waiting until %lld seconds since last epoch to start", start_time);
 
@@ -698,10 +695,12 @@ void SM::wait_until_gps_epoch_released(SmGpsInfo &info) {
             std::rethrow_exception(py_exception);
         }
     } while (info.sec_since_epoch < start_time);
+
+    start.seconds = info.sec_since_epoch;
 }
 
-void SM::capture_iq_configure_released(double center, double bw,
-                                       SmGpsInfo &info) {
+void SM::capture_iq_configure_released(const StreamParameters &params,
+                                       SmGpsInfo &info, StartTime &start) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
@@ -709,19 +708,31 @@ void SM::capture_iq_configure_released(double center, double bw,
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
     LOG_INF("Configuring the SM device");
 
-    SM_API_CALL(smSetIQCenterFreq(fd, center));
+    SM_API_CALL(smSetIQCenterFreq(fd, params.center_frequency));
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
-    SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, bw));
+    SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, params.bandwidth));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
-    wait_until_gps_epoch_released(info);
+    if (_gps_timestamps) {
+        wait_until_gps_epoch_released(info, start);
+    } else if (params.start_time_sec != 0) {
+        spin_until(params.start_time_sec, params.start_time_usec);
+        auto [seconds, microseconds] = time_now();
+        start.seconds = seconds;
+        start.microseconds = microseconds;
+    } else {
+        auto [seconds, microseconds] = time_now();
+        start.seconds = seconds;
+        start.microseconds = microseconds;
+    }
 
     SM_API_CALL(smConfigure(fd, smModeIQStreaming));
 }
 
-void SM::capture_iq_configure(double center, double bw, SmGpsInfo &info) {
+void SM::capture_iq_configure(const StreamParameters &params, SmGpsInfo &info,
+                              StartTime &start) {
     py::gil_scoped_release release;
-    capture_iq_configure_released(center, bw, info);
+    capture_iq_configure_released(params, info, start);
 }
 
 void SM::capture_iq_internal_released(std::vector<Capture> &data,
@@ -753,7 +764,9 @@ void SM::capture_iq_internal(std::vector<Capture> &data, uint64_t captures,
 py::tuple SM::capture_iq_internal(double center, double bw,
                                   uint64_t capture_size, bool silent) {
     SmGpsInfo dummy;
-    capture_iq_configure(center, bw, dummy);
+    StartTime start_time;
+    StreamParameters params(center, bw);
+    capture_iq_configure(params, dummy, start_time);
 
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
@@ -988,7 +1001,8 @@ bool SM::stream_iq_data_capture_released(
 void SM::stream_iq_data_capture_released(const StreamParameters &params,
                                          uint64_t &captures_per_chunk,
                                          RecordingMetadata &metadata, bool &oom,
-                                         bool &sample_loss) {
+                                         bool &sample_loss,
+                                         StartTime &start_time) {
     uint64_t samples_per_capture = _configs.samples_per_capture;
     uint64_t bytes_per_capture =
         (samples_per_capture * 2 * sizeof(SH_COMPLEX_TEMPLATE_TYPE)) +
@@ -1009,11 +1023,10 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
         bytes_per_capture, [&capture_q]() { return capture_q.size(); },
         params.max_buffer_size, params.silent);
     SmGpsInfo gps_start;
-    gps_start.sec_since_epoch = params.start_time_gps_epoch;
+    gps_start.sec_since_epoch = params.start_time_sec;
 
     try {
-        capture_iq_configure_released(params.center_frequency, params.bandwidth,
-                                      gps_start);
+        capture_iq_configure_released(params, gps_start, start_time);
     } catch (...) {
         capture_q.put(static_cast<std::unique_ptr<RawCapture>>(nullptr));
         consumer.join();
@@ -1077,10 +1090,10 @@ void SM::stream_iq_data_capture_released(const StreamParameters &params,
 void SM::stream_iq_data_capture(const StreamParameters &params,
                                 uint64_t &captures_per_chunk,
                                 RecordingMetadata &metadata, bool &oom,
-                                bool &sample_loss) {
+                                bool &sample_loss, StartTime &start_time) {
     py::gil_scoped_release release;
     stream_iq_data_capture_released(params, captures_per_chunk, metadata, oom,
-                                    sample_loss);
+                                    sample_loss, start_time);
 }
 
 py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
@@ -1090,16 +1103,18 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
 
     bool sample_loss, oom;
     RecordingMetadata metadata;
+    StartTime start_time;
     uint64_t captures_per_chunk;
 
     _stream_diagnostics.data_bytes_written = 0;
     _stream_diagnostics.padding_written = 0;
 
     stream_iq_data_capture(params, captures_per_chunk, metadata, oom,
-                           sample_loss);
+                           sample_loss, start_time);
 
     py::dict ret;
     py::dict diagnostics;
+    py::dict start_time_dict;
     py::list gps_data;
     py::dict hashes;
 
@@ -1110,6 +1125,14 @@ py::dict SM::stream_iq_data_internal(const StreamParameters &params) {
     ret["captures_per_chunk"] = captures_per_chunk;
     ret["diagnostics"] = diagnostics;
     ret["sample_loss"] = sample_loss;
+
+    start_time_dict["second"] = start_time.seconds;
+    if (!_gps_timestamps) {
+        start_time_dict["microsecond"] = start_time.microseconds;
+    } else {
+        start_time_dict["microsecond"] = py::none();
+    }
+    ret["start_time"] = start_time_dict;
 
     for (auto &gps_update : metadata.gps_updates) {
         py::dict gps;

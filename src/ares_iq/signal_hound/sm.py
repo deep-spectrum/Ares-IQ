@@ -2,7 +2,7 @@ from ares_iq_ext.signal_hound import SmDeviceType, SmGpsPlatformModel, _SmConfig
     get_device_list2, broadcast_network_config, retrieve_networked_configurations, configure_networked_device, \
     _SmNetworkConfig, HOST_ADDR_ANY, DEFAULT_DEV_ADDR, DEFAULT_PORT, SM_LOGGER_NAME, SM_MAX_IQ_DECIMATION, SmGPSState, \
     sm_api_version, _SmException
-from ares_iq_ext import _StreamParameters
+from ares_iq_ext import _StreamParameters, time_now
 from ares_iq.iq_data import IQData
 from attrs import define, field, validators
 from ares_iq.validators import power_of_two, validate_bounds
@@ -168,6 +168,18 @@ class SmException(Exception):
 
     def __init__(self, *args):
         super().__init__(*args)
+
+
+@dataclass(frozen=True)
+class SmStartTime:
+    """Timestamp to start the SM streaming at.
+
+    Attributes:
+        second: The second to start the measurement at.
+        microsecond: The microsecond to start the measurement at. If GPS timestamping is enabled, this parameter is ignored.
+    """
+    second: int = 0
+    microsecond: int = 0
 
 
 class SM(ABC):
@@ -376,7 +388,7 @@ class SM(ABC):
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
                   save_directory: str | Path, silent: bool = True, verbose: bool = False,
                   stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
-                  ram_usage_limit: int | None = 0, gps_start_time: int = 0):
+                  ram_usage_limit: int | None = 0, start_time: SmStartTime | None = None):
         """Stream I/Q data to disk.
 
         Args:
@@ -393,7 +405,7 @@ class SM(ABC):
             ram_usage_limit: The RAM usage limit in bytes for the write queue. If `None`, there is no limit which may
                              lead to a crash. If `0`, then the limit will be set to half of the system's memory. It is
                              recommended that this parameter be on the magnitude of GB.
-            gps_start_time: The GPS timestamp to start the measurements at.
+            start_time: The timestamp to start the measurement at. If `None`, start the measurement immediately.
         """
         save_directory = self._create_save_directory(save_directory)
 
@@ -408,6 +420,9 @@ class SM(ABC):
         else:
             _ram_usage_limit = ram_usage_limit
 
+        if start_time is None:
+            start_time = SmStartTime()
+
         params = _StreamParameters(
             center_frequency=center,
             bandwidth=bw,
@@ -419,7 +434,8 @@ class SM(ABC):
             stop_sample_loss=stop_sample_loss,
             done_cb=done,
             max_buffer_size=_ram_usage_limit,
-            start_time_gps_epoch=gps_start_time,
+            start_time_sec=start_time.second,
+            start_time_usec=start_time.microsecond,
         )
 
         try:
@@ -430,7 +446,6 @@ class SM(ABC):
         meta["parameters"] = params.as_dict()
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
-        meta["parameters"]["gps_start_time"] = gps_start_time
         meta["parameters"]["gps_timestamping"] = self._gps_stamping
         self._save_stream_iq_meta(meta, save_directory)
 

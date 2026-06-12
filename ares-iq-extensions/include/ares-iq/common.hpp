@@ -16,9 +16,12 @@
 #include <functional>
 #include <pybind11/pybind11.h>
 #include <string>
+#include <tuple>
 
 using namespace std::chrono_literals;
 namespace py = pybind11;
+
+std::tuple<int64_t, int64_t> time_now();
 
 /**
  * Spin until a certain system time.
@@ -33,6 +36,14 @@ void spin_until(int64_t tv_sec, int64_t tv_usec);
  * internal API to make things nicer.
  */
 struct StreamParameters {
+    /**
+     * Constructor.
+     * @param center Center frequency.
+     * @param bw Bandwidth.
+     */
+    StreamParameters(double center, double bw)
+        : center_frequency(center), bandwidth(bw) {}
+
     /**
      * .
      * @param kwargs Python keyword arguments.
@@ -104,9 +115,15 @@ struct StreamParameters {
     std::function<void()> stream_cb = nullptr;
 
     /**
-     * Start time for I/Q streaming.
+     * Start second for I/Q streaming.
      */
-    int64_t start_time_gps_epoch = 0;
+    int64_t start_time_sec = 0;
+
+    /**
+     * Start time microsecond for I/Q streaming.
+     * @note This parameter used if GPS timestamping is disabled.
+     */
+    int64_t start_time_usec = 0;
 
     /**
      * Return the struct as a Python dictionary.
