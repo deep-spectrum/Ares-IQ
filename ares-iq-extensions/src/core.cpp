@@ -17,36 +17,6 @@
 
 namespace py = pybind11;
 
-constexpr int64_t ms_per_sec = 1000;
-constexpr int64_t us_per_ms = 1000;
-
-static std::tuple<int64_t, int64_t>
-chrono_to_timeval(const std::chrono::milliseconds &ms) {
-    return std::make_tuple(ms.count() / ms_per_sec,
-                           (ms.count() % ms_per_sec) * us_per_ms);
-}
-
-static std::chrono::milliseconds timeval_to_chrono_ms(int64_t sec,
-                                                      int64_t usec) {
-    return std::chrono::milliseconds{(sec * ms_per_sec) + (usec / us_per_ms)};
-}
-
-static std::chrono::time_point<std::chrono::system_clock,
-                               std::chrono::milliseconds>
-timeval_to_timepoint(int64_t sec, int64_t usec) {
-    using dest_timepoint_type =
-        std::chrono::time_point<std::chrono::system_clock,
-                                std::chrono::milliseconds>;
-    return dest_timepoint_type{timeval_to_chrono_ms(sec, usec)};
-}
-
-std::tuple<int64_t, int64_t> time_now() {
-    auto now = std::chrono::system_clock::now();
-    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
-        now.time_since_epoch());
-    return chrono_to_timeval(ms);
-}
-
 std::tuple<int64_t, int64_t> add_time(int64_t src_sec, int64_t src_usec,
                                       int64_t add_sec, int64_t add_usec) {
     std::chrono::time_point<std::chrono::system_clock,
@@ -58,23 +28,6 @@ std::tuple<int64_t, int64_t> add_time(int64_t src_sec, int64_t src_usec,
     return chrono_to_timeval(
         std::chrono::duration_cast<std::chrono::milliseconds>(
             result.time_since_epoch()));
-}
-
-void spin_until_released(int64_t tv_sec, int64_t tv_usec,
-                         const std::function<void()> &operation) {
-    std::function operation_ = [] { std::this_thread::sleep_for(1us); };
-    auto now = std::chrono::system_clock::now;
-    std::chrono::time_point<std::chrono::system_clock,
-                            std::chrono::milliseconds>
-        target = timeval_to_timepoint(tv_sec, tv_usec);
-
-    if (operation != nullptr) {
-        operation_ = operation;
-    }
-
-    while (now() < target) {
-        operation_();
-    }
 }
 
 void spin_until(int64_t tv_sec, int64_t tv_usec) {
