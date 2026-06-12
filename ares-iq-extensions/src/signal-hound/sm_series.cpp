@@ -715,12 +715,13 @@ void SM::capture_iq_configure_released(const StreamParameters &params,
 
     if (_gps_timestamps) {
         wait_until_gps_epoch_released(info, start);
-    } else if (params.start_time_sec != 0) {
-        spin_until(params.start_time_sec, params.start_time_usec);
-        auto [seconds, microseconds] = time_now();
-        start.seconds = seconds;
-        start.microseconds = microseconds;
     } else {
+        spin_until_released(params.start_time_sec, params.start_time_usec,
+                            [this] {
+                                if (check_python_signals()) {
+                                    std::rethrow_exception(py_exception);
+                                }
+                            });
         auto [seconds, microseconds] = time_now();
         start.seconds = seconds;
         start.microseconds = microseconds;

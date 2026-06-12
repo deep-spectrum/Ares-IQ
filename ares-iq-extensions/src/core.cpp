@@ -60,15 +60,26 @@ std::tuple<int64_t, int64_t> add_time(int64_t src_sec, int64_t src_usec,
             result.time_since_epoch()));
 }
 
-void spin_until(int64_t tv_sec, int64_t tv_usec) {
-    py::gil_scoped_release release;
+void spin_until_released(int64_t tv_sec, int64_t tv_usec,
+                         const std::function<void()> &operation) {
+    std::function operation_ = [] { std::this_thread::sleep_for(1us); };
     auto now = std::chrono::system_clock::now;
     std::chrono::time_point<std::chrono::system_clock,
                             std::chrono::milliseconds>
         target = timeval_to_timepoint(tv_sec, tv_usec);
-    while (now() < target) {
-        std::this_thread::sleep_for(1us);
+
+    if (operation != nullptr) {
+        operation_ = operation;
     }
+
+    while (now() < target) {
+        operation_();
+    }
+}
+
+void spin_until(int64_t tv_sec, int64_t tv_usec) {
+    py::gil_scoped_release release;
+    spin_until_released(tv_sec, tv_usec, nullptr);
 }
 
 PYBIND11_MODULE(_core, m, py::mod_gil_not_used()) {

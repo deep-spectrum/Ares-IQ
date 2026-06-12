@@ -27,8 +27,10 @@ std::tuple<int64_t, int64_t> time_now();
  * Spin until a certain system time.
  * @param tv_sec Time value second.
  * @param tv_usec Time value microsecond.
+ * @param operation An operation to perform while in the spin loop.
  */
-void spin_until(int64_t tv_sec, int64_t tv_usec);
+void spin_until_released(int64_t tv_sec, int64_t tv_usec,
+                         const std::function<void()> &operation);
 
 /**
  * @struct StreamParameters
