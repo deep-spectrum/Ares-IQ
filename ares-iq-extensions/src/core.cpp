@@ -17,37 +17,43 @@
 
 namespace py = pybind11;
 
-constexpr suseconds_t usec_per_second = 1000000;
+constexpr int64_t ms_per_sec = 1000;
+constexpr int64_t us_per_ms = 1000;
+
+static py::tuple chrono_to_timeval(const std::chrono::milliseconds &ms) {
+    return py::make_tuple(ms.count() / ms_per_sec, (ms.count() % ms_per_sec) * us_per_ms);
+}
+
+static std::chrono::milliseconds timeval_to_chrono_ms(int64_t sec, int64_t usec) {
+    return std::chrono::milliseconds{(sec * ms_per_sec) + (usec / us_per_ms)};
+}
+
+static std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> timeval_to_timepoint(int64_t sec, int64_t usec) {
+    using dest_timepoint_type=std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds>;
+    return dest_timepoint_type{
+        timeval_to_chrono_ms(sec, usec)
+    };
+}
 
 py::tuple time_now() {
-    struct timeval tv;
-    int err = gettimeofday(&tv, nullptr);
-    if (err != 0) {
-        throw std::runtime_error(strerror(errno));
-    }
-    return py::make_tuple(tv.tv_sec, tv.tv_usec);
+    auto now = std::chrono::system_clock::now();
+    auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(now.time_since_epoch());
+    return chrono_to_timeval(ms);
 }
 
 py::tuple add_time(int64_t src_sec, int64_t src_usec, int64_t add_sec,
                    int64_t add_usec) {
-    struct timeval tv = {src_sec, src_usec}, add = {add_sec, add_usec}, result;
-    add_timeval(&tv, &add, &result);
-    return py::make_tuple(result.tv_sec, result.tv_usec);
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> src = timeval_to_timepoint(src_sec, src_usec);
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> result = src + timeval_to_chrono_ms(add_sec, add_usec);
+    return chrono_to_timeval(std::chrono::duration_cast<std::chrono::milliseconds>(result.time_since_epoch()));
 }
 
 void spin_until(int64_t tv_sec, int64_t tv_usec) {
     py::gil_scoped_release release;
-    struct timeval target = {tv_sec, tv_usec}, now;
-    int err = gettimeofday(&now, nullptr);
-    if (err != 0) {
-        throw std::runtime_error(strerror(errno));
-    }
-    while (cmp_timeval(&now, &target) < 0) {
+    auto now = std::chrono::system_clock::now;
+    std::chrono::time_point<std::chrono::system_clock, std::chrono::milliseconds> target = timeval_to_timepoint(tv_sec, tv_usec);
+    while (now() < target) {
         std::this_thread::sleep_for(1us);
-        err = gettimeofday(&now, nullptr);
-        if (err != 0) {
-            throw std::runtime_error(strerror(errno));
-        }
     }
 }
 
@@ -82,38 +88,4 @@ py::dict StreamParameters::as_dict() {
     return ares::to_dict(NV(center_frequency), NV(bandwidth),
                          NV(file_chunk_size), NV(duration), NV(save_directory),
                          NV(stop_on_sample_loss));
-}
-
-void add_timeval(const struct timeval *timeval, const struct timeval *add_time,
-                 struct timeval *result) {
-    result->tv_sec = timeval->tv_sec + add_time->tv_sec;
-    result->tv_usec = timeval->tv_usec + add_time->tv_usec;
-
-    if (result->tv_usec >= usec_per_second) {
-        result->tv_sec++;
-        result->tv_usec -= usec_per_second;
-    } else if (result->tv_usec <= -usec_per_second) {
-        result->tv_usec += usec_per_second;
-        result->tv_sec--;
-    }
-}
-
-int cmp_timeval(const struct timeval *lhs, const struct timeval *rhs) {
-    if (lhs->tv_sec < rhs->tv_sec) {
-        return -1;
-    }
-
-    if (lhs->tv_sec > rhs->tv_sec) {
-        return 1;
-    }
-
-    if (lhs->tv_usec < rhs->tv_usec) {
-        return -1;
-    }
-
-    if (lhs->tv_usec > rhs->tv_usec) {
-        return 1;
-    }
-
-    return 0;
 }
