@@ -345,6 +345,11 @@ struct SmNetworkConfig {
     int port = 0;
 };
 
+struct StartTime {
+    int64_t seconds = 0;
+    int64_t microseconds = 0;
+};
+
 /**
  * @class SM
  * The base class for SM devices. This should be wrapped with Python.
@@ -544,10 +549,11 @@ class SM {
         SmGpsInfo *gps_info;
     };
 
-    void wait_until_gps_epoch_released(SmGpsInfo &info);
-    void capture_iq_configure_released(double center, double bw,
-                                       SmGpsInfo &info);
-    void capture_iq_configure(double center, double bw, SmGpsInfo &info);
+    void wait_until_gps_epoch_released(SmGpsInfo &info, StartTime &start);
+    void capture_iq_configure_released(const StreamParameters &params,
+                                       SmGpsInfo &info, StartTime &start);
+    void capture_iq_configure(const StreamParameters &params, SmGpsInfo &info,
+                              StartTime &start);
     void capture_iq_internal_released(std::vector<Capture> &data,
                                       uint64_t captures,
                                       uint64_t samples_per_capture,
@@ -586,11 +592,12 @@ class SM {
     void stream_iq_data_capture_released(const StreamParameters &params,
                                          uint64_t &captures_per_chunk,
                                          RecordingMetadata &metadata, bool &oom,
-                                         bool &sample_loss);
+                                         bool &sample_loss,
+                                         StartTime &start_time);
     void stream_iq_data_capture(const StreamParameters &params,
                                 uint64_t &captures_per_chunk,
                                 RecordingMetadata &metadata, bool &oom,
-                                bool &sample_loss);
+                                bool &sample_loss, StartTime &start_time);
 
     py::dict stream_iq_data_internal(const StreamParameters &params);
     void

@@ -1,7 +1,7 @@
 import typer
 from typing_extensions import Annotated
 from ares_iq.iq_data import IQData
-from ares_iq.signal_hound import SM200A, SM200B, SM200C, SM435B, SM435C, SMConfigs
+from ares_iq.signal_hound import SM200A, SM200B, SM200C, SM435B, SM435C, SmConfigs
 from ares_iq.signal_hound.sm import logger as sm_logger, GPS_MODELS
 from ares_iq.print_utils import print_error
 from ares_iq.util import CONFIG_FILE
@@ -43,7 +43,7 @@ class SMDevice:
         return [], []
 
     def platform(self, platform: str):
-        configs = SMConfigs.from_yaml(CONFIG_FILE)
+        configs = SmConfigs.from_yaml(CONFIG_FILE)
         match platform:
             case "sm200a": self._dev = SM200A(configs)
             case "sm200b": self._dev = SM200B(configs)
@@ -62,7 +62,7 @@ class SMDevice:
                host: Annotated[str | None, typer.Option(help='The host address for a networked SM device.')] = None,
                device_addr: Annotated[str | None, typer.Option(help='The device address fo the SM device.')] = None,
                port: Annotated[str | None, typer.Option(help='The port the networked SM device is on.')] = None):
-        configs = SMConfigs.from_yaml(CONFIG_FILE)
+        configs = SmConfigs.from_yaml(CONFIG_FILE)
 
         errors = [
             config_set(lambda v: setattr(configs, "gps_timestamping", v), gps_timestamping),
