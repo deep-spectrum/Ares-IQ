@@ -371,12 +371,15 @@ class SM(ABC):
         yaml.safe_dump(meta, buffer)
         buffer.seek(0)
 
-        meta["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), meta['device_configurations']['hash_seed']).hexdigest()
+        seed = meta['device_configurations']['hash_seed']
+        del meta['device_configurations']['hash_seed']
+        
+        hashes["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), seed).hexdigest()
 
         with open(save_directory / "meta.yaml", "w") as f:
             yaml.safe_dump(meta, f)
 
-        self._save_hashes(meta['device_configurations']['hash_seed'], hashes, save_directory)
+        self._save_hashes(seed, hashes, save_directory)
 
     @staticmethod
     def _create_save_directory(save_directory: str | Path) -> Path:
