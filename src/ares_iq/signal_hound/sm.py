@@ -367,12 +367,12 @@ class SM(ABC):
         hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
         del meta["gps_data"]
 
+        seed = meta['device_configurations']['hash_seed']
+        del meta['device_configurations']['hash_seed']
+
         buffer = io.StringIO()
         yaml.safe_dump(meta, buffer)
         buffer.seek(0)
-
-        seed = meta['device_configurations']['hash_seed']
-        del meta['device_configurations']['hash_seed']
 
         hashes["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), seed).hexdigest()
 
