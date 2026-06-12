@@ -98,7 +98,7 @@ def check_file(file: Path, crc: str | None, seed: int) -> bool:
     if not file.exists() and crc is not None:
         console.print(f"{file.name}: [red]Does not exist[/red]")
         return False
-    if crc is None:
+    if crc is None and file.exists():
         console.print(f"{file.name}: [red]File exists, but there is no checksum[/red]")
         return False
     with open(file, "rb") as f:
