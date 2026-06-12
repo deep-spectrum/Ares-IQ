@@ -373,7 +373,7 @@ class SM(ABC):
 
         seed = meta['device_configurations']['hash_seed']
         del meta['device_configurations']['hash_seed']
-        
+
         hashes["meta.yaml"] = xxhash.xxh64(buffer.getvalue(), seed).hexdigest()
 
         with open(save_directory / "meta.yaml", "w") as f:
