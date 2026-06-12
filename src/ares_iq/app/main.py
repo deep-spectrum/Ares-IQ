@@ -95,12 +95,11 @@ def set_platform(platform: Annotated[str, typer.Argument(
 
 def check_file(file: Path, crc: str | None, seed: int) -> bool:
     console = Console()
-    if not file.exists() and crc is not None:
-        console.print(f"{file.name}: [red]Does not exist[/red]")
-        return False
-    if crc is None and file.exists():
-        console.print(f"{file.name}: [red]File exists, but there is no checksum[/red]")
-        return False
+    if not file.exists():
+        if crc is not None:
+            console.print(f"{file.name}: [red]Does not exist[/red]")
+            return False
+        return True
     with open(file, "rb") as f:
         buffer = f.read()
     calculated = xxhash.xxh64(buffer, seed).hexdigest()
