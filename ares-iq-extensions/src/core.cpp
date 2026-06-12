@@ -17,6 +17,14 @@
 
 namespace py = pybind11;
 
+/**
+ * Add a time delta to a source time.
+ * @param src_sec Source seconds.
+ * @param src_usec Source microseconds.
+ * @param add_sec The amount of seconds to add.
+ * @param add_usec The amount of microseconds to add.
+ * @return resulting seconds, microseconds representation.
+ */
 std::tuple<int64_t, int64_t> add_time(int64_t src_sec, int64_t src_usec,
                                       int64_t add_sec, int64_t add_usec) {
     std::chrono::time_point<std::chrono::system_clock,
@@ -30,6 +38,12 @@ std::tuple<int64_t, int64_t> add_time(int64_t src_sec, int64_t src_usec,
             result.time_since_epoch()));
 }
 
+/**
+ * Spin until a specified time, releasing the GIL without any way to break the
+ * loop.
+ * @param tv_sec The seconds to spin until.
+ * @param tv_usec The microsecond to spin until.
+ */
 void spin_until(int64_t tv_sec, int64_t tv_usec) {
     py::gil_scoped_release release;
     spin_until_released(tv_sec, tv_usec, nullptr);

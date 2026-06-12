@@ -21,20 +21,44 @@
 using namespace std::chrono_literals;
 namespace py = pybind11;
 
+/**
+ * Milliseconds per second.
+ */
 constexpr int64_t ms_per_sec = 1000;
+
+/**
+ * Microseconds per second.
+ */
 constexpr int64_t us_per_ms = 1000;
 
+/**
+ * Convert a chrono milliseconds object to C-like timeval.
+ * @param[in] ms Chrono milliseconds.
+ * @return seconds, microseconds.
+ */
 inline std::tuple<int64_t, int64_t>
 chrono_to_timeval(const std::chrono::milliseconds &ms) {
     return std::make_tuple(ms.count() / ms_per_sec,
                            (ms.count() % ms_per_sec) * us_per_ms);
 }
 
+/**
+ * Convert C-like timeval to chrono milliseconds.
+ * @param sec Seconds.
+ * @param usec Microseconds.
+ * @return chrono milliseconds.
+ */
 inline std::chrono::milliseconds timeval_to_chrono_ms(int64_t sec,
                                                       int64_t usec) {
     return std::chrono::milliseconds{(sec * ms_per_sec) + (usec / us_per_ms)};
 }
 
+/**
+ * Convert C-like timeval to chrono timepoint.
+ * @param sec Seconds.
+ * @param usec Microseconds.
+ * @return System time point.
+ */
 inline std::chrono::time_point<std::chrono::system_clock,
                                std::chrono::milliseconds>
 timeval_to_timepoint(int64_t sec, int64_t usec) {
@@ -44,6 +68,10 @@ timeval_to_timepoint(int64_t sec, int64_t usec) {
     return dest_timepoint_type{timeval_to_chrono_ms(sec, usec)};
 }
 
+/**
+ * Get the current system time as a C-like timeval.
+ * @return seconds, microseconds.
+ */
 inline std::tuple<int64_t, int64_t> time_now() {
     auto now = std::chrono::system_clock::now();
     auto ms = std::chrono::duration_cast<std::chrono::milliseconds>(
