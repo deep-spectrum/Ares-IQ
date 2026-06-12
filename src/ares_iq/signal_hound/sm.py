@@ -313,7 +313,7 @@ class SM(ABC):
     def _save_hashes(seed: int, hashes: dict[str, int | str | None], save_directory: Path):
         for key in hashes.keys():
             if isinstance(hashes[key], int):
-                hashes[key] = f"{hashes[key]:x}"
+                hashes[key] = f"{hashes[key]:016x}"
         hashes['seed'] = f"{seed:x}"
         with open(save_directory / "checksum.yaml", "w") as f:
             yaml.safe_dump(hashes, f)
