@@ -354,8 +354,18 @@ class SM(ABC):
         meta["diagnostics"]["api_version"] = sm_api_version()
         try:
             meta["diagnostics"]["network_diagnostics"] = self._dev.network_diagnostic_info().as_dict()
+            meta["diagnostics"]["network_diagnostics"]["API Failure"] = False
         except RuntimeError:
             pass
+        except _SmException:
+            # Sometimes the SM gets into a bad state and can no longer get SFP stats
+            meta["diagnostics"]["device_diagnostics"] = {
+                "rxPower": None,
+                "temp": None,
+                "txPower": None,
+                "voltage": None,
+                "API Failure": True
+            }
         for key, value in configs.items():
             if issubclass(type(value), IntEnum):
                 configs[key] = value.name
