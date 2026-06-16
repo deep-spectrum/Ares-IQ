@@ -523,6 +523,7 @@ void SM::get_gps_module_info() {
 
         if (updated == smTrue) {
             parse_ubx_msg(nmea, nmealen, msglist);
+            LOG_INF("Messages found: %d", msglist.size());
         }
 
         for (auto &m : msglist) {
