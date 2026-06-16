@@ -22,6 +22,7 @@
 #include <complex>
 #include <fcntl.h>
 #include <pybind11/chrono.h>
+#include <ares-iq/signal-hound/ubx_msg.hpp>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
@@ -499,38 +500,48 @@ long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
 void SM::get_gps_module_info() {
     py::gil_scoped_release release;
-    auto timeout = 10s;
-    auto now = std::chrono::steady_clock::now;
 
-    std::vector<uint8_t> msg = {0xB5, 0x62, 0x0A, 0x04, 0x00};
-    gps_generate_checksum(msg);
+    UbxMsg msg = {
+        .type = CFG_NAV5,
+    };
+    std::vector<uint8_t> ubx_msg;
+    build_ubx_msg(msg, ubx_msg);
+    uint8_t nmea[1024];
+    int nmealen;
 
-    SM_API_CALL(smWriteToGPS(fd, msg.data(), msg.size()));
+    SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
+    bool found = false;
 
-    char *response = new char[PAGE_SIZE];
-    int response_length = PAGE_SIZE;
+    for (size_t i = 0; i < 15; i++) {
+        std::this_thread::sleep_for(100ms);
 
-    auto timeout_time = now() + timeout;
-    while (now() < timeout_time) {
-        SM_API_CALL(smGetGPSInfo(fd, smFalse, nullptr, nullptr, nullptr, nullptr, nullptr, response, &response_length));
+        SmBool updated;
+        nmealen = sizeof(nmea);
+        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr, nullptr, nullptr, (char *)nmea, &nmealen));
 
-        for (size_t i = 0; i < response_length; i++) {
-            if (static_cast<uint8_t>(response[i]) == 0xB5 && static_cast<uint8_t>(response[i + 1]) == 0x62) {
-                if (static_cast<uint8_t>(response[i+ 2]) == 0x0A && static_cast<uint8_t>(response[i+ 3]) == 0x04) {
-                    LOG_INF("Message found");
-                    delete[] response;
-                    return;
-                }
+        std::vector<UbxMsg> msglist;
+
+        if (updated == smTrue) {
+            parse_ubx_msg(nmea, nmealen, msglist);
+        }
+
+        for (auto &m : msglist) {
+            if (m.type == CFG_NAV5) {
+                found = true;
+                msg = m;
+                break;
+                LOG_INF("Response found");
             }
         }
+
+        if (found) {
+            break;
+        }
     }
-    LOG_ERR("Message not found after timeout");
 
-    std::vector<uint8_t> response_vector(response, response + response_length);
-    delete[] response;
-
-    LOG_DBG_HEXDUMP(response_vector, response_length, "GPS NMEA message");
-    LOG_DBG("Response length: %d", response_length);
+    LOG_INF_HEXDUMP(msg.payload, msg.payload.size(), "UBX-CFG-NAV5 Payload");
+    LOG_INF("CK_A: 0x%02X, CK_B: 0x%02X", msg.ck_a, msg.ck_b);
+    LOG_INF("Checksum bad: %s", msg.bad_checksum ? "true" : "false");
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
