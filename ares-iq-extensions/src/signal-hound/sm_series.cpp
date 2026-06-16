@@ -498,11 +498,11 @@ void SM::set_logging_level(long level) {
 // ReSharper disable once CppMemberFunctionMayBeStatic
 long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
-void SM::get_gps_module_info() {
+void SM::get_gps_module_info() const {
     py::gil_scoped_release release;
 
     UbxMsg msg = {
-        .type = CFG_NAV5,
+        .type = MON_VER,
     };
     std::vector<uint8_t> ubx_msg;
     build_ubx_msg(msg, ubx_msg);
@@ -520,12 +520,12 @@ void SM::get_gps_module_info() {
 
         SmBool updated;
         nmealen = sizeof(nmea);
-        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr, nullptr, nullptr, (char *)nmea, &nmealen));
+        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr, nullptr, nullptr, reinterpret_cast<char *>(nmea), &nmealen));
 
         std::vector<UbxMsg> msglist;
 
         if (updated == smTrue) {
-            std::vector<uint8_t> buf(nmea, nmea + nmealen);
+            std::vector buf(nmea, nmea + nmealen);
             LOG_DBG_HEXDUMP(buf, buf.size(), "Received data");
 
             parse_ubx_msg(nmea, nmealen, msglist);

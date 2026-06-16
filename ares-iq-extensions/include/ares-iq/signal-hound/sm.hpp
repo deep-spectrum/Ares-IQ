@@ -506,7 +506,7 @@ class SM {
      */
     long get_log_level();
 
-    void get_gps_module_info();
+    void get_gps_module_info() const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
