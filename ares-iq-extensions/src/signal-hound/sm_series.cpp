@@ -499,6 +499,8 @@ long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
 void SM::get_gps_module_info() {
     py::gil_scoped_release release;
+    auto timeout = 10s;
+    auto now = std::chrono::steady_clock::now;
 
     std::vector<uint8_t> msg = {0xB5, 0x62, 0x0A, 0x04, 0x00};
     gps_generate_checksum(msg);
@@ -508,7 +510,21 @@ void SM::get_gps_module_info() {
     char *response = new char[PAGE_SIZE];
     int response_length = PAGE_SIZE;
 
-    SM_API_CALL(smGetGPSInfo(fd, smFalse, nullptr, nullptr, nullptr, nullptr, nullptr, response, &response_length));
+    auto timeout_time = now() + timeout;
+    while (now() < timeout_time) {
+        SM_API_CALL(smGetGPSInfo(fd, smFalse, nullptr, nullptr, nullptr, nullptr, nullptr, response, &response_length));
+
+        for (size_t i = 0; i < response_length; i++) {
+            if (static_cast<uint8_t>(response[i]) == 0xB5 && static_cast<uint8_t>(response[i + 1]) == 0x62) {
+                if (static_cast<uint8_t>(response[i+ 2]) == 0x0A && static_cast<uint8_t>(response[i+ 3]) == 0x04) {
+                    LOG_INF("Message found");
+                    delete[] response;
+                    return;
+                }
+            }
+        }
+    }
+    LOG_ERR("Message not found after timeout");
 
     std::vector<uint8_t> response_vector(response, response + response_length);
     delete[] response;
