@@ -506,7 +506,7 @@ void SM::get_gps_module_info() {
     };
     std::vector<uint8_t> ubx_msg;
     build_ubx_msg(msg, ubx_msg);
-    uint8_t nmea[1024];
+    uint8_t nmea[4096];
     int nmealen;
 
     SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
