@@ -506,13 +506,16 @@ void SM::get_gps_module_info() {
     };
     std::vector<uint8_t> ubx_msg;
     build_ubx_msg(msg, ubx_msg);
+
+    LOG_DBG_HEXDUMP(ubx_msg, ubx_msg.size(), "Sending message");
+
     uint8_t nmea[4096];
     int nmealen;
 
     SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
     bool found = false;
 
-    for (size_t i = 0; i < 100; i++) {
+    for (size_t i = 0; i < 15; i++) {
         std::this_thread::sleep_for(100ms);
 
         SmBool updated;
