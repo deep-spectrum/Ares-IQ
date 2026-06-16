@@ -533,7 +533,7 @@ void SM::get_gps_module_info() const {
         }
 
         for (auto &m : msglist) {
-            if (m.type == CFG_NAV5) {
+            if (m.type == MON_VER) {
                 found = true;
                 msg = m;
                 break;
