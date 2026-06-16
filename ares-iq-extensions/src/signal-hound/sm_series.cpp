@@ -551,7 +551,7 @@ void SM::get_gps_module_info() const {
         return;
     }
 
-    LOG_INF_HEXDUMP(msg.payload, msg.payload.size(), "UBX-CFG-NAV5 Payload");
+    LOG_INF_HEXDUMP(msg.payload, msg.payload.size(), "UBX-MON-VER Payload");
     LOG_INF("CK_A: 0x%02X, CK_B: 0x%02X", msg.ck_a, msg.ck_b);
     LOG_INF("Checksum bad: %s", msg.bad_checksum ? "true" : "false");
 }
