@@ -514,6 +514,7 @@ void SM::get_gps_module_info() {
     delete[] response;
 
     LOG_DBG_HEXDUMP(response_vector, response_length, "GPS NMEA message");
+    LOG_DBG("Response length: %d", response_length);
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
