@@ -512,7 +512,7 @@ void SM::get_gps_module_info() {
     SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
     bool found = false;
 
-    for (size_t i = 0; i < 15; i++) {
+    for (size_t i = 0; i < 100; i++) {
         std::this_thread::sleep_for(100ms);
 
         SmBool updated;
