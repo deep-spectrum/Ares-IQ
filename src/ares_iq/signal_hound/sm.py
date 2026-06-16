@@ -589,6 +589,9 @@ class SM(ABC):
     def _set_level(self, level: int):
         self._logger.setLevel(level)
 
+    def get_gps_module_info(self):
+        self._dev.get_gps_module_info()
+
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
