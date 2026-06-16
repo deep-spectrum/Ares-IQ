@@ -522,6 +522,9 @@ void SM::get_gps_module_info() {
         std::vector<UbxMsg> msglist;
 
         if (updated == smTrue) {
+            std::vector<uint8_t> buf(nmea, nmea + nmealen);
+            LOG_DBG_HEXDUMP(buf, buf.size(), "Received data");
+
             parse_ubx_msg(nmea, nmealen, msglist);
             LOG_INF("Messages found: %d", msglist.size());
         }
