@@ -218,7 +218,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("error"), py::arg("critical"), py::arg("get_level"),
              py::arg("set_level"))
         .def("set_log_level", &SM::set_logging_level, py::arg("level"))
-        .def("get_log_level", &SM::get_log_level);
+        .def("get_log_level", &SM::get_log_level)
+        .def("get_gps_module_info", &SM::get_gps_module_info);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -495,6 +496,25 @@ void SM::set_logging_level(long level) {
 
 // ReSharper disable once CppMemberFunctionMayBeStatic
 long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
+
+void SM::get_gps_module_info() {
+    py::gil_scoped_release release;
+
+    std::vector<uint8_t> msg = {0xB5, 0x62, 0x0A, 0x04, 0x00};
+    gps_generate_checksum(msg);
+
+    SM_API_CALL(smWriteToGPS(fd, msg.data(), msg.size()));
+
+    char *response = new char[PAGE_SIZE];
+    int response_length = PAGE_SIZE;
+
+    SM_API_CALL(smGetGPSInfo(fd, smFalse, nullptr, nullptr, nullptr, nullptr, nullptr, response, &response_length));
+
+    std::vector<uint8_t> response_vector(response, response + response_length);
+    delete[] response;
+
+    LOG_DBG_HEXDUMP(response_vector, response_length, "GPS NMEA message");
+}
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
@@ -1339,6 +1359,29 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
     }
 
     return new_fd;
+}
+
+void SM::gps_generate_checksum(std::vector<uint8_t> &msg) {
+    uint8_t CK_A = 0, CK_B = 0;
+
+    for (auto &i : msg) {
+        CK_A = CK_A + i;
+        CK_B = CK_B + CK_A;
+    }
+
+    msg.emplace_back(CK_A);
+    msg.emplace_back(CK_B);
+}
+
+bool SM::gps_verify_checksum(const std::vector<uint8_t> &msg) {
+    uint8_t CK_A = 0, CK_B = 0;
+
+    for (size_t i = 0; i < (msg.size() - 2); i++) {
+        CK_A = CK_A + msg[i];
+        CK_B = CK_B + CK_A;
+    }
+
+    return (CK_A == msg[msg.size() - 2]) && (CK_B == msg[msg.size() - 1]);
 }
 
 SmException::SmException(SmExceptionType type) : _type(type) {

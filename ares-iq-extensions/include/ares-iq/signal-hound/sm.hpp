@@ -506,6 +506,8 @@ class SM {
      */
     long get_log_level();
 
+    void get_gps_module_info();
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -612,6 +614,9 @@ class SM {
                           std::vector<xxh::hash64_t> &save_vector) const;
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
+
+    static void gps_generate_checksum(std::vector<uint8_t> &msg);
+    static bool gps_verify_checksum(const std::vector<uint8_t> &msg);
 };
 
 class SmException : std::exception {
