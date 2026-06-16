@@ -124,6 +124,9 @@ static bool parse(const uint8_t *nmea, size_t len, size_t &i,
                        ck_b);
     msg.bad_checksum = (msg.ck_a != ck_a) || (msg.ck_b != ck_b);
     i += ubx_frame_overhead + payload_len;
+
+    msg_list.emplace_back(msg);
+
     return false;
 }
 
