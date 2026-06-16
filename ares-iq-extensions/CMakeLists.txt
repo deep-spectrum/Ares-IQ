@@ -62,7 +62,7 @@ python_module(_core src/core.cpp
 		DESTINATION ${PACKAGE_NAME}
 		DEFINITIONS VERSION_INFO=${PROJECT_VERSION}
 )
-python_module(_sh_sm_series src/signal-hound/sm_series.cpp
+python_module(_sh_sm_series src/signal-hound/sm_series.cpp src/signal-hound/ubx_msg.cpp
 		DESTINATION ${PACKAGE_NAME}/signal_hound
 		DEPENDENCIES capture_progress logging ares_data_structures ares_allocators ares_mount_point xxhash_cpp
 		LIBS capture_progress ${SM_API_LIBS} logging ares_data_structures ares_allocators ares_mount_point xxhash_cpp
