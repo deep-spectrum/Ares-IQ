@@ -507,9 +507,25 @@ void SM::set_logging_level(long level) {
 // ReSharper disable once CppMemberFunctionMayBeStatic
 long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
-void SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
+py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
     UbxMsg response;
     get_gps_module_info_released(response, timeout);
+
+    UbxMonVerPayload payload;
+    parse_ubx_mon_ver(response, payload);
+
+    LOG_INF("swVersion: %s", payload.sw_version.c_str());
+    LOG_INF("hwVersion: %s", payload.hw_version.c_str());
+    for (auto &i : payload.extension) {
+        LOG_INF("extension: %s", i.c_str());
+    }
+
+    py::dict ret;
+    ret["sw_version"] = payload.sw_version;
+    ret["hw_version"] = payload.hw_version;
+    ret["extensions"] = payload.extension;
+
+    return ret;
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
@@ -1380,15 +1396,6 @@ void SM::get_gps_module_info_released(
                     "UBX-MON-VER Payload");
     LOG_DBG("CK_A: 0x%02X, CK_B: 0x%02X", response.ck_a, response.ck_b);
     LOG_DBG("Checksum bad: %s", response.bad_checksum ? "true" : "false");
-
-    UbxMonVerPayload payload;
-    parse_ubx_mon_ver(response, payload);
-
-    LOG_INF("swVersion: %s", payload.sw_version.c_str());
-    LOG_INF("hwVersion: %s", payload.hw_version.c_str());
-    for (auto &i : payload.extension) {
-        LOG_INF("extension: %s", i.c_str());
-    }
 }
 
 bool SM::wait_for_ubx_response_released(
