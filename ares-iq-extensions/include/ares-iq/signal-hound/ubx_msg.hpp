@@ -16,6 +16,10 @@
 #include <string>
 #include <vector>
 
+/**
+ * @enum UbxMsgType
+ * The UBX frame types. Split into class/id.
+ */
 enum UbxMsgType : uint16_t {
     // UBX Class ACK
     ACK_ACK = 0x0501,
@@ -220,34 +224,114 @@ enum UbxMsgType : uint16_t {
     NO_TYPE = 0
 };
 
+/**
+ * @struct UbxMsg
+ * Structured UBX message.
+ */
 struct UbxMsg {
+    /**
+     * The message type (message class and message ID).
+     */
     UbxMsgType type = NO_TYPE;
+
+    /**
+     * The message payload.
+     */
     std::vector<uint8_t> payload;
+
+    /**
+     * Checksum A.
+     */
     uint8_t ck_a = 0;
+
+    /**
+     * Checksum B.
+     */
     uint8_t ck_b = 0;
+
+    /**
+     * Flag indicating that the received checksum and the calculated checksum
+     * does not match.
+     */
     bool bad_checksum = false;
 };
 
+/**
+ * @class UbxException
+ * Ubx message API exception.
+ */
 class UbxException : std::exception {
   public:
+    /**
+     * Constructor.
+     * @param msg The error message.
+     */
     explicit UbxException(const char *msg) : _msg(msg) {}
 
+    /**
+     * What caused the exception.
+     * @return The error message.
+     */
     const char *what() const noexcept override { return _msg.c_str(); }
 
   private:
     std::string _msg;
 };
 
+/**
+ * @struct UbxMonVerPayload
+ * The structured payload of the UBX-MON-VER response.
+ */
 struct UbxMonVerPayload {
+    /**
+     * The software version string.
+     */
     std::string sw_version;
+
+    /**
+     * The hardware version string.
+     */
     std::string hw_version;
+
+    /**
+     * Any extra version strings.
+     */
     std::vector<std::string> extension;
 };
 
+/**
+ * Serialize a UBX message.
+ *
+ * @param[in] msg The UBX message to construct.
+ * @param[in,out] buffer The buffer to place the serialized UBX message in.
+ *
+ * @throws UbxException if message type is @p NO_TYPE.
+ */
 void build_ubx_msg(const UbxMsg &msg, std::vector<uint8_t> &buffer);
+
+/**
+ * Parse UBX messages from a buffer.
+ *
+ * @param[in] nmea The nmea message buffer to parse the UBX messages from.
+ * @param[in] len The length of the nmea message buffer.
+ * @param[in,out] msg_list The vector to output the deserialized messages to.
+ *
+ * @note @p msg_list gets cleared on each invocation.
+ */
 void parse_ubx_msg(const uint8_t *nmea, size_t len,
                    std::vector<UbxMsg> &msg_list);
 
+/**
+ * Parse a UBX-MON-VER message payload.
+ *
+ * @param[in] msg The UBX message to parse the payload for. Must be of type @p
+ * MON_VER.
+ * @param[in,out] payload The deserialized payload.
+ *
+ * @throws UbxException if message type is not @p MON_VER.
+ * @throws UbxException if the message as a bad checksum.
+ * @throws UbxException if the payload is malformed.
+ */
 void parse_ubx_mon_ver(const UbxMsg &msg, UbxMonVerPayload &payload);
 
 #endif // ARES_UBX_MSG_HPP

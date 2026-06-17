@@ -346,8 +346,19 @@ struct SmNetworkConfig {
     int port = 0;
 };
 
+/**
+ * @struct StartTime
+ * Timeval specification.
+ */
 struct StartTime {
+    /**
+     * Seconds since epoch.
+     */
     int64_t seconds = 0;
+
+    /**
+     * Microseconds.
+     */
     int64_t microseconds = 0;
 };
 
@@ -507,6 +518,14 @@ class SM {
      */
     long get_log_level();
 
+    /**
+     * Retrieve the SM GPS module information.
+     *
+     * @param[in] timeout The maximum amount of time to wait for a response.
+     *
+     * @return A dictionary with the software version string, hardware version
+     * string, and a list of all the version extension strings.
+     */
     py::dict get_gps_module_info(const std::chrono::seconds &timeout) const;
 
   private:
@@ -616,7 +635,6 @@ class SM {
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
 
-    // todo: structure the response payload
     void
     get_gps_module_info_released(UbxMsg &response,
                                  const std::chrono::seconds &timeout) const;
@@ -627,19 +645,50 @@ class SM {
                                           UbxMsg &response, UbxMsgType type);
 };
 
+/**
+ * @class SmException
+ * Exception class for SM errors.
+ */
 class SmException : std::exception {
   public:
     enum SmExceptionType {
+        /**
+         * Device not open.
+         */
         NOT_OPEN,
+
+        /**
+         * Device not idle.
+         */
         NOT_IDLE,
+
+        /**
+         * No GPS lock.
+         */
         NO_GPS_LOCK,
 
+        /**
+         * Unknown error/error thrown by the SM API.
+         */
         UNKNOWN,
     };
 
+    /**
+     * Build an SmException from a standard exception.
+     * @param type The standard exception type.
+     */
     explicit SmException(SmExceptionType type);
+
+    /**
+     * Build an unknown SM exception with the given error message.
+     * @param msg The error message.
+     */
     explicit SmException(const char *msg);
 
+    /**
+     * What caused the exception.
+     * @return The error message.
+     */
     const char *what() const noexcept override;
 
   private:
@@ -647,10 +696,22 @@ class SmException : std::exception {
     std::string _msg;
 };
 
+/**
+ * @class TimeoutError
+ * Timeout error.
+ */
 class TimeoutError : std::exception {
   public:
+    /**
+     * Constructor.
+     * @param msg The timeout error message.
+     */
     explicit TimeoutError(const char *msg) : _msg(msg) {}
 
+    /**
+     * What caused the timeout exception.
+     * @return The error message.
+     */
     const char *what() const noexcept override;
 
   private:
