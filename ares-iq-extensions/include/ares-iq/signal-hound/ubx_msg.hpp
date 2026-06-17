@@ -238,8 +238,16 @@ class UbxException : std::exception {
     std::string _msg;
 };
 
+struct UbxMonVerPayload {
+    std::string sw_version;
+    std::string hw_version;
+    std::vector<std::string> extension;
+};
+
 void build_ubx_msg(const UbxMsg &msg, std::vector<uint8_t> &buffer);
 void parse_ubx_msg(const uint8_t *nmea, size_t len,
                    std::vector<UbxMsg> &msg_list);
+
+void parse_ubx_mon_ver(const UbxMsg &msg, UbxMonVerPayload &payload);
 
 #endif // ARES_UBX_MSG_HPP

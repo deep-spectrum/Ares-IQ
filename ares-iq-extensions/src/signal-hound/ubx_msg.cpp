@@ -145,3 +145,35 @@ void parse_ubx_msg(const uint8_t *nmea, size_t len,
         break_loop = parse(nmea, len, i, msg_list);
     }
 }
+
+void parse_ubx_mon_ver(const UbxMsg &msg, UbxMonVerPayload &payload) {
+    constexpr size_t sw_version_size = 30;
+    constexpr size_t hw_version_size = 10;
+    constexpr size_t extension_size = 30;
+
+    if (msg.type != MON_VER) {
+        throw UbxException("Incorrect message type");
+    }
+
+    if (msg.bad_checksum) {
+        throw UbxException("Bad checksum");
+    }
+
+    if (msg.payload.size() < (sw_version_size + hw_version_size)) {
+        throw UbxException("Malformed payload");
+    }
+
+    payload.sw_version.assign(msg.payload.begin(),
+                              msg.payload.begin() + sw_version_size);
+    payload.hw_version.assign(msg.payload.begin() + sw_version_size,
+                              msg.payload.begin() + sw_version_size +
+                                  hw_version_size);
+
+    for (size_t offset = sw_version_size + hw_version_size;
+         offset < msg.payload.size(); offset += extension_size) {
+        std::string extension;
+        extension.assign(msg.payload.begin() + offset,
+                         msg.payload.begin() + offset + extension_size);
+        payload.extension.emplace_back(extension);
+    }
+}
