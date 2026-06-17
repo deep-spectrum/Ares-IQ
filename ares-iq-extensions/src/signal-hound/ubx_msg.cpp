@@ -165,15 +165,19 @@ void parse_ubx_mon_ver(const UbxMsg &msg, UbxMonVerPayload &payload) {
 
     payload.sw_version.assign(msg.payload.begin(),
                               msg.payload.begin() + sw_version_size);
+    payload.sw_version.erase(payload.sw_version.find('\0'));
+
     payload.hw_version.assign(msg.payload.begin() + sw_version_size,
                               msg.payload.begin() + sw_version_size +
                                   hw_version_size);
+    payload.hw_version.erase(payload.hw_version.find('\0'));
 
     for (size_t offset = sw_version_size + hw_version_size;
          offset < msg.payload.size(); offset += extension_size) {
         std::string extension;
         extension.assign(msg.payload.begin() + offset,
                          msg.payload.begin() + offset + extension_size);
+        extension.erase(extension.find('\0'));
         payload.extension.emplace_back(extension);
     }
 }
