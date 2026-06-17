@@ -589,8 +589,8 @@ class SM(ABC):
     def _set_level(self, level: int):
         self._logger.setLevel(level)
 
-    def get_gps_module_info(self):
-        self._dev.get_gps_module_info()
+    def get_gps_module_info(self, timeout: datetime.timedelta = datetime.timedelta(seconds=5)):
+        self._dev.get_gps_module_info(timeout)
 
 
 @dataclass(frozen=True)
