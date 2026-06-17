@@ -521,6 +521,9 @@ py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
         LOG_INF("extension: %s", i.c_str());
     }
 
+    LOG_DBG("Size(): %ld", payload.sw_version.size());
+    LOG_DBG("Length(): %ld", payload.sw_version.length());
+
     py::dict ret;
     ret["sw_version"] = payload.sw_version;
     ret["hw_version"] = payload.hw_version;
