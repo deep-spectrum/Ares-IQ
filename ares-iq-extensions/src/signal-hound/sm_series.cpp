@@ -1376,9 +1376,9 @@ void SM::get_gps_module_info_released(
         throw TimeoutError("Timed out waiting for UBX-MON-VER response");
     }
 
-    LOG_DBG_HEXDUMP(msg.payload, msg.payload.size(), "UBX-MON-VER Payload");
-    LOG_DBG("CK_A: 0x%02X, CK_B: 0x%02X", msg.ck_a, msg.ck_b);
-    LOG_DBG("Checksum bad: %s", msg.bad_checksum ? "true" : "false");
+    LOG_DBG_HEXDUMP(response.payload, response.payload.size(), "UBX-MON-VER Payload");
+    LOG_DBG("CK_A: 0x%02X, CK_B: 0x%02X", response.ck_a, response.ck_b);
+    LOG_DBG("Checksum bad: %s", response.bad_checksum ? "true" : "false");
 }
 
 bool SM::wait_for_ubx_response_released(
