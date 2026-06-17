@@ -15,6 +15,7 @@
 #include <ares/data-structures/queue.hpp>
 #include <complex>
 // ReSharper disable once CppUnusedIncludeDirective
+#include <ares-iq/signal-hound/ubx_msg.hpp>
 #include <functional>
 #include <pybind11/pybind11.h>
 #include <xxhash.hpp>
@@ -506,7 +507,7 @@ class SM {
      */
     long get_log_level();
 
-    void get_gps_module_info() const;
+    void get_gps_module_info(const std::chrono::seconds &timeout) const;
 
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
@@ -615,8 +616,15 @@ class SM {
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
 
-    static void gps_generate_checksum(std::vector<uint8_t> &msg);
-    static bool gps_verify_checksum(const std::vector<uint8_t> &msg);
+    // todo: structure the response payload
+    void
+    get_gps_module_info_released(UbxMsg &response,
+                                 const std::chrono::seconds &timeout) const;
+    bool
+    wait_for_ubx_response_released(UbxMsg &response, UbxMsgType type,
+                                   const std::chrono::seconds &timeout) const;
+    static bool find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
+                                          UbxMsg &response, UbxMsgType type);
 };
 
 class SmException : std::exception {
@@ -636,6 +644,16 @@ class SmException : std::exception {
 
   private:
     SmExceptionType _type;
+    std::string _msg;
+};
+
+class TimeoutError : std::exception {
+  public:
+    explicit TimeoutError(const char *msg) : _msg(msg) {}
+
+    const char *what() const noexcept override;
+
+  private:
     std::string _msg;
 };
 

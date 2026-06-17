@@ -22,7 +22,6 @@
 #include <complex>
 #include <fcntl.h>
 #include <pybind11/chrono.h>
-#include <ares-iq/signal-hound/ubx_msg.hpp>
 // ReSharper disable once CppUnusedIncludeDirective
 #include <pybind11/functional.h>
 #include <pybind11/native_enum.h>
@@ -247,6 +246,16 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
 
     py::register_exception<SmException>(m, "_SmException");
+
+    py::register_local_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) {
+                std::rethrow_exception(p);
+            }
+        } catch (const TimeoutError &e) {
+            py::set_error(PyExc_TimeoutError, e.what());
+        }
+    });
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
@@ -498,62 +507,9 @@ void SM::set_logging_level(long level) {
 // ReSharper disable once CppMemberFunctionMayBeStatic
 long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
 
-void SM::get_gps_module_info() const {
-    py::gil_scoped_release release;
-
-    UbxMsg msg = {
-        .type = MON_VER,
-    };
-    std::vector<uint8_t> ubx_msg;
-    build_ubx_msg(msg, ubx_msg);
-
-    LOG_DBG_HEXDUMP(ubx_msg, ubx_msg.size(), "Sending message");
-
-    uint8_t nmea[4096];
-    int nmealen;
-
-    SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
-    bool found = false;
-
-    for (size_t i = 0; i < 100; i++) {
-        std::this_thread::sleep_for(100ms);
-
-        SmBool updated;
-        nmealen = sizeof(nmea);
-        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr, nullptr, nullptr, reinterpret_cast<char *>(nmea), &nmealen));
-
-        std::vector<UbxMsg> msglist;
-
-        if (updated == smTrue) {
-            std::vector buf(nmea, nmea + nmealen);
-            LOG_DBG_HEXDUMP(buf, buf.size(), "Received data");
-
-            parse_ubx_msg(nmea, nmealen, msglist);
-            LOG_INF("Messages found: %d", msglist.size());
-        }
-
-        for (auto &m : msglist) {
-            if (m.type == MON_VER) {
-                found = true;
-                msg = m;
-                break;
-                LOG_INF("Response found");
-            }
-        }
-
-        if (found) {
-            break;
-        }
-    }
-
-    if (!found) {
-        LOG_ERR("Message not found");
-        return;
-    }
-
-    LOG_INF_HEXDUMP(msg.payload, msg.payload.size(), "UBX-MON-VER Payload");
-    LOG_INF("CK_A: 0x%02X, CK_B: 0x%02X", msg.ck_a, msg.ck_b);
-    LOG_INF("Checksum bad: %s", msg.bad_checksum ? "true" : "false");
+void SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
+    UbxMsg response;
+    get_gps_module_info_released(response, timeout);
 }
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
@@ -1401,27 +1357,81 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
     return new_fd;
 }
 
-void SM::gps_generate_checksum(std::vector<uint8_t> &msg) {
-    uint8_t CK_A = 0, CK_B = 0;
+void SM::get_gps_module_info_released(
+    UbxMsg &response, const std::chrono::seconds &timeout) const {
+    py::gil_scoped_release release;
 
-    for (auto &i : msg) {
-        CK_A = CK_A + i;
-        CK_B = CK_B + CK_A;
+    UbxMsg msg = {
+        .type = MON_VER,
+    };
+
+    std::vector<uint8_t> ubx_msg;
+    build_ubx_msg(msg, ubx_msg);
+
+    LOG_DBG_HEXDUMP(ubx_msg, ubx_msg.size(), "Sending message");
+
+    SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
+
+    if (!wait_for_ubx_response_released(response, MON_VER, timeout)) {
+        throw TimeoutError("Timed out waiting for UBX-MON-VER response");
     }
 
-    msg.emplace_back(CK_A);
-    msg.emplace_back(CK_B);
+    LOG_DBG_HEXDUMP(msg.payload, msg.payload.size(), "UBX-MON-VER Payload");
+    LOG_DBG("CK_A: 0x%02X, CK_B: 0x%02X", msg.ck_a, msg.ck_b);
+    LOG_DBG("Checksum bad: %s", msg.bad_checksum ? "true" : "false");
 }
 
-bool SM::gps_verify_checksum(const std::vector<uint8_t> &msg) {
-    uint8_t CK_A = 0, CK_B = 0;
+bool SM::wait_for_ubx_response_released(
+    UbxMsg &response, UbxMsgType type,
+    const std::chrono::seconds &timeout) const {
+    constexpr size_t nmea_buffer_size = 1024;
+    auto now = std::chrono::steady_clock::now;
+    uint8_t nmea[nmea_buffer_size];
+    int nmealen;
 
-    for (size_t i = 0; i < (msg.size() - 2); i++) {
-        CK_A = CK_A + msg[i];
-        CK_B = CK_B + CK_A;
+    auto timeout_time = now() + timeout;
+    while (now() < timeout_time) {
+        SmBool updated;
+        std::vector<UbxMsg> msg_list;
+
+        std::this_thread::sleep_for(100ms);
+
+        nmealen = nmea_buffer_size;
+
+        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr,
+                                 nullptr, nullptr,
+                                 reinterpret_cast<char *>(nmea), &nmealen));
+
+        if (updated == smFalse) {
+            continue;
+        }
+
+        std::vector<uint8_t> dbg_buf(nmea, nmea + nmealen);
+        LOG_DBG_HEXDUMP(dbg_buf, dbg_buf.size(), "Received data");
+        parse_ubx_msg(nmea, nmealen, msg_list);
+        LOG_DBG("Messages found: %d", msg_list.size());
+
+        if (find_ubx_message_released(msg_list, response, type)) {
+            LOG_DBG("Message found");
+            return true;
+        }
+
+        LOG_DBG("Message not found");
     }
 
-    return (CK_A == msg[msg.size() - 2]) && (CK_B == msg[msg.size() - 1]);
+    return false;
+}
+
+bool SM::find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
+                                   UbxMsg &response, UbxMsgType type) {
+    for (auto &m : msg_list) {
+        if (m.type == type) {
+            response = m;
+            return true;
+        }
+    }
+
+    return false;
 }
 
 SmException::SmException(SmExceptionType type) : _type(type) {
@@ -1448,6 +1458,8 @@ SmException::SmException(SmExceptionType type) : _type(type) {
 SmException::SmException(const char *msg) : _type(UNKNOWN), _msg(msg) {}
 
 const char *SmException::what() const noexcept { return _msg.c_str(); }
+
+const char *TimeoutError::what() const noexcept { return _msg.c_str(); }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);

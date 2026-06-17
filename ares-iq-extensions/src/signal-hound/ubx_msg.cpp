@@ -69,7 +69,8 @@ void build_ubx_msg(const UbxMsg &msg, std::vector<uint8_t> &buffer) {
     uint16_t payload_len = static_cast<uint16_t>(msg.payload.size());
     uint8_t payload_len_bytes[sizeof(uint16_t)];
     (void)memcpy(payload_len_bytes, &payload_len, sizeof(uint16_t));
-    buffer.insert(buffer.end(), payload_len_bytes, payload_len_bytes + sizeof(uint16_t));
+    buffer.insert(buffer.end(), payload_len_bytes,
+                  payload_len_bytes + sizeof(uint16_t));
 
     if (payload_len != 0) {
         buffer.insert(buffer.end(), msg.payload.begin(), msg.payload.end());
