@@ -14,7 +14,6 @@
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <ares-iq/signal-hound/ubx_msg.hpp>
 #include <functional>
 #include <pybind11/pybind11.h>
