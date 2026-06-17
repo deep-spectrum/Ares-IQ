@@ -12,9 +12,9 @@
 
 #include <ares-iq/common.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares-iq/signal-hound/ubx_msg.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
-#include <ares-iq/signal-hound/ubx_msg.hpp>
 #include <functional>
 #include <pybind11/pybind11.h>
 #include <xxhash.hpp>

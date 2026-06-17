@@ -306,6 +306,9 @@ struct UbxMonVerPayload {
  * @param[in,out] buffer The buffer to place the serialized UBX message in.
  *
  * @throws UbxException if message type is @p NO_TYPE.
+ *
+ * @note Clears @p buffer before placing the serialized UBX message into the
+ * buffer.
  */
 void build_ubx_msg(const UbxMsg &msg, std::vector<uint8_t> &buffer);
 
