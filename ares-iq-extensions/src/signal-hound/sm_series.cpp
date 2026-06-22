@@ -220,7 +220,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("set_level"))
         .def("set_log_level", &SM::set_logging_level, py::arg("level"))
         .def("get_log_level", &SM::get_log_level)
-        .def("get_gps_module_info", &SM::get_gps_module_info);
+        .def("get_gps_module_info", &SM::get_gps_module_info)
+        .def("get_ref_level", &SM::get_ref_level);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -519,6 +520,19 @@ py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
     ret["sw_version"] = payload.sw_version;
     ret["hw_version"] = payload.hw_version;
     ret["extensions"] = payload.extension;
+
+    return ret;
+}
+
+double SM::get_ref_level() const {
+    py::gil_scoped_release release;
+    double ret;
+
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SM_API_CALL(smGetRefLevel(fd, &ret));
 
     return ret;
 }

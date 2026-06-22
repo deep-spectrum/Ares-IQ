@@ -527,6 +527,8 @@ class SM {
      */
     py::dict get_gps_module_info(const std::chrono::seconds &timeout) const;
 
+    double get_ref_level() const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 

@@ -601,6 +601,10 @@ class SM(ABC):
         """
         return self._dev.get_gps_module_info(timeout)
 
+    @property
+    def ref_level(self) -> float:
+        return self._dev.get_ref_level()
+
 
 @dataclass(frozen=True)
 class SmSFPDiagnostics:
