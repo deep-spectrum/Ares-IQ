@@ -73,11 +73,11 @@ StreamParameters::StreamParameters(const py::kwargs &kwargs) {
                       SP(file_chunk_size), SP(duration), SP(save_directory),
                       SP(silent), SP(verbose), SP(stop_on_sample_loss),
                       SP(done_cb), SP(max_buffer_size), SP(stream_cb),
-                      SP(start_time_sec), SP(start_time_usec));
+                      SP(start_time_sec), SP(start_time_usec), SP(ref_level));
 }
 
 py::dict StreamParameters::as_dict() {
     return ares::to_dict(NV(center_frequency), NV(bandwidth),
                          NV(file_chunk_size), NV(duration), NV(save_directory),
-                         NV(stop_on_sample_loss));
+                         NV(stop_on_sample_loss), NV(ref_level));
 }

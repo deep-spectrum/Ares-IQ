@@ -28,6 +28,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/warnings.h>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -220,7 +221,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("set_level"))
         .def("set_log_level", &SM::set_logging_level, py::arg("level"))
         .def("get_log_level", &SM::get_log_level)
-        .def("get_gps_module_info", &SM::get_gps_module_info);
+        .def("get_gps_module_info", &SM::get_gps_module_info)
+        .def("get_reference_level", &SM::reference_level);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -245,6 +247,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
+    m.attr("SM_MAX_REF_LEVEL") = SM_MAX_REF_LEVEL;
 
     py::register_exception<SmException>(m, "_SmException");
 
@@ -523,6 +526,19 @@ py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
     return ret;
 }
 
+double SM::reference_level() const {
+    py::gil_scoped_release release;
+    double ref_level;
+
+    if (!_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SM_API_CALL(smGetRefLevel(fd, &ref_level));
+
+    return ref_level;
+}
+
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
@@ -732,12 +748,28 @@ void SM::capture_iq_configure_released(const StreamParameters &params,
         throw SmException(SmException::NOT_OPEN);
     }
 
+    if (std::isnan(params.ref_level)) {
+        throw std::runtime_error("Reference level is NaN");
+    }
+
+    if (std::isinf(params.ref_level)) {
+        throw std::runtime_error("Reference level is infinite");
+    }
+
+    if (std::isgreater(params.ref_level, SM_MAX_REF_LEVEL)) {
+        std::stringstream ss;
+        ss << "Attempting to set reference level to " << params.ref_level
+           << " dBm. The maximum reference level is 20.0 dBm";
+        warn_python(ss);
+    }
+
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
     LOG_INF("Configuring the SM device");
 
     SM_API_CALL(smSetIQCenterFreq(fd, params.center_frequency));
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, params.bandwidth));
+    SM_API_CALL(smSetRefLevel(fd, params.ref_level));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
     if (_gps_timestamps) {
@@ -1444,6 +1476,11 @@ bool SM::find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
     }
 
     return false;
+}
+
+void SM::warn_python(const std::stringstream &ss) {
+    py::gil_scoped_acquire acquire;
+    py::warnings::warn(ss.str().c_str(), PyExc_Warning);
 }
 
 SmException::SmException(SmExceptionType type) : _type(type) {

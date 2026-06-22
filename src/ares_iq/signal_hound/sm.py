@@ -374,7 +374,9 @@ class SM(ABC):
 
         meta["device_configurations"] = configs
 
-        hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
+        gps_hash = self._save_gps_metadata(meta, save_directory)
+        if gps_hash is not None:
+            hashes["gps.npz"] = gps_hash
         del meta["gps_data"]
 
         seed = meta['device_configurations']['hash_seed']
@@ -399,8 +401,8 @@ class SM(ABC):
         return save_directory
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
-                  save_directory: str | Path, silent: bool = True, verbose: bool = False,
-                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
+                  save_directory: str | Path, ref_level: float | None = None, silent: bool = True,
+                  verbose: bool = False, stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
                   ram_usage_limit: int | None = 0, start_time: SmStartTime | None = None):
         """Stream I/Q data to disk.
 
@@ -411,6 +413,7 @@ class SM(ABC):
             duration: The amount of time to stream I/Q for.
             save_directory: The directory to save the I/Q data, timestamps, and metadata to. If this directory does
                             not exist, then this method will attempt to create the specified directory.
+            ref_level: The power reference level in dBm. If `None`, then the level will default to -20dBm.
             silent: Run the streamed capture in silent mode (no status bars). By default, this is `True`.
             verbose: Run the streamed capture in verbose mode (info logging messages). By default, this is `False`.
             stop_sample_loss: Stop the streamed capture if sample loss starts occurring. By default, this is `False`.
@@ -442,6 +445,7 @@ class SM(ABC):
             file_chunk_size=chunk_size,
             duration=duration,
             save_directory=str(save_directory),
+            ref_level=ref_level,
             silent=silent,
             verbose=verbose,
             stop_sample_loss=stop_sample_loss,
@@ -460,6 +464,7 @@ class SM(ABC):
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         meta["parameters"]["gps_timestamping"] = self._gps_stamping
+        meta["parameters"]["ref_level"] = self.ref_level
         self._save_stream_iq_meta(meta, save_directory)
 
     def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
@@ -600,6 +605,10 @@ class SM(ABC):
             A dictionary with the software version string, hardware version string, and a list of version extension strings.
         """
         return self._dev.get_gps_module_info(timeout)
+
+    @property
+    def ref_level(self) -> float:
+        return self._dev.get_reference_level()
 
 
 @dataclass(frozen=True)

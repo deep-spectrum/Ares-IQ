@@ -527,6 +527,15 @@ class SM {
      */
     py::dict get_gps_module_info(const std::chrono::seconds &timeout) const;
 
+    /**
+     * Retrieve the configured reference level.
+     *
+     * @return The configured reference level in dBm.
+     *
+     * @note The reference level is set in the stream parameters.
+     */
+    double reference_level() const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -642,6 +651,8 @@ class SM {
                                    const std::chrono::seconds &timeout) const;
     static bool find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
                                           UbxMsg &response, UbxMsgType type);
+
+    static void warn_python(const std::stringstream &ss);
 };
 
 /**

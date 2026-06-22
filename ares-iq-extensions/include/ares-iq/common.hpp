@@ -198,6 +198,11 @@ struct StreamParameters {
     int64_t start_time_usec = 0;
 
     /**
+     * Power reference level in dBm.
+     */
+    double ref_level = -20.0;
+
+    /**
      * Return the struct as a Python dictionary.
      * @return The configurations as a dictionary.
      * @warning Not all parameters are in the dictionary. See the parameter
