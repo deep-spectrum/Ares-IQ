@@ -27,6 +27,7 @@
 #include <pybind11/native_enum.h>
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
+#include <pybind11/stl.h>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -218,7 +219,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("error"), py::arg("critical"), py::arg("get_level"),
              py::arg("set_level"))
         .def("set_log_level", &SM::set_logging_level, py::arg("level"))
-        .def("get_log_level", &SM::get_log_level);
+        .def("get_log_level", &SM::get_log_level)
+        .def("get_gps_module_info", &SM::get_gps_module_info);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -245,6 +247,16 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
 
     py::register_exception<SmException>(m, "_SmException");
+
+    py::register_local_exception_translator([](std::exception_ptr p) {
+        try {
+            if (p) {
+                std::rethrow_exception(p);
+            }
+        } catch (const TimeoutError &e) {
+            py::set_error(PyExc_TimeoutError, e.what());
+        }
+    });
 }
 
 SMConfigs::SMConfigs(const py::kwargs &kwargs) {
@@ -495,6 +507,21 @@ void SM::set_logging_level(long level) {
 
 // ReSharper disable once CppMemberFunctionMayBeStatic
 long SM::get_log_level() { return static_cast<long>(LOG_MODULE_CURRENT_LEVEL); }
+
+py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
+    UbxMsg response;
+    get_gps_module_info_released(response, timeout);
+
+    UbxMonVerPayload payload;
+    parse_ubx_mon_ver(response, payload);
+
+    py::dict ret;
+    ret["sw_version"] = payload.sw_version;
+    ret["hw_version"] = payload.hw_version;
+    ret["extensions"] = payload.extension;
+
+    return ret;
+}
 
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
@@ -1342,6 +1369,84 @@ int SM::stream_iq_open_fd(int old_fd, const std::string &save_dir, bool iq,
     return new_fd;
 }
 
+void SM::get_gps_module_info_released(
+    UbxMsg &response, const std::chrono::seconds &timeout) const {
+    py::gil_scoped_release release;
+
+    UbxMsg msg = {
+        .type = MON_VER,
+    };
+
+    std::vector<uint8_t> ubx_msg;
+    build_ubx_msg(msg, ubx_msg);
+
+    LOG_DBG_HEXDUMP(ubx_msg, ubx_msg.size(), "Sending message");
+
+    SM_API_CALL(smWriteToGPS(fd, ubx_msg.data(), ubx_msg.size()));
+
+    if (!wait_for_ubx_response_released(response, MON_VER, timeout)) {
+        throw TimeoutError("Timed out waiting for UBX-MON-VER response");
+    }
+
+    LOG_DBG_HEXDUMP(response.payload, response.payload.size(),
+                    "UBX-MON-VER Payload");
+    LOG_DBG("CK_A: 0x%02X, CK_B: 0x%02X", response.ck_a, response.ck_b);
+    LOG_DBG("Checksum bad: %s", response.bad_checksum ? "true" : "false");
+}
+
+bool SM::wait_for_ubx_response_released(
+    UbxMsg &response, UbxMsgType type,
+    const std::chrono::seconds &timeout) const {
+    constexpr size_t nmea_buffer_size = 1024;
+    auto now = std::chrono::steady_clock::now;
+    uint8_t nmea[nmea_buffer_size];
+    int nmealen;
+
+    auto timeout_time = now() + timeout;
+    while (now() < timeout_time) {
+        SmBool updated;
+        std::vector<UbxMsg> msg_list;
+
+        std::this_thread::sleep_for(100ms);
+
+        nmealen = nmea_buffer_size;
+
+        SM_API_CALL(smGetGPSInfo(fd, smTrue, &updated, nullptr, nullptr,
+                                 nullptr, nullptr,
+                                 reinterpret_cast<char *>(nmea), &nmealen));
+
+        if (updated == smFalse) {
+            continue;
+        }
+
+        std::vector<uint8_t> dbg_buf(nmea, nmea + nmealen);
+        LOG_DBG_HEXDUMP(dbg_buf, dbg_buf.size(), "Received data");
+        parse_ubx_msg(nmea, nmealen, msg_list);
+        LOG_DBG("Messages found: %d", msg_list.size());
+
+        if (find_ubx_message_released(msg_list, response, type)) {
+            LOG_DBG("Message found");
+            return true;
+        }
+
+        LOG_DBG("Message not found");
+    }
+
+    return false;
+}
+
+bool SM::find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
+                                   UbxMsg &response, UbxMsgType type) {
+    for (auto &m : msg_list) {
+        if (m.type == type) {
+            response = m;
+            return true;
+        }
+    }
+
+    return false;
+}
+
 SmException::SmException(SmExceptionType type) : _type(type) {
     switch (type) {
     case NOT_OPEN: {
@@ -1366,6 +1471,8 @@ SmException::SmException(SmExceptionType type) : _type(type) {
 SmException::SmException(const char *msg) : _type(UNKNOWN), _msg(msg) {}
 
 const char *SmException::what() const noexcept { return _msg.c_str(); }
+
+const char *TimeoutError::what() const noexcept { return _msg.c_str(); }
 
 py::tuple get_device_list(int max_network_devs, bool usb, bool network) {
     std::vector<int> serials(SM_MAX_DEVICES), net_serials(max_network_devs);
