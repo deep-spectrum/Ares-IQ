@@ -374,7 +374,9 @@ class SM(ABC):
 
         meta["device_configurations"] = configs
 
-        hashes["gps.npz"] = self._save_gps_metadata(meta, save_directory)
+        gps_hash = self._save_gps_metadata(meta, save_directory)
+        if gps_hash is not None:
+            hashes["gps.npz"] = gps_hash
         del meta["gps_data"]
 
         seed = meta['device_configurations']['hash_seed']
