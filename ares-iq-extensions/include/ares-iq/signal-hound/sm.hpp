@@ -12,9 +12,9 @@
 
 #include <ares-iq/common.hpp>
 #include <ares-iq/signal-hound/sm/sm_api.hpp>
+#include <ares-iq/signal-hound/ubx_msg.hpp>
 #include <ares/data-structures/queue.hpp>
 #include <complex>
-// ReSharper disable once CppUnusedIncludeDirective
 #include <functional>
 #include <pybind11/pybind11.h>
 #include <xxhash.hpp>
@@ -345,8 +345,19 @@ struct SmNetworkConfig {
     int port = 0;
 };
 
+/**
+ * @struct StartTime
+ * Timeval specification.
+ */
 struct StartTime {
+    /**
+     * Seconds since epoch.
+     */
     int64_t seconds = 0;
+
+    /**
+     * Microseconds.
+     */
     int64_t microseconds = 0;
 };
 
@@ -506,6 +517,16 @@ class SM {
      */
     long get_log_level();
 
+    /**
+     * Retrieve the SM GPS module information.
+     *
+     * @param[in] timeout The maximum amount of time to wait for a response.
+     *
+     * @return A dictionary with the software version string, hardware version
+     * string, and a list of all the version extension strings.
+     */
+    py::dict get_gps_module_info(const std::chrono::seconds &timeout) const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -612,25 +633,87 @@ class SM {
                           std::vector<xxh::hash64_t> &save_vector) const;
     static int stream_iq_open_fd(int old_fd, const std::string &save_dir,
                                  bool iq, int32_t chunk, bool direct);
+
+    void
+    get_gps_module_info_released(UbxMsg &response,
+                                 const std::chrono::seconds &timeout) const;
+    bool
+    wait_for_ubx_response_released(UbxMsg &response, UbxMsgType type,
+                                   const std::chrono::seconds &timeout) const;
+    static bool find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
+                                          UbxMsg &response, UbxMsgType type);
 };
 
+/**
+ * @class SmException
+ * Exception class for SM errors.
+ */
 class SmException : std::exception {
   public:
     enum SmExceptionType {
+        /**
+         * Device not open.
+         */
         NOT_OPEN,
+
+        /**
+         * Device not idle.
+         */
         NOT_IDLE,
+
+        /**
+         * No GPS lock.
+         */
         NO_GPS_LOCK,
 
+        /**
+         * Unknown error/error thrown by the SM API.
+         */
         UNKNOWN,
     };
 
+    /**
+     * Build an SmException from a standard exception.
+     * @param type The standard exception type.
+     */
     explicit SmException(SmExceptionType type);
+
+    /**
+     * Build an unknown SM exception with the given error message.
+     * @param msg The error message.
+     */
     explicit SmException(const char *msg);
 
+    /**
+     * What caused the exception.
+     * @return The error message.
+     */
     const char *what() const noexcept override;
 
   private:
     SmExceptionType _type;
+    std::string _msg;
+};
+
+/**
+ * @class TimeoutError
+ * Timeout error.
+ */
+class TimeoutError : std::exception {
+  public:
+    /**
+     * Constructor.
+     * @param msg The timeout error message.
+     */
+    explicit TimeoutError(const char *msg) : _msg(msg) {}
+
+    /**
+     * What caused the timeout exception.
+     * @return The error message.
+     */
+    const char *what() const noexcept override;
+
+  private:
     std::string _msg;
 };
 
