@@ -399,8 +399,8 @@ class SM(ABC):
         return save_directory
 
     def stream_iq(self, center: float, bw: float, chunk_size: int, duration: datetime.timedelta,
-                  save_directory: str | Path, silent: bool = True, verbose: bool = False,
-                  stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
+                  save_directory: str | Path, ref_level: float | None = None, silent: bool = True,
+                  verbose: bool = False, stop_sample_loss: bool = False, stop_cb: Callable[[], None] | None = None,
                   ram_usage_limit: int | None = 0, start_time: SmStartTime | None = None):
         """Stream I/Q data to disk.
 
@@ -411,6 +411,7 @@ class SM(ABC):
             duration: The amount of time to stream I/Q for.
             save_directory: The directory to save the I/Q data, timestamps, and metadata to. If this directory does
                             not exist, then this method will attempt to create the specified directory.
+            ref_level: The power reference level in dBm. If `None`, then the level will default to -20dBm.
             silent: Run the streamed capture in silent mode (no status bars). By default, this is `True`.
             verbose: Run the streamed capture in verbose mode (info logging messages). By default, this is `False`.
             stop_sample_loss: Stop the streamed capture if sample loss starts occurring. By default, this is `False`.
@@ -442,6 +443,7 @@ class SM(ABC):
             file_chunk_size=chunk_size,
             duration=duration,
             save_directory=str(save_directory),
+            ref_level=ref_level,
             silent=silent,
             verbose=verbose,
             stop_sample_loss=stop_sample_loss,
