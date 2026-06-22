@@ -711,6 +711,7 @@ void SM::capture_iq_configure_released(const StreamParameters &params,
     SM_API_CALL(smSetIQCenterFreq(fd, params.center_frequency));
     SM_API_CALL(smSetIQSampleRate(fd, _configs.decimation));
     SM_API_CALL(smSetIQBandwidth(fd, enable_sw_filter, params.bandwidth));
+    SM_API_CALL(smSetRefLevel(fd, params.ref_level));
     SM_API_CALL(smSetIQDataType(fd, smDataType32fc));
 
     if (_gps_timestamps) {
