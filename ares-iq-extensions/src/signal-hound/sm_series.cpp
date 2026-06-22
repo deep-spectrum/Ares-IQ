@@ -28,6 +28,7 @@
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
+#include <pybind11/warnings.h>
 #include <source_location>
 #include <stdexcept>
 #include <thread>
@@ -747,7 +748,19 @@ void SM::capture_iq_configure_released(const StreamParameters &params,
         throw SmException(SmException::NOT_OPEN);
     }
 
-    if (params.ref_level > SM_MAX_REF_LEVEL) {
+    if (std::isnan(params.ref_level)) {
+        throw std::runtime_error("Reference level is NaN");
+    }
+
+    if (std::isinf(params.ref_level)) {
+        throw std::runtime_error("Reference level is infinite");
+    }
+
+    if (std::isgreater(params.ref_level, SM_MAX_REF_LEVEL)) {
+        std::stringstream ss;
+        ss << "Attempting to set reference level to " << params.ref_level
+           << " dBm. The maximum reference level is 20.0 dBm";
+        warn_python(ss);
     }
 
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;
@@ -1463,6 +1476,11 @@ bool SM::find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
     }
 
     return false;
+}
+
+void SM::warn_python(const std::stringstream &ss) {
+    py::gil_scoped_acquire acquire;
+    py::warnings::warn(ss.str().c_str(), PyExc_Warning);
 }
 
 SmException::SmException(SmExceptionType type) : _type(type) {

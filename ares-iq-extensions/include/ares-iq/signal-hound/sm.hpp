@@ -651,6 +651,8 @@ class SM {
                                    const std::chrono::seconds &timeout) const;
     static bool find_ubx_message_released(const std::vector<UbxMsg> &msg_list,
                                           UbxMsg &response, UbxMsgType type);
+
+    static void warn_python(const std::stringstream &ss);
 };
 
 /**
