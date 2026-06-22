@@ -528,7 +528,7 @@ double SM::reference_level() const {
     py::gil_scoped_release release;
     double ref_level;
 
-    if (_open) {
+    if (!_open) {
         throw SmException(SmException::NOT_OPEN);
     }
 
