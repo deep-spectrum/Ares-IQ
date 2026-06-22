@@ -678,11 +678,6 @@ class SmException : std::exception {
         NO_GPS_LOCK,
 
         /**
-         * Reference level is out of range.
-         */
-        REF_OUT_OF_RANGE,
-
-        /**
          * Unknown error/error thrown by the SM API.
          */
         UNKNOWN,
