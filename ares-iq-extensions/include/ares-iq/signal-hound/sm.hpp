@@ -527,6 +527,15 @@ class SM {
      */
     py::dict get_gps_module_info(const std::chrono::seconds &timeout) const;
 
+    /**
+     * Retrieve the configured reference level.
+     *
+     * @return The configured reference level in dBm.
+     *
+     * @note The reference level is set in the stream parameters.
+     */
+    double reference_level() const;
+
   private:
     typedef std::complex<SH_COMPLEX_TEMPLATE_TYPE> complex_t;
 
@@ -665,6 +674,11 @@ class SmException : std::exception {
          * No GPS lock.
          */
         NO_GPS_LOCK,
+
+        /**
+         * Reference level is out of range.
+         */
+        REF_OUT_OF_RANGE,
 
         /**
          * Unknown error/error thrown by the SM API.

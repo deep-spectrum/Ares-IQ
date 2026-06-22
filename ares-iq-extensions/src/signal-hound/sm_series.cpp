@@ -220,7 +220,8 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
              py::arg("set_level"))
         .def("set_log_level", &SM::set_logging_level, py::arg("level"))
         .def("get_log_level", &SM::get_log_level)
-        .def("get_gps_module_info", &SM::get_gps_module_info);
+        .def("get_gps_module_info", &SM::get_gps_module_info)
+        .def("get_reference_level", &SM::reference_level);
 
     m.def("sm_api_version", smGetAPIVersion, "Retrieve the SM API version");
     m.def("get_device_list", get_device_list,
@@ -523,6 +524,19 @@ py::dict SM::get_gps_module_info(const std::chrono::seconds &timeout) const {
     return ret;
 }
 
+double SM::reference_level() const {
+    py::gil_scoped_release release;
+    double ref_level;
+
+    if (_open) {
+        throw SmException(SmException::NOT_OPEN);
+    }
+
+    SM_API_CALL(smGetRefLevel(fd, &ref_level));
+
+    return ref_level;
+}
+
 std::tuple<int, int, int> SM::firmware_version_released() const {
     int major, minor, revision;
 
@@ -730,6 +744,9 @@ void SM::capture_iq_configure_released(const StreamParameters &params,
                                        SmGpsInfo &info, StartTime &start) {
     if (!_open) {
         throw SmException(SmException::NOT_OPEN);
+    }
+
+    if (params.ref_level > SM_MAX_REF_LEVEL) {
     }
 
     SmBool enable_sw_filter = (_configs.software_filter) ? smTrue : smFalse;

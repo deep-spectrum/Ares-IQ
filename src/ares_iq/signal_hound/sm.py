@@ -462,6 +462,7 @@ class SM(ABC):
         meta["parameters"]["duration"] = meta["parameters"]["duration"].total_seconds()
         meta["parameters"]["ram_usage_limit"] = ram_usage_limit
         meta["parameters"]["gps_timestamping"] = self._gps_stamping
+        meta["parameters"]["ref_level"] = self.ref_level
         self._save_stream_iq_meta(meta, save_directory)
 
     def get_gps_info(self, refresh: bool = False) -> SmGpsInfo:
@@ -602,6 +603,10 @@ class SM(ABC):
             A dictionary with the software version string, hardware version string, and a list of version extension strings.
         """
         return self._dev.get_gps_module_info(timeout)
+
+    @property
+    def ref_level(self) -> float:
+        return self._dev.get_reference_level()
 
 
 @dataclass(frozen=True)
