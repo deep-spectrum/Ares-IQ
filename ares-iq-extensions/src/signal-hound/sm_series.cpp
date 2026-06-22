@@ -246,6 +246,7 @@ PYBIND11_MODULE(_sh_sm_series, m, py::mod_gil_not_used()) {
     m.attr("DEFAULT_PORT") = SM_DEFAULT_PORT;
     m.attr("LOGGER_NAME") = LOG_MODULE_NAME;
     m.attr("SM_MAX_IQ_DECIMATION") = SM_MAX_IQ_DECIMATION;
+    m.attr("SM_MAX_REF_LEVEL") = SM_MAX_REF_LEVEL;
 
     py::register_exception<SmException>(m, "_SmException");
 
