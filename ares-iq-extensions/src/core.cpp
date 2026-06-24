@@ -66,6 +66,8 @@ PYBIND11_MODULE(_core, m, py::mod_gil_not_used()) {
     m.def("add_time", &add_time, py::arg("src_sec"), py::arg("src_usec"),
           py::arg("add_sec"), py::arg("add_usec"));
     m.def("spin_until", &spin_until, py::arg("sec"), py::arg("usec"));
+    m.def("datetime_from_timeval", &timeval_to_timepoint, py::arg("sec"),
+          py::arg("usec"));
 }
 
 StreamParameters::StreamParameters(const py::kwargs &kwargs) {
