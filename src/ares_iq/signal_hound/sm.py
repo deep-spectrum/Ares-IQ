@@ -212,6 +212,11 @@ class SM(ABC):
         self._gps_stamping = False
         self._logger = logger
 
+        if model == SmDeviceType.SM200C or model == SmDeviceType.SM435C:
+            self._sample_rate = 200e6 / configs.decimation
+        else:
+            self._sample_rate = 50e6 / configs.decimation
+
     def capture_iq(self, center: float, bw: float, capture_size: int, silent: bool = True, verbose: bool = False) -> \
             tuple[list[IQData], list[QuantizedData], list[SmGpsInfo]]:
         """Capture IQ data from the SDR.
@@ -609,6 +614,10 @@ class SM(ABC):
     @property
     def ref_level(self) -> float:
         return self._dev.get_reference_level()
+    
+    @property
+    def sample_rate(self) -> float:
+        return self._sample_rate
 
 
 @dataclass(frozen=True)
